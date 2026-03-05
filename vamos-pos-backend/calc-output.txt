@@ -1,0 +1,7 @@
+﻿--- TEST PRICING CALCULATION ---
+Testing 1 hour (18:00-19:00), Member: true
+Price: 30000 PTS (Expected around 35000 based on Regular Malam rule)
+Testing 1 hour (10:00-11:00), Member: true
+Price: 25000 PTS (Expected around 25000 based on PAKET SIANG REGULAR rule)
+Testing 2 hours (23:30-01:30), Member: true
+Price: 60000 PTS (Expected 2 * 35000 = 70000)

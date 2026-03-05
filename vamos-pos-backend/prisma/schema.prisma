@@ -1,0 +1,521 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  password        String
+  name            String
+  role            Role           @default(KASIR)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+  sessionsHandled Session[]      @relation("SessionCashier")
+  paymentsHandled Payment[]      @relation("PaymentCashier")
+  shifts          CashierShift[]
+}
+
+model Venue {
+  id           String    @id @default(uuid())
+  name         String
+  address      String?
+  openTime     String    @default("09:00")
+  closeTime    String    @default("23:00")
+  relayComPort String    @default("COM3")
+  printerPath  String    @default("USB001")
+  taxPercent   Float     @default(11)
+  servicePercent Float   @default(5)
+  blinkWarningMinutes Int @default(5)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  tables       Table[]
+}
+
+model Table {
+  id                String            @id @default(uuid())
+  venueId           String
+  name              String
+  type              String
+  status            TableStatus       @default(AVAILABLE)
+  relayChannel      Int
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  sessions          Session[]
+  venue             Venue             @relation(fields: [venueId], references: [id])
+  tournamentMatches TournamentMatch[]
+  waitlist          Waitlist[]
+}
+
+model PricingRule {
+  id                String    @id @default(uuid())
+  name              String
+  tableType         String
+  dayOfWeek         Int[]
+  startTime         String
+  endTime           String
+  ratePerHour       Float
+  memberRatePerHour Float?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+}
+
+model Package {
+  id          String    @id @default(uuid())
+  name        String
+  tableType   String
+  duration    Int
+  price       Float
+  memberPrice Float?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  dayOfWeek   Int[]
+  endTime     String?
+  fnbItems    String?
+  startTime   String?
+  sessions    Session[]
+}
+
+model Member {
+  id                    String                  @id @default(uuid())
+  name                  String
+  phone                 String                  @unique
+  email                 String?                 @unique
+  photo                 String?
+  loyaltyPoints         Int                     @default(0)
+  tier                  String                  @default("BRONZE")
+  totalPlayHours        Float                   @default(0)
+  totalMatches          Int                     @default(0)
+  totalWins             Int                     @default(0)
+  totalPrizeWon         Float                   @default(0)
+  winRate               Float                   @default(0)
+  streakCount           Int                     @default(0)
+  streakLastPlay        DateTime?
+  streakRewarded        Boolean                 @default(false)
+  level                 Int                     @default(1)
+  experience            Int                     @default(0)
+  badges                String[]                @default([])
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  handicap              Int                     @default(4)
+  handicapLabel         String?                 @default("Entry Fragger")
+  identityStatus        String                  @default("UNVERIFIED")
+  isPhotoVerified       Boolean                 @default(false)
+  isWaVerified          Boolean                 @default(false)
+  isVerificationRewardClaimed Boolean           @default(false)
+  photoVerifiedAt       DateTime?
+  waVerifiedAt          DateTime?
+  challengesSent        MatchChallenge[]        @relation("ChallengerRelation")
+  challengesReceived    MatchChallenge[]        @relation("OpponentRelation")
+  matches               MatchMember[]
+  pointLogs             PointLog[]
+  redemptions           Redemption[]
+  sessions              Session[]
+  tournamentParticipant TournamentParticipant[]
+  waitlist              Waitlist[]
+}
+
+model Session {
+  id             String        @id @default(uuid())
+  tableId        String?
+  status         SessionStatus @default(ACTIVE)
+  startTime      DateTime      @default(now())
+  endTime        DateTime?
+  durationOpts   Int?
+  packageId      String?
+  tableAmount    Float         @default(0)
+  fnbAmount      Float         @default(0)
+  taxAmount      Float         @default(0)
+  serviceAmount  Float         @default(0)
+  totalAmount    Float         @default(0)
+  memberId       String?
+  customerName   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  paymentMethod  String?
+  fnbIncluded    String?
+  pausedAt       DateTime?     // null = running, non-null = paused
+  totalPausedMs  Int           @default(0) // accumulated paused milliseconds
+  matches        Match[]
+  orders         Order[]
+  payments       Payment[]
+  cashierId      String?
+  cashier        User?         @relation("SessionCashier", fields: [cashierId], references: [id])
+  member         Member?       @relation(fields: [memberId], references: [id])
+  package        Package?      @relation(fields: [packageId], references: [id])
+  table          Table?        @relation(fields: [tableId], references: [id])
+}
+
+model Product {
+  id        String    @id @default(uuid())
+  name      String
+  price     Float
+  stock     Int       @default(0)
+  category  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  orders    Order[]
+}
+
+model Order {
+  id        String    @id @default(uuid())
+  sessionId String
+  productId String
+  quantity  Int
+  price     Float
+  total     Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  product   Product   @relation(fields: [productId], references: [id])
+  session   Session   @relation(fields: [sessionId], references: [id])
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  sessionId String
+  amount    Float
+  discount  Float         @default(0)
+  received  Float         @default(0)
+  change    Float         @default(0)
+  method    String
+  status    String        @default("SUCCESS")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+  cashierId String?
+  cashier   User?         @relation("PaymentCashier", fields: [cashierId], references: [id])
+  shiftId   String?
+  shift     CashierShift? @relation(fields: [shiftId], references: [id])
+  session   Session       @relation(fields: [sessionId], references: [id])
+}
+
+model Match {
+  id        String        @id @default(uuid())
+  sessionId String
+  winnerId  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+  session   Session       @relation(fields: [sessionId], references: [id])
+  members   MatchMember[]
+}
+
+model MatchMember {
+  id       String @id @default(uuid())
+  matchId  String
+  memberId String
+  match    Match  @relation(fields: [matchId], references: [id])
+  member   Member @relation(fields: [memberId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  resource  String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Tournament {
+  id             String                  @id @default(uuid())
+  name           String
+  description    String?
+  entryFee       Float                   @default(0)
+  prizePool      Float                   @default(0)
+  prizeChampion  Float                   @default(0)
+  prizeRunnerUp  Float                   @default(0)
+  prizeSemiFinal Float                   @default(0)
+  maxPlayers     Int                     @default(32)
+  status         TournamentStatus        @default(PENDING)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  deletedAt      DateTime?
+  format         String?                 @default("8-Ball")
+  venue          String?
+  matches        TournamentMatch[]
+  participants   TournamentParticipant[]
+}
+
+model TournamentParticipant {
+  id            String            @id @default(uuid())
+  tournamentId  String
+  memberId      String?
+  name          String?
+  handicap      String?
+  paymentStatus String            @default("UNPAID")
+  registeredAt  DateTime          @default(now())
+  paymentNotes  String?
+  matchPlayer1  TournamentMatch[] @relation("Player1")
+  matchPlayer2  TournamentMatch[] @relation("Player2")
+  matchWinner   TournamentMatch[] @relation("Winner")
+  member        Member?           @relation(fields: [memberId], references: [id])
+  tournament    Tournament        @relation(fields: [tournamentId], references: [id])
+}
+
+model TournamentMatch {
+  id           String                 @id @default(uuid())
+  tournamentId String
+  round        Int
+  matchNumber  Int
+  player1Id    String?
+  player2Id    String?
+  winnerId     String?
+  score1       Int                    @default(0)
+  score2       Int                    @default(0)
+  status       String                 @default("PENDING")
+  tableId      String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  player1      TournamentParticipant? @relation("Player1", fields: [player1Id], references: [id])
+  player2      TournamentParticipant? @relation("Player2", fields: [player2Id], references: [id])
+  table        Table?                 @relation(fields: [tableId], references: [id])
+  tournament   Tournament             @relation(fields: [tournamentId], references: [id])
+  winner       TournamentParticipant? @relation("Winner", fields: [winnerId], references: [id])
+}
+
+model Expense {
+  id          String    @id @default(uuid())
+  category    String
+  amount      Float
+  description String
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model Employee {
+  id          String       @id @default(uuid())
+  name        String
+  position    String
+  phone       String?
+  email       String?
+  salary      Float        @default(0)
+  joinDate    DateTime     @default(now())
+  status      String       @default("ACTIVE")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  attendances Attendance[]
+}
+
+model Attendance {
+  id         String    @id @default(uuid())
+  employeeId String
+  date       DateTime  @default(now())
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String    @default("PRESENT")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+}
+
+model Reward {
+  id             String       @id @default(uuid())
+  title          String
+  description    String
+  pointsRequired Int
+  rewardType     RewardType   @default(DISCOUNT)
+  value          Float        @default(0)
+  stock          Int          @default(999)
+  imageUrl       String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  redemptions    Redemption[]
+}
+
+model Redemption {
+  id         String   @id @default(uuid())
+  memberId   String
+  rewardId   String
+  pointsUsed Int      @default(0)
+  claimedAt  DateTime @default(now())
+  status     String   @default("PENDING")
+  notes      String?
+  member     Member   @relation(fields: [memberId], references: [id])
+  reward     Reward   @relation(fields: [rewardId], references: [id])
+}
+
+/// Granular log for every point event (earn / redeem / adjust)
+model PointLog {
+  id           String      @id @default(uuid())
+  memberId     String
+  type         PointTxType
+  points       Int
+  description  String
+  sessionId    String?
+  redemptionId String?
+  createdAt    DateTime    @default(now())
+  member       Member      @relation(fields: [memberId], references: [id])
+}
+
+/// Global config store for loyalty settings (double-point toggle, etc.)
+model LoyaltyConfig {
+  id                 String    @id @default("global")
+  doublePointEnabled Boolean   @default(false)
+  doublePointExpiry  DateTime?
+  pointPerRupiah     Float     @default(0.001)
+  streakThreshold    Int       @default(5)
+  streakWindowDays   Int       @default(30)
+  streakBonusPoints  Int       @default(100)
+  updatedAt          DateTime  @updatedAt
+  updatedBy          String?
+}
+
+model Waitlist {
+  id              String    @id @default(uuid())
+  customerName    String
+  phone           String?
+  partySize       Int       @default(1)
+  tableType       String?
+  status          String    @default("WAITING")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  reservedTime    DateTime?
+  tableId         String?
+  memberId        String?
+  durationMinutes Int       @default(60)
+  packageId       String?
+  pointsCost      Int?
+  price           Float     @default(0)
+  member          Member?   @relation(fields: [memberId], references: [id])
+  table           Table?    @relation(fields: [tableId], references: [id])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  imageUrl  String?
+  targetUrl String?
+  isActive  Boolean  @default(true)
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MatchChallenge {
+  id              String   @id @default(uuid())
+  challengerId    String
+  opponentId      String
+  pointsStake     Int      @default(50)
+  status          String   @default("PENDING")
+  winnerId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isFightForTable Boolean  @default(false)
+  sessionId       String?
+  challenger      Member   @relation("ChallengerRelation", fields: [challengerId], references: [id])
+  opponent        Member   @relation("OpponentRelation", fields: [opponentId], references: [id])
+}
+
+model DiscountCategory {
+  id          String    @id @default(uuid())
+  name        String
+  type        String    @default("PERCENTAGE")
+  value       Float
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  KASIR
+  OWNER
+}
+
+enum SessionStatus {
+  ACTIVE
+  FINISHED
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum TournamentStatus {
+  PENDING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum TableStatus {
+  AVAILABLE
+  PLAYING
+  MAINTENANCE
+  CLEANING
+}
+
+enum RewardType {
+  DISCOUNT
+  FREE_GAME
+  FNB_VOUCHER
+  VIP_ACCESS
+}
+
+enum PointTxType {
+  EARN_GAME
+  EARN_FNB
+  EARN_TOURNAMENT
+  EARN_STREAK
+  EARN_BONUS
+  REDEEM
+  ADJUSTMENT
+}
+
+model CashierShift {
+  id               String    @id @default(uuid())
+  userId           String
+  startTime        DateTime  @default(now())
+  endTime          DateTime?
+  startingCash     Float     @default(0)
+  endingCashActual Float?
+  expectedCash     Float?
+  expectedQris     Float?
+  expectedCard     Float?
+  notes            String?
+  status           String    @default("OPEN")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id])
+  payments         Payment[]
+}
+
+/// Template pesan WhatsApp yang bisa diedit via admin
+model WaTemplate {
+  id        String   @id
+  name      String
+  body      String   @db.Text
+  imageUrl  String?  @db.Text
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+

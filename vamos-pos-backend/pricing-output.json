@@ -1,0 +1,153 @@
+﻿--- PRICING RULES ---
+[
+  {
+    "id": "f8717969-393f-44d8-9b38-78a2ad5a740b",
+    "name": "PAKET MALAM REGULAR",
+    "tableType": "REGULAR",
+    "dayOfWeek": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "startTime": "17:00",
+    "endTime": "04:00",
+    "ratePerHour": 35000,
+    "memberRatePerHour": 30000,
+    "isActive": true,
+    "createdAt": "2026-02-28T14:13:07.279Z",
+    "updatedAt": "2026-02-28T14:13:07.279Z",
+    "deletedAt": null
+  },
+  {
+    "id": "6d48a8ad-da84-4c31-a9d0-20376e5af612",
+    "name": "PAKET SIANG REGULAR",
+    "tableType": "REGULAR",
+    "dayOfWeek": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "startTime": "09:00",
+    "endTime": "17:59",
+    "ratePerHour": 25000,
+    "memberRatePerHour": 25000,
+    "isActive": true,
+    "createdAt": "2026-02-28T14:13:07.279Z",
+    "updatedAt": "2026-02-28T14:13:07.279Z",
+    "deletedAt": null
+  },
+  {
+    "id": "8a515a75-94b9-41fd-b0ef-ace86ebf5322",
+    "name": "REGULAR",
+    "tableType": "REGULAR",
+    "dayOfWeek": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "startTime": "17:00",
+    "endTime": "05:59",
+    "ratePerHour": 35000,
+    "memberRatePerHour": 35000,
+    "isActive": true,
+    "createdAt": "2026-03-01T20:38:24.234Z",
+    "updatedAt": "2026-03-01T20:38:24.234Z",
+    "deletedAt": null
+  },
+  {
+    "id": "1e8ffd0e-69b3-4a94-b134-b07f3ad0bad0",
+    "name": "Regular Malam",
+    "tableType": "REGULAR",
+    "dayOfWeek": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "startTime": "17:00",
+    "endTime": "04:59",
+    "ratePerHour": 35000,
+    "memberRatePerHour": 35000,
+    "isActive": true,
+    "createdAt": "2026-03-02T05:39:50.842Z",
+    "updatedAt": "2026-03-02T05:39:50.842Z",
+    "deletedAt": null
+  }
+]
+--- PACKAGES ---
+[
+  {
+    "id": "b4778dd2-446e-4334-b257-818ef280fdaa",
+    "name": "PAKET 2 JAM SIANG",
+    "tableType": "REGULAR",
+    "duration": 60,
+    "price": 40000,
+    "memberPrice": 40000,
+    "fnbItems": "",
+    "startTime": "09:00",
+    "endTime": "18:00",
+    "dayOfWeek": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "isActive": true,
+    "createdAt": "2026-02-28T14:13:07.282Z",
+    "updatedAt": "2026-02-28T14:13:07.282Z",
+    "deletedAt": null
+  },
+  {
+    "id": "b4996fd8-fc4c-4377-b93d-153d140f2130",
+    "name": "PAKET SIANG 3 JAM ",
+    "tableType": "REGULAR",
+    "duration": 180,
+    "price": 50000,
+    "memberPrice": 50000,
+    "fnbItems": "",
+    "startTime": "10:00",
+    "endTime": "16:00",
+    "dayOfWeek": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "isActive": true,
+    "createdAt": "2026-02-28T14:13:07.282Z",
+    "updatedAt": "2026-02-28T14:13:07.282Z",
+    "deletedAt": null
+  },
+  {
+    "id": "f0693857-5a22-4c7b-bdbf-7c20dc2d190e",
+    "name": "PAKET 2 JAM MALAM",
+    "tableType": "REGULAR",
+    "duration": 120,
+    "price": 50000,
+    "memberPrice": 50000,
+    "fnbItems": null,
+    "startTime": "17:00",
+    "endTime": "04:59",
+    "dayOfWeek": [],
+    "isActive": true,
+    "createdAt": "2026-03-01T20:36:13.231Z",
+    "updatedAt": "2026-03-01T20:36:13.231Z",
+    "deletedAt": null
+  }
+]

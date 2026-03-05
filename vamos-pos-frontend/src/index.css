@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-vamos-dark: #0a0a0a;
+  --color-vamos-panel: #141414;
+  --color-vamos-neon: #00ff66;
+  --color-vamos-accent: #222222;
+  --color-vamos-red: #ff3333;
+}
+
+body {
+  background-color: var(--color-vamos-dark);
+  color: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Base Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-vamos-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-vamos-accent);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* Custom Scrollbar for smaller components */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-vamos-accent);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #00ff66;
+}
+
+/* UI Components */
+.glass-panel {
+  background: rgba(20, 20, 20, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+input,
+select,
+textarea {
+  transition: all 0.2s ease;
+}
+
+button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    background: white !important;
+    color: black !important;
+    font-size: 12px;
+  }
+
+  #printable-receipt * {
+    background: white !important;
+    color: black !important;
+    border-color: black !important;
+  }
+
+  /* Hide print preview UI buttons from print */
+  #printable-receipt .no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,26 @@
+
+D:\vamosmobile\vamos-player-app\src\App.tsx
+   39:55   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+   59:19   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  143:48   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  145:51   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:81   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:105  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:125  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  315:19   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  324:50   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  329:62   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  331:72   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  411:52   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  423:55   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  473:42   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  556:56   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  558:42   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  591:93   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  606:77   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  612:66   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  737:6    warning  React Hook useEffect has a missing dependency: 'refreshMemberData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  801:56   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+✖ 21 problems (20 errors, 1 warning)
+

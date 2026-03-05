@@ -1,0 +1,243 @@
+import { prisma } from '../../database/db';
+import { AppError } from '../../utils/errors';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+
+export class MemberService {
+    static async createMember(data: { name: string; phone: string; photo?: string }) {
+        const existingMember = await prisma.member.findUnique({
+            where: { phone: data.phone }
+        });
+
+        if (existingMember) {
+            throw new AppError('Phone number already registered to another member', 400);
+        }
+
+        const newMember = await prisma.member.create({
+            data
+        });
+
+        // WhatsApp Welcome Message
+        if (newMember.phone) {
+            try {
+                const venue = await prisma.venue.findFirst();
+                const venueName = venue?.name || 'VAMOS';
+                const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
+                const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WELCOME_MEMBER, {
+                    name: newMember.name,
+                    venue: venueName,
+                });
+                if (waTemplate) {
+                    import('../whatsapp/wa.service').then(({ waService }) => {
+                        waService.sendMessage(newMember.phone as string, waTemplate.body, waTemplate.imageUrl || undefined);
+                    });
+                }
+
+            } catch (error) {
+                console.error('Failed to send welcome WA:', error);
+            }
+        }
+
+        return newMember;
+    }
+
+    static async getMembers() {
+        return prisma.member.findMany({
+            where: { deletedAt: null },
+            orderBy: {
+                loyaltyPoints: 'desc' // Order by points by default to show top members
+            }
+        });
+    }
+
+    static async getMemberById(id: string) {
+        const member = await prisma.member.findFirst({
+            where: { id, deletedAt: null },
+            include: {
+                matches: {
+                    include: {
+                        match: true
+                    },
+                    orderBy: {
+                        match: {
+                            createdAt: 'desc'
+                        }
+                    },
+                    take: 10 // Get last 10 matches
+                }
+            }
+        });
+
+        if (!member) {
+            throw new AppError('Member not found', 404);
+        }
+
+        return member;
+    }
+
+    static async getMemberByPhone(phone: string) {
+        const member = await prisma.member.findFirst({
+            where: { phone, deletedAt: null }
+        });
+
+        if (!member) {
+            throw new AppError('Member not found', 404);
+        }
+
+        return member;
+    }
+
+    static async updateMember(id: string, data: { name?: string; phone?: string; photo?: string }) {
+        const member = await prisma.member.findFirst({ where: { id, deletedAt: null } });
+        if (!member) {
+            throw new AppError('Member not found', 404);
+        }
+
+        if (data.phone && data.phone !== member.phone) {
+            const existingMember = await prisma.member.findFirst({
+                where: { phone: data.phone, id: { not: id }, deletedAt: null }
+            });
+            if (existingMember) {
+                throw new AppError('Phone number already registered to another member', 400);
+            }
+        }
+
+        return prisma.member.update({
+            where: { id },
+            data
+        });
+    }
+
+    static async addLoyaltyPoints(id: string, points: number) {
+        const member = await prisma.member.findFirst({ where: { id, deletedAt: null } });
+        if (!member) {
+            throw new AppError('Member not found', 404);
+        }
+
+        return prisma.member.update({
+            where: { id },
+            data: {
+                loyaltyPoints: {
+                    increment: points
+                }
+            }
+        });
+    }
+
+    static async deleteMember(id: string) {
+        const member = await prisma.member.findFirst({ where: { id, deletedAt: null } });
+        if (!member) {
+            throw new AppError('Member not found', 404);
+        }
+
+        // We could also anonymize the phone number or name, but soft delete is what we usually do.
+        return prisma.member.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                // Prepend random string so the number can be reused if the member returns
+                phone: `deleted_${Date.now()}_${member.phone}`
+            }
+        });
+    }
+
+    // Example of an internal service function (could be called when a Match concludes)
+    static async updateMatchStats(memberId: string, isWinner: boolean) {
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        if (!member) return;
+
+        const newTotalMatches = member.totalMatches + 1;
+        const newTotalWins = member.totalWins + (isWinner ? 1 : 0);
+        const newWinRate = (newTotalWins / newTotalMatches) * 100;
+
+        await prisma.member.update({
+            where: { id: memberId },
+            data: {
+                totalMatches: newTotalMatches,
+                totalWins: newTotalWins,
+                winRate: newWinRate
+            }
+        });
+    }
+
+    static async updatePlayHours(memberId: string, hoursPlayed: number) {
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        if (!member) return;
+
+        await prisma.member.update({
+            where: { id: memberId },
+            data: {
+                totalPlayHours: member.totalPlayHours + hoursPlayed
+            }
+        });
+    }
+
+    static async updatePrizeWon(memberId: string, prizeAmount: number) {
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        if (!member) return;
+
+        await prisma.member.update({
+            where: { id: memberId },
+            data: {
+                totalPrizeWon: member.totalPrizeWon + prizeAmount
+            }
+        });
+    }
+
+    static async verifyWa(id: string) {
+        const member = await prisma.member.update({
+            where: { id },
+            data: {
+                isWaVerified: true,
+                waVerifiedAt: new Date()
+            }
+        });
+        await MemberService.checkAndAwardVerificationReward(id);
+        return member;
+    }
+
+    static async updateVerificationStatus(id: string, status: string) {
+        const data: any = { identityStatus: status };
+        if (status === 'VERIFIED') {
+            data.isPhotoVerified = true;
+            data.photoVerifiedAt = new Date();
+        } else if (status === 'REJECTED' || status === 'UNVERIFIED') {
+            data.isPhotoVerified = false;
+        }
+
+        const member = await prisma.member.update({
+            where: { id },
+            data
+        });
+
+        if (status === 'VERIFIED') {
+            await MemberService.checkAndAwardVerificationReward(id);
+        }
+
+        return member;
+    }
+
+    private static async checkAndAwardVerificationReward(memberId: string) {
+        const member = await prisma.member.findUnique({
+            where: { id: memberId }
+        });
+
+        if (!member) return;
+
+        if (member.isWaVerified && member.isPhotoVerified && !member.isVerificationRewardClaimed) {
+            // Award 35,000 points
+            await LoyaltyService.addPoints(
+                memberId,
+                35000,
+                'EARN_BONUS',
+                '🎁 Reward Verifikasi WhatsApp & Foto'
+            );
+
+            await prisma.member.update({
+                where: { id: memberId },
+                data: {
+                    isVerificationRewardClaimed: true
+                }
+            });
+        }
+    }
+}

@@ -1,0 +1,52 @@
+
+D:\vamosmobile\vamos-player-app\src\ActiveSessionScreen.tsx
+    7:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\vamosmobile\vamos-player-app\src\App.tsx
+   39:55   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+   59:19   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  143:48   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  145:51   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:81   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:105  warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  289:125  warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  315:19   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  324:50   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  329:62   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  331:72   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  411:52   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  423:55   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  473:42   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  556:56   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  558:42   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  591:93   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  606:77   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  612:66   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  737:6    warning  React Hook useEffect has a missing dependency: 'refreshMemberData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  801:56   warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+D:\vamosmobile\vamos-player-app\src\BookingScreen.tsx
+  45:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\vamosmobile\vamos-player-app\src\RewardsScreen.tsx
+   28:44  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   29:52  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   33:56  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   49:8   warning  React Hook useEffect has a missing dependency: 'fetchAll'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   67:41  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   79:23  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  149:79  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  232:45  warning  Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+D:\vamosmobile\vamos-player-app\src\store\appStore.ts
+   7:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   8:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 39 problems (0 errors, 39 warnings)
+

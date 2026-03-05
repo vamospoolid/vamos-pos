@@ -1,0 +1,19 @@
+﻿
+> vamos-pos-frontend@0.0.0 build
+> tsc -b && vite build
+
+src/Employees.tsx(2,28): error TS6133: 'Shield' is declared but its value is never read.
+src/Employees.tsx(2,64): error TS6133: 'CopyCheck' is declared but its value is never read.
+src/Reports.tsx(3,59): error TS6133: 'Calendar' is declared but its value is never read.
+src/Reports.tsx(227,33): error TS2322: Type '(value: number, name: string) => [string, "Total Revenue"] | [string, "F&B Revenue"] | [number, string]' is not assignable to type 'Formatter<number, string> & ((value: number, name: string, item: Payload<number, string>, index: number, payload: Payload<number, string>[]) => ReactNode | [...])'.
+  Type '(value: number, name: string) => [string, "Total Revenue"] | [string, "F&B Revenue"] | [number, string]' is not assignable to type 'Formatter<number, string>'.
+    Types of parameters 'value' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/Reports.tsx(261,37): error TS2322: Type '(val: number) => [string, "Play Time"]' is not assignable to type 'Formatter<number, "Play Time"> & ((value: number, name: "Play Time", item: Payload<number, "Play Time">, index: number, payload: Payload<number, "Play Time">[]) => ReactNode | [...])'.
+  Type '(val: number) => [string, "Play Time"]' is not assignable to type 'Formatter<number, "Play Time">'.
+    Types of parameters 'val' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/Settings.tsx(2,44): error TS6133: 'Shield' is declared but its value is never read.
+src/utils/dialog.tsx(2,1): error TS6133: 'React' is declared but its value is never read.

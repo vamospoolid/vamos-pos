@@ -1,0 +1,4 @@
+﻿src/modules/sessions/session.service.ts(63,48): error TS18047: 'session.table' is possibly 'null'.
+src/modules/sessions/session.service.ts(92,69): error TS18047: 'session.table' is possibly 'null'.
+src/modules/sessions/session.service.ts(118,69): error TS18047: 'session.table' is possibly 'null'.
+src/modules/sessions/session.service.ts(133,44): error TS18047: 'session.table' is possibly 'null'.

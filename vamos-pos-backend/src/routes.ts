@@ -1,0 +1,55 @@
+import { Router } from 'express';
+import sessionRoutes from './modules/sessions/session.route';
+import authRoutes from './modules/auth/auth.route';
+import orderRoutes from './modules/orders/order.route';
+import relayRoutes from './modules/relay/relay.route';
+import matchRoutes from './modules/matches/match.route';
+import reportRoutes from './modules/reports/report.route';
+import venueRoutes from './modules/venues/venue.route';
+import tableRoutes from './modules/tables/table.route';
+import productRoutes from './modules/products/product.route';
+import pricingRoutes from './modules/pricing/pricing.route';
+import memberRoutes from './modules/members/member.route';
+import userRoutes from './modules/users/user.route';
+import tournamentRoutes from './modules/tournaments/tournament.route';
+import expenseRoutes from './modules/expenses/expense.route';
+import playerRoutes from './modules/player/player.route';
+import employeeRoutes from './modules/employees/employee.route';
+import attendanceRoutes from './modules/attendance/attendance.route';
+import rewardRoutes from './modules/rewards/reward.route';
+import loyaltyRoutes from './modules/loyalty/loyalty.route';
+import waitlistRoutes from './modules/waitlist/waitlist.route';
+import systemRoutes from './modules/system/system.route';
+import announcementRoutes from './modules/announcements/announcement.route';
+import discountRoutes from './modules/discounts/discount.route';
+import shiftRoutes from './modules/shifts/shift.route';
+import whatsappRoutes from './modules/whatsapp/whatsapp.route';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/whatsapp', whatsappRoutes);
+router.use('/sessions', sessionRoutes);
+router.use('/orders', orderRoutes);
+router.use('/relay', relayRoutes);
+router.use('/matches', matchRoutes);
+router.use('/reports', reportRoutes);
+router.use('/venues', venueRoutes);
+router.use('/tables', tableRoutes);
+router.use('/products', productRoutes);
+router.use('/pricing', pricingRoutes);
+router.use('/members', memberRoutes);
+router.use('/users', userRoutes);
+router.use('/tournaments', tournamentRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/player', playerRoutes);
+router.use('/employees', employeeRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/rewards', rewardRoutes);
+router.use('/loyalty', loyaltyRoutes);   // ← Loyalty & Points System
+router.use('/waitlist', waitlistRoutes);
+router.use('/system', systemRoutes);
+router.use('/announcements', announcementRoutes);
+router.use('/discounts', discountRoutes);
+
+export default router;
