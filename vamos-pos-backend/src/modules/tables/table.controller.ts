@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { TableService } from './table.service';
+import { getIO } from '../../socket';
 
 export class TableController {
     static async createTable(req: Request, res: Response, next: NextFunction) {
@@ -35,6 +36,7 @@ export class TableController {
     static async updateTable(req: Request, res: Response, next: NextFunction) {
         try {
             const table = await TableService.updateTable(req.params.id, req.body);
+            getIO().emit('tables:updated');
             res.json({ success: true, data: table });
         } catch (error) {
             next(error);
@@ -53,6 +55,7 @@ export class TableController {
     static async fixStuckTables(req: Request, res: Response, next: NextFunction) {
         try {
             const result = await TableService.fixStuckTables();
+            getIO().emit('tables:updated');
             res.json({
                 success: true,
                 message: result.fixed > 0

@@ -285,7 +285,7 @@ export default function FnBOrder() {
                                                 className="w-full text-left px-4 py-3 hover:bg-[#00ff66]/10 border-b border-[#222] last:border-0"
                                             >
                                                 <div className="flex justify-between items-center">
-                                                    <span className="font-bold text-sm text-white">{m.name}</span>
+                                                    <span className="font-bold text-sm text-white">{m.name} {m.handicap ? `- HC: ${m.handicap}` : ''}</span>
                                                     <span className="text-[10px] bg-[#00ff66]/20 text-[#00ff66] px-2 py-0.5 rounded uppercase font-black">{m.tier}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-1">

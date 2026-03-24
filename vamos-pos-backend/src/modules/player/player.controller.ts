@@ -2,25 +2,55 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../database/db';
 import { PricingService } from '../pricing/pricing.service';
 import { waService } from '../whatsapp/wa.service';
+import { getInitialRatingFromHC, calculateMatchRating } from '../../utils/rating.util';
+import { KingService } from '../matches/king.service';
 
 export class PlayerController {
     static async createChallenge(req: Request, res: Response, next: NextFunction) {
         try {
-            const { challengerId, opponentId, pointsStake, isFightForTable, sessionId } = req.body;
+            let { challengerId, opponentId, pointsStake, isFightForTable, sessionId, note } = req.body;
             if (!challengerId || !opponentId) return res.status(400).json({ success: false, message: 'Both players are required' });
+            
+            // Trim just in case
+            challengerId = challengerId.trim();
+            opponentId = opponentId.trim();
+
             if (challengerId === opponentId) return res.status(400).json({ success: false, message: 'You cannot challenge yourself' });
 
-            const challenge = await prisma.matchChallenge.create({
+            // Ensure opponent exists
+            const opponent = await prisma.member.findUnique({ where: { id: opponentId } });
+            if (!opponent) return res.status(400).json({ success: false, message: 'Target ID tidak valid atau Player tidak ditemukan.' });
+
+            // Balance Check for Challenger -- REMOVED AS REQUESTED (XP ONLY)
+            /* 
+            const challenger = await prisma.member.findUnique({ where: { id: challengerId } });
+            if (!challenger || (challenger.loyaltyPoints || 0) < (pointsStake || 50)) {
+                return res.status(400).json({ success: false, message: 'Poin Anda tidak mencukupi untuk melakukan taruhan ini.' });
+            }
+
+            // Balance Check for Opponent
+            if ((opponent.loyaltyPoints || 0) < (pointsStake || 50)) {
+                return res.status(400).json({ success: false, message: 'Saldo poin lawan tidak mencukupi untuk menerima tantangan ini.' });
+            }
+            */
+
+            const challenge = await (prisma.matchChallenge as any).create({
                 data: {
                     challengerId,
                     opponentId,
-                    pointsStake: pointsStake || 50,
+                    pointsStake: 0,
                     isFightForTable: !!isFightForTable,
                     sessionId: sessionId || null,
+                    note: note || null,
                     status: 'PENDING'
                 },
                 include: { challenger: true, opponent: true }
             });
+
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:new:${opponentId}`, challenge);
+            getIO().emit(`challenge:new_arena`, challenge);
+
             res.json({ success: true, data: challenge });
         } catch (error) { next(error); }
     }
@@ -28,13 +58,34 @@ export class PlayerController {
     static async getChallenges(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: memberId } = req.params;
-            const challenges = await prisma.matchChallenge.findMany({
+            const challenges = await (prisma.matchChallenge as any).findMany({
                 where: {
                     OR: [{ challengerId: memberId }, { opponentId: memberId }],
-                    status: { in: ['PENDING', 'ACCEPTED'] }
+                    status: { in: ['PENDING', 'ACCEPTED', 'WAITING_VERIFICATION'] }
                 },
-                include: { challenger: true, opponent: true },
+                include: { 
+                    challenger: true, 
+                    opponent: true,
+                    session: { include: { table: true } }
+                },
                 orderBy: { createdAt: 'desc' }
+            });
+            res.json({ success: true, data: challenges });
+        } catch (error) { next(error); }
+    }
+
+    static async getPendingVerifications(req: Request, res: Response, next: NextFunction) {
+        try {
+            const challenges = await (prisma.matchChallenge as any).findMany({
+                where: { 
+                    status: { in: ['PENDING', 'ACCEPTED', 'WAITING_VERIFICATION'] } 
+                },
+                include: { 
+                    challenger: true, 
+                    opponent: true,
+                    session: { include: { table: true } }
+                },
+                orderBy: { updatedAt: 'desc' }
             });
             res.json({ success: true, data: challenges });
         } catch (error) { next(error); }
@@ -44,49 +95,152 @@ export class PlayerController {
         try {
             const { id: challengeId } = req.params;
             const { status } = req.body; // ACCEPTED or DECLINED
+
+            const currentChallenge = await prisma.matchChallenge.findUnique({ 
+                where: { id: challengeId },
+                include: { challenger: true, opponent: true }
+            });
+            if (!currentChallenge) return res.status(404).json({ success: false, message: 'Tantangan tidak ditemukan.' });
+
+            /* 
+            if (status === 'ACCEPTED') {
+                // Final balance check for opponent before accepting
+                if ((currentChallenge.opponent.loyaltyPoints || 0) < currentChallenge.pointsStake) {
+                    return res.status(400).json({ success: false, message: 'Poin Anda tidak mencukupi untuk menerima tantangan ini.' });
+                }
+            }
+            */
+
             const challenge = await prisma.matchChallenge.update({
                 where: { id: challengeId },
                 data: { status }
+            });
+
+            // Notify both parties and POS that status changed
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:update:${challenge.challengerId}`, challenge);
+            getIO().emit(`challenge:update:${challenge.opponentId}`, challenge);
+            getIO().emit(`challenge:new_arena`, challenge);
+
+            res.json({ success: true, data: challenge });
+        } catch (error) { next(error); }
+    }
+
+    /**
+     * PLAYER ACTION: Link an active session to an ongoing challenge
+     */
+    static async linkSession(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: challengeId } = req.params;
+            const { sessionId } = req.body;
+            const challenge = await (prisma.matchChallenge as any).update({
+                where: { id: challengeId },
+                data: { sessionId, isFightForTable: true }
             });
             res.json({ success: true, data: challenge });
         } catch (error) { next(error); }
     }
 
-    static async completeChallenge(req: Request, res: Response, next: NextFunction) {
+    /**
+     * PLAYER ACTION: Claiming victory from their phone
+     */
+    static async claimVictory(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: challengeId } = req.params;
             const { winnerId } = req.body;
 
-            const challenge = await prisma.matchChallenge.findUnique({
+            const challenge = await prisma.matchChallenge.update({
                 where: { id: challengeId },
-                include: { challenger: true, opponent: true }
+                data: {
+                    status: 'WAITING_VERIFICATION',
+                    winnerId: winnerId
+                }
             });
 
-            if (!challenge || challenge.status !== 'ACCEPTED') {
-                return res.status(400).json({ success: false, message: 'Challenge must be ACCEPTED to complete' });
+            // Notify POS that a victory has been claimed and needs verification
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:new_arena`, challenge);
+            getIO().emit(`challenge:update:${challenge.challengerId}`, challenge);
+            getIO().emit(`challenge:update:${challenge.opponentId}`, challenge);
+
+            res.json({ success: true, data: challenge, message: 'Victory reported. Awaiting cashier verification.' });
+        } catch (error) { next(error); }
+    }
+
+    /**
+     * CASHIER ACTION: Final approval and execution of point/bill transfer
+     */
+    static async completeChallenge(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: challengeId } = req.params;
+            const { action, winnerId: manualWinnerId } = req.body; // 'APPROVE' or 'REJECT'
+
+            const challenge = await prisma.matchChallenge.findUnique({
+                where: { id: challengeId },
+                include: { challenger: true, opponent: true, session: true }
+            });
+
+            if (!challenge) {
+                return res.status(404).json({ success: false, message: 'Challenge not found.' });
             }
 
+            const validStatuses = ['WAITING_VERIFICATION', 'ACCEPTED'];
+            if (!validStatuses.includes(challenge.status)) {
+                return res.status(400).json({ success: false, message: 'Challenge is not in a completable state.' });
+            }
+
+            if (action === 'REJECT') {
+                await prisma.matchChallenge.update({
+                    where: { id: challengeId },
+                    data: { status: 'ACCEPTED', winnerId: null }
+                });
+                return res.json({ success: true, message: 'Challenge outcome rejected. Protocol reset to ACCEPTED.' });
+            }
+
+            const winnerId = manualWinnerId || challenge.winnerId;
+            if (!winnerId) return res.status(400).json({ success: false, message: 'Winner not identified. Admin must select a winner.' });
+
             const loserId = challenge.challengerId === winnerId ? challenge.opponentId : challenge.challengerId;
-            const stake = challenge.pointsStake;
+            const stake = 0; // challenge.pointsStake; -- No point betting
+            const arenaTax = 0; // Math.floor(stake * 0.2); // 20% Match Fee
+            const winnerPrize = 0; // stake - arenaTax;
+
+            // Professional Rank Logic (Fixed XP Rewards)
+            const winReputation = 100; 
+            const lossReputation = 20; 
 
             const result = await prisma.$transaction(async (tx) => {
-                // XP Logic
-                const winXP = 100 + stake;
-                const lossXP = 20;
+                // Background Skill Rating Calculation (Shadow Mode)
+                const winner = await tx.member.findUnique({ where: { id: winnerId } });
+                const loser = await tx.member.findUnique({ where: { id: loserId } });
+
+                let winnerNewRating = winner?.skillRating || 200;
+                let loserNewRating = loser?.skillRating || 200;
+                let ratingDelta = 0;
+
+                if (winner && loser) {
+                    const ratingResult = calculateMatchRating(
+                        winner.skillRating || 200,
+                        loser.skillRating || 200,
+                        winner.ratingConfidence || 0,
+                        loser.ratingConfidence || 0
+                    );
+                    winnerNewRating = ratingResult.winnerNewRating;
+                    loserNewRating = ratingResult.loserNewRating;
+                    ratingDelta = ratingResult.delta;
+                }
 
                 // Update Winner
-                const winner = await tx.member.findUnique({ where: { id: winnerId } });
                 if (winner) {
-                    let newExp = (winner.experience || 0) + winXP;
-                    let newLevel = winner.level || 1;
-                    const nextLevelExp = newLevel * 1000;
+                    let newRep = (winner.experience || 0) + winReputation;
+                    let newRank = winner.level || 1;
+                    const nextRankRep = newRank * 1000;
 
-                    if (newExp >= nextLevelExp) {
-                        newLevel++;
-                        newExp -= nextLevelExp;
+                    if (newRep >= nextRankRep) {
+                        newRank++;
+                        newRep -= nextRankRep;
                     }
 
-                    // Badge Logic
                     const earnedBadges = winner.badges || [];
                     const newBadges = [...earnedBadges];
                     const nextWins = (winner.totalWins || 0) + 1;
@@ -99,42 +253,43 @@ export class PlayerController {
                     await tx.member.update({
                         where: { id: winnerId },
                         data: {
-                            loyaltyPoints: { increment: stake },
                             totalWins: { increment: 1 },
                             totalMatches: { increment: 1 },
-                            experience: newExp,
-                            level: newLevel,
+                            experience: newRep,
+                            level: newRank,
                             streakCount: { increment: 1 },
-                            badges: newBadges
+                            badges: newBadges,
+                            skillRating: winnerNewRating,
+                            ratingConfidence: { increment: 1 }
                         }
                     });
                 }
 
                 // Update Loser
-                const loser = await tx.member.findUnique({ where: { id: loserId } });
                 if (loser) {
-                    let newExp = (loser.experience || 0) + lossXP;
-                    let newLevel = loser.level || 1;
-                    const nextLevelExp = newLevel * 1000;
+                    let newRep = (loser.experience || 0) + lossReputation;
+                    let newRank = loser.level || 1;
+                    const nextRankRep = newRank * 1000;
 
-                    if (newExp >= nextLevelExp) {
-                        newLevel++;
-                        newExp -= nextLevelExp;
+                    if (newRep >= nextRankRep) {
+                        newRank++;
+                        newRep -= nextRankRep;
                     }
 
                     await tx.member.update({
                         where: { id: loserId },
                         data: {
-                            loyaltyPoints: { decrement: Math.min(stake, 0) ? 0 : stake },
                             totalMatches: { increment: 1 },
-                            experience: newExp,
-                            level: newLevel,
-                            streakCount: 0
+                            experience: newRep,
+                            level: newRank,
+                            streakCount: 0,
+                            skillRating: loserNewRating,
+                            ratingConfidence: { increment: 1 }
                         }
                     });
                 }
 
-                // If Fight For Table, transfer the session bill responsibility to loser
+                // TRANSFER BILL RESPONSIBILITY
                 if (challenge.isFightForTable && challenge.sessionId) {
                     await tx.session.update({
                         where: { id: challenge.sessionId },
@@ -145,14 +300,26 @@ export class PlayerController {
                     });
                 }
 
-                // Log for winner
+                // Logs
+                // Note: We only log game completion here, 
+                // points are logged during billing by SessionService
+                // (Log game completion, points removed as requested)
                 await tx.pointLog.create({
-                    data: { memberId: winnerId, points: stake, type: 'EARN_GAME', description: `Winner: Arena against ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name}` }
+                    data: { 
+                        memberId: winnerId, 
+                        points: 0, 
+                        type: 'EARN_GAME', 
+                        description: `🏆 Kemenangan Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name} (+${winReputation} XP)` 
+                    }
                 });
 
-                // Log for loser
                 await tx.pointLog.create({
-                    data: { memberId: loserId, points: -stake, type: 'REDEEM', description: `Loser: Arena against ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name}` }
+                    data: { 
+                        memberId: loserId, 
+                        points: 0, 
+                        type: 'REDEEM', 
+                        description: `💀 Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name} (+${lossReputation} XP)` 
+                    }
                 });
 
                 const updatedChallenge = await tx.matchChallenge.update({
@@ -161,27 +328,84 @@ export class PlayerController {
                     include: { challenger: true, opponent: true }
                 });
 
+                // Update King Status if applicable
+                if (challenge.session?.tableId) {
+                    await KingService.handleMatchEnd(challenge.session.tableId, winnerId, challengeId);
+                    const { getIO } = await import('../../socket');
+                    getIO().emit('king:updated', { tableId: challenge.session.tableId, winnerId });
+                }
+
                 return updatedChallenge;
             });
 
-            // Send WA Notifications after transaction success
-            const winner = result.challengerId === winnerId ? result.challenger : result.opponent;
-            const loser = result.challengerId === winnerId ? result.opponent : result.challenger;
-            const finalStake = result.pointsStake;
+            // WA Notifications
+            const winObj = result.challengerId === winnerId ? result.challenger : result.opponent;
+            const lossObj = result.challengerId === winnerId ? result.opponent : result.challenger;
 
-            const winMsg = `🏆 *CONGRATULATIONS ${winner.name}!*\n\nYou secured VICTORY in the Arena against *${loser.name}*.\n\n✨ *XP Earned:* +${100 + finalStake}\n💰 *Loyalty Points:* +${finalStake}\n\nKeep the streak alive! Check your profile for new badges. 🎯`;
-            const lossMsg = `💀 *DEFEAT LOGGED: ${loser.name}*\n\nYou fell in the Arena against *${winner.name}*.\n\n📈 *XP Gain:* +20\n📉 *Points Deducted:* -${finalStake}\n\nTrain harder! The table bill has been authorized to your account. 🎱`;
+            let winMsg = `🏆 *CHALLENGE SELESAI*\n\nSelamat! Kemenangan Anda melawan *${lossObj.name}* telah diverifikasi.\n\n⭐ *XP:* +${winReputation} XP`;
+            if (challenge.isFightForTable && challenge.sessionId) {
+                winMsg += `\n(Sesi meja ini sepenuhnya ditangani oleh lawan)`;
+            }
 
-            waService.sendMessage(winner.phone, winMsg);
-            waService.sendMessage(loser.phone, result.isFightForTable ? lossMsg : lossMsg.replace("The table bill has been authorized to your account.", "Next time will be yours!"));
+            let lossMsg = `🧾 *CHALLENGE SELESAI*\n\nAnda telah menyelesaikan pertandingan melawan *${winObj.name}*.\n\n⭐ *XP:* +${lossReputation} XP`;
+            if (challenge.isFightForTable && challenge.sessionId) {
+                lossMsg += `\n\n💰 *Billing:* Sesuai kesepakatan, tagihan sesi meja telah dialihkan ke akun Anda.`;
+            }
+
+            waService.sendMessage(winObj.phone, winMsg);
+            waService.sendMessage(lossObj.phone, lossMsg);
+
+            // Notify UI to refresh lists
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:new_arena`, result);
+            getIO().emit(`challenge:update:${result.challengerId}`, result);
+            getIO().emit(`challenge:update:${result.opponentId}`, result);
 
             res.json({ success: true, data: result });
         } catch (error) { next(error); }
     }
 
+    static async adminCreateChallenge(req: Request, res: Response, next: NextFunction) {
+        try {
+            let { challengerId, opponentId, note } = req.body;
+            if (!challengerId || !opponentId) return res.status(400).json({ success: false, message: 'Both players are required' });
+
+            challengerId = challengerId.trim();
+            opponentId = opponentId.trim();
+
+            if (challengerId === opponentId) return res.status(400).json({ success: false, message: 'You cannot challenge the same person' });
+
+            // Ensure players exist
+            const p1 = await prisma.member.findUnique({ where: { id: challengerId } });
+            const p2 = await prisma.member.findUnique({ where: { id: opponentId } });
+            if (!p1 || !p2) return res.status(400).json({ success: false, message: 'ID Player tidak valid.' });
+
+            const challenge = await (prisma.matchChallenge as any).create({
+                data: {
+                    challengerId,
+                    opponentId,
+                    pointsStake: 0,
+                    status: 'ACCEPTED', // Admin creates are auto-accepted
+                    note: note || 'Admin Created Match',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                },
+                include: { challenger: true, opponent: true }
+            });
+
+            const { getIO } = await import('../../socket');
+            // Notify both players
+            getIO().emit(`challenge:update:${challengerId}`, challenge);
+            getIO().emit(`challenge:update:${opponentId}`, challenge);
+            getIO().emit(`challenge:new_arena`, challenge);
+
+            res.json({ success: true, data: challenge });
+        } catch (error) { next(error); }
+    }
+
     static async register(req: Request, res: Response, next: NextFunction) {
         try {
-            const { phone, name, email } = req.body;
+            const { phone, name, email, deviceId } = req.body;
             if (!phone || !name) return res.status(400).json({ success: false, message: 'Phone and Name are required' });
 
             const cleanedPhone = phone.replace(/[^0-9]/g, '');
@@ -196,11 +420,24 @@ export class PlayerController {
                     phone: cleanedPhone,
                     name: name.toUpperCase(),
                     tier: 'BRONZE',
-                    handicap: 4,
+                    handicap: "4",
                     handicapLabel: 'Entry Fragger',
-                    loyaltyPoints: 100 // Welcome bonus
-                }
+                    loyaltyPoints: 0, // Points will be added by log
+                    skillRating: getInitialRatingFromHC("4"),
+                    deviceId: deviceId || null,
+                    lastLoginAt: new Date()
+                } as any
             });
+
+            // Ensure registration points are logged
+            try {
+                const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                await LoyaltyService.addPoints(member.id, 50, 'EARN_BONUS', '🎁 Welcome Bonus Registration');
+            } catch (e) {
+                console.error('Failed to award welcome points:', e);
+                // Fallback direct update if service fails for some reason
+                await prisma.member.update({ where: { id: member.id }, data: { loyaltyPoints: 50 } });
+            }
 
             res.json({ success: true, data: { member, token: `player_${member.id}` }, message: 'Welcome to Vamos Elite Arena!' });
         } catch (error) { next(error); }
@@ -208,7 +445,7 @@ export class PlayerController {
 
     static async login(req: Request, res: Response, next: NextFunction) {
         try {
-            const { phone } = req.body;
+            const { phone, deviceId } = req.body;
             if (!phone) return res.status(400).json({ success: false, message: 'Phone is required' });
 
             const cleanedPhone = phone.replace(/[^0-9]/g, '');
@@ -232,7 +469,21 @@ export class PlayerController {
 
             if (!member) return res.status(404).json({ success: false, message: 'Member not found. Please register first.' });
 
-            res.json({ success: true, data: { member, token: `player_${member.id}` } });
+            // 1-Device-1-ID Logic: Every login updates the deviceId (Kicks the former one)
+            if (deviceId) {
+                await prisma.member.update({
+                    where: { id: member.id },
+                    data: { 
+                        deviceId,
+                        lastLoginAt: new Date()
+                    } as any
+                });
+            }
+
+            const { LoyaltyService } = await import('../loyalty/loyalty.service');
+            const { member: _, ...loyaltyInfo } = await LoyaltyService.getMemberLoyalty(member.id);
+
+            res.json({ success: true, data: { member: { ...member, ...loyaltyInfo, deviceId }, token: `player_${member.id}` } });
         } catch (error) { next(error); }
     }
 
@@ -266,7 +517,11 @@ export class PlayerController {
                 }
             });
             if (!member) return res.status(404).json({ success: false, message: 'Profile not found' });
-            res.json({ success: true, data: member });
+
+            const { LoyaltyService } = await import('../loyalty/loyalty.service');
+            const { member: _, ...loyaltyInfo } = await LoyaltyService.getMemberLoyalty(memberId);
+
+            res.json({ success: true, data: { ...member, ...loyaltyInfo } });
         } catch (error) { next(error); }
     }
 
@@ -284,7 +539,34 @@ export class PlayerController {
                 }
             });
             if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
-            res.json({ success: true, data: member });
+
+            const { LoyaltyService } = await import('../loyalty/loyalty.service');
+            const { member: _, ...loyaltyInfo } = await LoyaltyService.getMemberLoyalty(memberId);
+
+            // Enrich sessions for dynamic live billing
+            const enrichedSessions = await Promise.all(member.sessions.map(async (session) => {
+                if (session.status !== 'ACTIVE' || !session.table) return session;
+
+                let runningTableAmount = session.tableAmount;
+                const startTime = new Date(session.startTime).getTime();
+                const now = Date.now();
+                const totalPausedMs = (session as any).totalPausedMs || 0;
+                const elapsedMs = (now - startTime) - totalPausedMs;
+
+                // If Open Time Billing (no fixed duration), calculate live price
+                if (!session.durationOpts && !session.packageId) {
+                    runningTableAmount = await PricingService.calculateTableAmount(session.table.type, session.startTime, new Date(), true);
+                }
+
+                return {
+                    ...session,
+                    elapsedMs,
+                    runningTableAmount,
+                    runningTotal: runningTableAmount + session.fnbAmount
+                };
+            }));
+
+            res.json({ success: true, data: { ...member, sessions: enrichedSessions, ...loyaltyInfo } });
         } catch (error) { next(error); }
     }
 
@@ -306,23 +588,121 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
-    static async getLeaderboard(req: Request, res: Response, next: NextFunction) {
+    static async getKings(req: Request, res: Response, next: NextFunction) {
         try {
-            const members = await prisma.member.findMany({
+            const kings = await KingService.getGlobalKingStatus();
+            res.json({ success: true, data: kings });
+        } catch (error) { next(error); }
+    }
+
+    static async getHallOfFame(req: Request, res: Response, next: NextFunction) {
+        try {
+            const hallOfFame = await KingService.getHallOfFame();
+            res.json({ success: true, data: hallOfFame });
+        } catch (error) { next(error); }
+    }
+
+    static async getLeaderboard(req: Request, res: Response, next: NextFunction) {
+        const { venueId } = req.query;
+        try {
+            // 1. All-Time Legends
+            const allTime = await prisma.member.findMany({
+                where: venueId ? {
+                    sessions: {
+                        some: {
+                            table: { venueId: venueId as string }
+                        }
+                    }
+                } : {},
                 orderBy: [
                     { totalWins: 'desc' },
-                    { loyaltyPoints: 'desc' },
-                    { totalPrizeWon: 'desc' }
+                    { loyaltyPoints: 'desc' }
                 ],
                 take: 50
             });
-            res.json({ success: true, data: members });
+
+            // 2. Monthly League (Points earned this month)
+            const startOfMonth = new Date();
+            startOfMonth.setDate(1);
+            startOfMonth.setHours(0, 0, 0, 0);
+
+            // Group points by member for this month
+            const monthlyPoints = await prisma.pointLog.groupBy({
+                by: ['memberId'],
+                where: {
+                    createdAt: { gte: startOfMonth },
+                    points: { gt: 0 },
+                    ...(venueId ? {
+                        session: {
+                            table: { venueId: venueId as string }
+                        }
+                    } : {})
+                },
+                _sum: { points: true },
+                orderBy: { _sum: { points: 'desc' } },
+                take: 20
+            });
+
+            // Fetch member details for the monthly leaders
+            const monthlyMemberIds = monthlyPoints.map(p => p.memberId);
+            const monthlyMembersInfo = await prisma.member.findMany({
+                where: { id: { in: monthlyMemberIds } }
+            });
+
+            const monthly = monthlyPoints.map(mp => {
+                const member = monthlyMembersInfo.find(m => m.id === mp.memberId);
+                return {
+                    ...member,
+                    monthlyScore: mp._sum.points || 0
+                };
+            });
+
+            // 3. Active Kings (Currently holding a King Table)
+            const activeKingsData = await prisma.kingTable.findMany({
+                where: {
+                    table: venueId ? { venueId: venueId as string } : {}
+                },
+                include: {
+                    king: true,
+                    table: true
+                },
+                orderBy: { streak: 'desc' },
+                take: 10
+            });
+
+            const activeKings = activeKingsData.map(ak => ({
+                ...ak.king,
+                currentStreak: ak.streak,
+                tableName: ak.table.name
+            }));
+
+            // 4. Hall of Fame (All-time Highest Streaks)
+            const hallOfFame = await KingService.getHallOfFame(20);
+
+            res.json({ 
+                success: true, 
+                data: {
+                    allTime,
+                    monthly,
+                    activeKings,
+                    hallOfFame
+                } 
+            });
         } catch (error) { next(error); }
     }
 
     static async getMatchHistory(req: Request, res: Response, next: NextFunction) {
         try {
             const memberId = req.params.id;
+
+            // Fetch Arena Challenge Matches (MatchChallenge table)
+            const cMatches = await (prisma.matchChallenge as any).findMany({
+                where: {
+                    OR: [{ challengerId: memberId }, { opponentId: memberId }],
+                    status: 'COMPLETED'
+                },
+                include: { challenger: true, opponent: true }
+            });
 
             // Fetch Tournament Matches
             const participants = await prisma.tournamentParticipant.findMany({
@@ -350,7 +730,7 @@ export class PlayerController {
                 }
             });
 
-            // Fetch Arena Challenge Matches (Individual Matches)
+            // Fetch Legacy Arena matches if any
             const aMatches = await prisma.match.findMany({
                 where: {
                     members: {
@@ -403,7 +783,24 @@ export class PlayerController {
                 }
             });
 
-            const allMatches = [...normalizedT, ...normalizedA]
+            const normalizedC = cMatches.map((m: any) => {
+                const isChallenger = m.challengerId === memberId;
+                const opp = isChallenger ? m.opponent : m.challenger;
+
+                return {
+                    id: m.id,
+                    type: 'CHALLENGE',
+                    tournamentName: m.isFightForTable ? 'Fight for Table' : 'Pit Match',
+                    isWinner: m.winnerId === memberId,
+                    myScore: m.winnerId === memberId ? 1 : 0,
+                    opponentScore: m.winnerId !== memberId ? 1 : 0,
+                    opponentName: opp?.name || 'Unknown Player',
+                    opponentPhoto: opp?.photo,
+                    date: m.updatedAt
+                }
+            });
+
+            const allMatches = [...normalizedT, ...normalizedA, ...normalizedC]
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             res.json({ success: true, data: allMatches });
@@ -434,35 +831,10 @@ export class PlayerController {
             const { memberId, rewardId } = req.body;
             if (!memberId || !rewardId) return res.status(400).json({ success: false, message: 'MemberId and RewardId are required' });
 
-            const result = await prisma.$transaction(async (tx) => {
-                const member = await tx.member.findUnique({ where: { id: memberId } });
-                const reward = await tx.reward.findUnique({ where: { id: rewardId } });
+            const { LoyaltyService } = await import('../loyalty/loyalty.service');
+            const result = await LoyaltyService.redeem(memberId, rewardId);
 
-                if (!member || !reward) throw new Error('Member or Reward not found');
-                if (member.loyaltyPoints < reward.pointsRequired) throw new Error('Not enough points');
-                if (reward.stock <= 0) throw new Error('Reward out of stock');
-
-                // Deduct points
-                const updatedMember = await tx.member.update({
-                    where: { id: memberId },
-                    data: { loyaltyPoints: member.loyaltyPoints - reward.pointsRequired }
-                });
-
-                // Deduct stock
-                await tx.reward.update({
-                    where: { id: rewardId },
-                    data: { stock: reward.stock - 1 }
-                });
-
-                // Create redemption record
-                const redemption = await tx.redemption.create({
-                    data: { memberId, rewardId }
-                });
-
-                return { updatedMember, redemption };
-            });
-
-            res.json({ success: true, data: result.updatedMember, message: 'Reward redeemed successfully' });
+            res.json({ success: true, data: result.updatedMember, message: 'Reward redeemed successfully!' });
         } catch (error: any) {
             res.status(400).json({ success: false, message: error.message });
         }
@@ -494,6 +866,146 @@ export class PlayerController {
 
     static async getAvailability(req: Request, res: Response, next: NextFunction) {
         try {
+            const { date } = req.query; // Expecting YYYY-MM-DD
+            const targetDate = date ? new Date(date as string) : new Date();
+            targetDate.setHours(0, 0, 0, 0);
+            
+            const nextDay = new Date(targetDate);
+            nextDay.setDate(targetDate.getDate() + 1);
+
+            // Fetch tables that are playable
+            const tables = await prisma.table.findMany({
+                where: {
+                    status: { not: 'MAINTENANCE' },
+                    deletedAt: null
+                }
+            });
+
+            // Fetch active sessions (ongoing now)
+            const activeSessions = await prisma.session.findMany({
+                where: {
+                    status: 'ACTIVE',
+                    deletedAt: null
+                },
+                include: { table: true }
+            });
+
+            // Fetch confirmed bookings for target date
+            const bookings = await prisma.waitlist.findMany({
+                where: {
+                    status: { in: ['WAITING', 'CONFIRMED'] },
+                    reservedTime: {
+                        gte: targetDate,
+                        lt: nextDay
+                    },
+                    deletedAt: null
+                },
+                include: { table: true }
+            });
+
+            const TIME_SLOTS = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:30", "21:00", "22:30", "00:00"];
+            const tableTypes = ['REGULAR', 'VIP', 'VVIP'];
+
+            const availabilityBySlot: Record<string, any> = {};
+
+            tableTypes.forEach(type => {
+                const typeTables = tables.filter(t => t.type === type);
+                const totalOfThisType = typeTables.length;
+
+                const slots: Record<string, any> = {};
+                
+                TIME_SLOTS.forEach(slot => {
+                    const [h, m] = slot.split(':').map(Number);
+                    const slotStart = new Date(targetDate);
+                    slotStart.setHours(h, m, 0, 0);
+                    
+                    // Assume each slot is 90 mins for checking overlap
+                    const slotEnd = new Date(slotStart.getTime() + 90 * 60000);
+
+                    let occupiedCount = 0;
+
+                    // 1. Check Active Sessions overlap with this slot
+                    activeSessions.forEach(s => {
+                        if (s.table?.type !== type) return;
+
+                        const sStart = new Date(s.startTime);
+                        let sEnd = s.endTime ? new Date(s.endTime) : null;
+                        
+                        // If end time not set but duration is, calculate it
+                        if (!sEnd && s.durationOpts) {
+                            sEnd = new Date(sStart.getTime() + s.durationOpts * 60000);
+                        }
+
+                        // If it's open time (no end), and we are checking today, 
+                        // we assume it occupies the slot if sStart <= slotStart or overlap exists
+                        const isOccupied = sEnd 
+                            ? (slotStart < sEnd && slotEnd > sStart)
+                            : (slotEnd > sStart); // Open time assumes occupied from start onwards
+                        
+                        if (isOccupied) occupiedCount++;
+                    });
+
+                    // 2. Check Bookings overlap with this slot
+                    bookings.forEach(b => {
+                        // Check either table specific booking or table type area booking
+                        const isSameType = (b.tableType === type) || (b.table?.type === type);
+                        if (!isSameType || !b.reservedTime) return;
+
+                        const bStart = new Date(b.reservedTime);
+                        const bEnd = new Date(bStart.getTime() + (b.durationMinutes || 60) * 60000);
+
+                        if (slotStart < bEnd && slotEnd > bStart) {
+                            occupiedCount++;
+                        }
+                    });
+
+                    slots[slot] = {
+                        available: Math.max(0, totalOfThisType - occupiedCount),
+                        isFull: occupiedCount >= totalOfThisType,
+                        occupied: occupiedCount,
+                        total: totalOfThisType
+                    };
+                });
+
+                availabilityBySlot[type] = {
+                    total: totalOfThisType,
+                    slots
+                };
+            });
+
+            // Legacy support for basic available count (summary)
+            const summary = tableTypes.map(type => {
+                const typeTables = tables.filter(t => t.type === type);
+                const activeOnType = activeSessions.filter(s => s.table?.type === type).length;
+                
+                let nextFreeAt = new Date();
+                if (activeOnType >= typeTables.length && typeTables.length > 0) {
+                    // Estimate soonest free time from active sessions
+                    const ends = activeSessions
+                        .filter(s => s.table?.type === type)
+                        .map(s => {
+                            const start = new Date(s.startTime);
+                            return s.endTime ? new Date(s.endTime).getTime() : (start.getTime() + (s.durationOpts || 60) * 60000);
+                        });
+                    nextFreeAt = new Date(Math.min(...ends));
+                }
+
+                return {
+                    type,
+                    total: typeTables.length,
+                    available: Math.max(0, typeTables.length - activeOnType),
+                    nextFreeAt,
+                    slots: availabilityBySlot[type].slots
+                };
+            });
+
+            res.json({ success: true, data: summary });
+        } catch (error) { next(error); }
+    }
+
+
+    static async getTables(req: Request, res: Response, next: NextFunction) {
+        try {
             const tables = await prisma.table.findMany({
                 where: {
                     status: { not: 'MAINTENANCE' },
@@ -502,71 +1014,49 @@ export class PlayerController {
                 include: {
                     sessions: {
                         where: { status: 'ACTIVE' },
-                        select: { id: true, startTime: true, durationOpts: true }
+                        include: {
+                            member: { select: { name: true, photo: true, level: true, handicap: true } }
+                        }
+                    },
+                    kingStatus: {
+                        include: { king: true }
                     }
-                }
-            });
-
-            const availability = tables.map(t => {
-                const activeSession = t.sessions[0];
-                let freeAt = new Date();
-
-                if (activeSession) {
-                    const start = new Date(activeSession.startTime);
-                    const durationMs = (activeSession.durationOpts || 0) * 60000;
-                    if (durationMs > 0) {
-                        freeAt = new Date(start.getTime() + durationMs);
-                    } else {
-                        // Open-ended, assume occupied for a while
-                        freeAt = new Date(Date.now() + 60 * 60000);
-                    }
-                }
-
-                return {
-                    tableId: t.id,
-                    tableName: t.name,
-                    tableType: t.type,
-                    status: activeSession ? 'OCCUPIED' : 'AVAILABLE',
-                    freeAt: freeAt
-                };
-            });
-
-            const types = ['REGULAR', 'VIP', 'VVIP'];
-            const grouped = types.map(type => {
-                const typeTables = availability.filter(a => a.tableType === type);
-                const availableTables = typeTables.filter(a => a.status === 'AVAILABLE');
-
-                let nextFreeAt = new Date();
-                if (typeTables.length > 0 && availableTables.length === 0) {
-                    nextFreeAt = new Date(Math.min(...typeTables.map(a => a.freeAt.getTime())));
-                }
-
-                return {
-                    type,
-                    total: typeTables.length,
-                    available: availableTables.length,
-                    nextFreeAt
-                };
-            });
-
-            res.json({ success: true, data: grouped });
-        } catch (error) { next(error); }
-    }
-
-    static async getTables(req: Request, res: Response, next: NextFunction) {
-        try {
-            // "Privacy" requirement: only show tables that are not MAINTENANCE and not deleted
-            // and potentially only those marked for public view (though we don't have that flag yet, MAINTENANCE is a good proxy)
-            const tables = await prisma.table.findMany({
-                where: {
-                    status: { not: 'MAINTENANCE' },
-                    deletedAt: null
                 },
                 orderBy: { name: 'asc' }
             });
-            res.json({ success: true, data: tables });
+
+            const result = tables.map(t => {
+                const activeSession = t.sessions[0];
+                const king = t.kingStatus;
+
+                return {
+                    id: t.id,
+                    name: t.name,
+                    type: t.type,
+                    status: activeSession ? 'PLAYING' : t.status,
+                    isKingTable: t.isKingTable,
+                    kingInfo: king ? {
+                        name: king.king.name,
+                        avatar: king.king.photo,
+                        streak: king.streak
+                    } : null,
+                    session: activeSession ? {
+                        id: activeSession.id,
+                        startTime: activeSession.startTime,
+                        endTime: activeSession.endTime,
+                        durationMinutes: activeSession.durationOpts,
+                        customerName: activeSession.customerName || activeSession.member?.name || 'Guest',
+                        memberPhoto: activeSession.member?.photo,
+                        memberLevel: activeSession.member?.level,
+                        memberHandicap: activeSession.member?.handicap
+                    } : null
+                };
+            });
+
+            res.json({ success: true, data: result });
         } catch (error) { next(error); }
     }
+
 
     static async createBooking(req: Request, res: Response, next: NextFunction) {
         try {
@@ -575,6 +1065,18 @@ export class PlayerController {
 
             const member = await prisma.member.findUnique({ where: { id: memberId } });
             if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
+
+            // ANTI-SPAM: 1 Booking constraint
+            const activeBooking = await prisma.waitlist.findFirst({
+                where: {
+                    memberId,
+                    status: { in: ['WAITING', 'CONFIRMED'] },
+                    deletedAt: null
+                }
+            });
+            if (activeBooking) {
+                return res.status(400).json({ success: false, message: 'You already have an active booking waiting. Please wait for the cashier to process your previous booking.' });
+            }
 
             // DYNAMIC POINT DEDUCTION LOGIC
             let cost = 0;
@@ -635,6 +1137,9 @@ export class PlayerController {
                 }
             }
 
+            const { getIO } = await import('../../socket');
+            getIO().emit('waitlist:updated');
+
             res.json({ success: true, data: result.booking, waSent, message: 'Booking created successfully' });
         } catch (error) { next(error); }
     }
@@ -653,6 +1158,7 @@ export class PlayerController {
 
             if (photo) {
                 member = await MemberService.updateMember(memberId, { photo });
+                await MemberService.checkAndAwardVerificationReward(memberId);
             }
 
             if (!identityStatus && !photo) {
@@ -701,6 +1207,9 @@ export class PlayerController {
                 );
                 results.push(order);
             }
+
+            const { getIO } = await import('../../socket');
+            getIO().emit('orders:updated');
 
             res.json({ success: true, data: results, message: 'F&B Order Transmitted!' });
         } catch (error) { next(error); }
@@ -789,6 +1298,15 @@ export class PlayerController {
                 .slice(0, 5);
 
             res.json({ success: true, data: sortedStats });
+        } catch (error) { next(error); }
+    }
+    static async getVenues(req: Request, res: Response, next: NextFunction) {
+        try {
+            const venues = await prisma.venue.findMany({
+                where: { deletedAt: null },
+                select: { id: true, name: true, address: true }
+            });
+            res.json({ success: true, data: venues });
         } catch (error) { next(error); }
     }
 }

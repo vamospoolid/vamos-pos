@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { TournamentService } from './tournament.service';
 import { catchAsync } from '../../utils/catchAsync';
+import { getIO } from '../../socket';
 
 export const createTournament = catchAsync(async (req: Request, res: Response) => {
     const tournament = await TournamentService.createTournament(req.body);
+    getIO().emit('tournaments:updated');
     res.status(201).json({ success: true, data: tournament });
 });
 
@@ -19,10 +21,18 @@ export const getTournamentById = catchAsync(async (req: Request, res: Response) 
     else res.json({ success: true, data: tournament });
 });
 
+export const updateTournament = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const tournament = await TournamentService.updateTournament(id, req.body);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: tournament });
+});
+
 export const registerParticipant = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { memberId, name, handicap } = req.body;
     const pt = await TournamentService.registerParticipant(id, memberId, name, handicap);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: pt });
 });
 
@@ -30,35 +40,62 @@ export const updateParticipantStatus = catchAsync(async (req: Request, res: Resp
     const { id, participantId } = req.params;
     const { paymentStatus } = req.body;
     const pt = await TournamentService.updateParticipantStatus(id, participantId, paymentStatus);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: pt });
 });
 
 export const generateBracket = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const br = await TournamentService.generateBracket(id);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: br });
 });
 
 export const updateMatchResult = catchAsync(async (req: Request, res: Response) => {
     const { matchId } = req.params;
     const dt = await TournamentService.updateMatchResult(matchId, req.body);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
 export const updateMatchPlayers = catchAsync(async (req: Request, res: Response) => {
     const { matchId } = req.params;
     const dt = await TournamentService.updateMatchPlayers(matchId, req.body);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
 export const finishTournament = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const dt = await TournamentService.finishTournament(id, req.body);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
 export const deleteTournament = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const dt = await TournamentService.deleteTournament(id);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: dt });
+});
+
+export const resetBracket = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const dt = await TournamentService.resetBracket(id);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: dt });
+});
+
+export const removeParticipant = catchAsync(async (req: Request, res: Response) => {
+    const { id, participantId } = req.params;
+    const dt = await TournamentService.removeParticipant(id, participantId);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: dt });
+});
+
+export const purgeParticipants = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const dt = await TournamentService.purgeParticipants(id);
+    getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });

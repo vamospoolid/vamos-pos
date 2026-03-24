@@ -17,6 +17,19 @@ body {
   box-sizing: border-box;
 }
 
+/* Base Scaling for Small Laptops (12-inch) */
+@media (max-width: 1366px), (max-height: 800px) {
+  html {
+    font-size: 14px; /* Slightly smaller base font */
+  }
+}
+
+@media (max-width: 1024px) {
+  html {
+    font-size: 13px;
+  }
+}
+
 /* Base Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -60,6 +73,31 @@ body {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 24px;
+}
+
+/* Layout Compacting Utilities */
+@media (max-width: 1366px), (max-height: 800px) {
+  .p-8 { padding: 1.25rem !important; }
+  .p-6 { padding: 1rem !important; }
+  .gap-8 { gap: 1.25rem !important; }
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+  .mt-12 { margin-top: 1.5rem !important; }
+  .mb-8 { margin-bottom: 1.25rem !important; }
+  
+  /* Modal adjustments for small height */
+  .max-w-md, .max-w-lg {
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (max-height: 720px) {
+  html {
+    font-size: 13px;
+  }
+  .p-8 { padding: 1rem !important; }
+  .p-6 { padding: 0.75rem !important; }
 }
 
 .fade-in {
@@ -117,5 +155,20 @@ button {
   /* Hide print preview UI buttons from print */
   #printable-receipt .no-print {
     display: none !important;
+  }
+}
+.glow-logo {
+  filter: drop-shadow(0 0 10px rgba(0, 255, 102, 0.8));
+  animation: logo-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes logo-glow {
+  from {
+    filter: drop-shadow(0 0 5px rgba(0, 255, 102, 0.4));
+    transform: scale(1);
+  }
+  to {
+    filter: drop-shadow(0 0 15px rgba(0, 255, 102, 1));
+    transform: scale(1.05);
   }
 }

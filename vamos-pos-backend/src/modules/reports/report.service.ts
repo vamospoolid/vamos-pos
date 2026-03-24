@@ -119,18 +119,27 @@ export class ReportService {
         }
 
         for (const { start, end, label } of datesToProcess) {
-            // Sessions that ENDED within this operational window and were paid
-            const sessions = await prisma.session.findMany({
+            // Find ALL successful payments within this operational window
+            const payments = await prisma.payment.findMany({
                 where: {
-                    endTime: { gte: start, lte: end },
-                    status: 'PAID'
+                    createdAt: { gte: start, lte: end },
+                    status: 'SUCCESS'
+                },
+                include: {
+                    session: {
+                        include: {
+                            table: true
+                        }
+                    }
                 }
             });
 
-            // Expenses logged within this operational window
+            // Expenses (EXCLUDING DEBT trackers)
             const expenses = await prisma.expense.findMany({
                 where: {
-                    date: { gte: start, lte: end }
+                    date: { gte: start, lte: end },
+                    isDebt: false,
+                    deletedAt: null
                 }
             });
 
@@ -142,13 +151,29 @@ export class ReportService {
 
             let qrisRevenue = 0;
             let qrisCount = 0;
-            sessions.forEach(s => {
-                tableRevenue += s.tableAmount || 0;
-                fnbRevenue += s.fnbAmount || 0;
-                totalRevenue += s.totalAmount || 0;
-                if ((s as any).paymentMethod === 'QRIS') {
-                    qrisRevenue += s.totalAmount || 0;
+            
+            payments.forEach(p => {
+                totalRevenue += p.amount;
+                if (p.method === 'QRIS') {
+                    qrisRevenue += p.amount;
                     qrisCount++;
+                }
+
+                if (p.session) {
+                    const sessionRec = p.session as any;
+                    // Proportional split for table vs fnb revenue based on the final paid amount
+                    const sessionTotalRaw = (sessionRec.tableAmount || 0) + (sessionRec.fnbAmount || 0) + (sessionRec.taxAmount || 0) + (sessionRec.serviceAmount || 0);
+                    
+                    if (sessionTotalRaw > 0) {
+                        const tableRatio = (sessionRec.tableAmount || 0) / sessionTotalRaw;
+                        tableRevenue += p.amount * tableRatio;
+                        fnbRevenue += p.amount * (1 - tableRatio); // The rest belongs to FNB, tax, and service
+                    } else {
+                        // If no session totals, it might be a direct payment for an expense or generic
+                        fnbRevenue += p.amount;
+                    }
+                } else {
+                    fnbRevenue += p.amount;
                 }
             });
 
@@ -169,7 +194,7 @@ export class ReportService {
                 totalExpenses,
                 expenseDistribution,
                 netRevenue: totalRevenue - totalExpenses,
-                sessionCount: sessions.length
+                sessionCount: payments.length
             });
         }
         return result;
@@ -179,11 +204,12 @@ export class ReportService {
     static async getCurrentOperationalDayRevenue() {
         const { start, end, label } = ReportService.getOperationalDayBounds(0);
 
-        const sessions = await prisma.session.findMany({
+        const payments = await prisma.payment.findMany({
             where: {
-                endTime: { gte: start, lte: end },
-                status: 'PAID'
-            }
+                createdAt: { gte: start, lte: end },
+                status: 'SUCCESS'
+            },
+            include: { session: true }
         });
 
         // Also include still-active sessions (estimate based on table rate)
@@ -195,7 +221,10 @@ export class ReportService {
         });
 
         const expenses = await prisma.expense.findMany({
-            where: { date: { gte: start, lte: end } }
+            where: { 
+                date: { gte: start, lte: end },
+                isDebt: false
+            }
         });
 
         let revenue = 0;
@@ -203,15 +232,30 @@ export class ReportService {
         let tableRevenue = 0;
         let totalExpenses = 0;
         let qrisRevenue = 0;
+        let cardRevenue = 0;
         let qrisCount = 0;
 
-        sessions.forEach(s => {
-            revenue += s.totalAmount || 0;
-            fnbRevenue += s.fnbAmount || 0;
-            tableRevenue += s.tableAmount || 0;
-            if ((s as any).paymentMethod === 'QRIS') {
-                qrisRevenue += s.totalAmount || 0;
+        payments.forEach(p => {
+            revenue += p.amount || 0;
+            if (p.method === 'QRIS') {
+                qrisRevenue += p.amount || 0;
                 qrisCount++;
+            } else if (p.method === 'CARD') {
+                cardRevenue += p.amount || 0;
+            }
+
+            if (p.session) {
+                const sessionRec = p.session as any;
+                const sessionTotalRaw = (sessionRec.tableAmount || 0) + (sessionRec.fnbAmount || 0) + (sessionRec.taxAmount || 0) + (sessionRec.serviceAmount || 0);
+                if (sessionTotalRaw > 0) {
+                    const tableRatio = (sessionRec.tableAmount || 0) / sessionTotalRaw;
+                    tableRevenue += p.amount * tableRatio;
+                    fnbRevenue += p.amount * (1 - tableRatio);
+                } else {
+                    fnbRevenue += p.amount;
+                }
+            } else {
+                fnbRevenue += p.amount;
             }
         });
 
@@ -227,10 +271,12 @@ export class ReportService {
             tableRevenue,
             fnbRevenue,
             qrisRevenue,
+            cardRevenue,
             qrisCount,
             totalExpenses,
+            cashRevenue: revenue - qrisRevenue - cardRevenue - totalExpenses, // Total Fisik di Laci = (Omzet - QRIS - CARD) - Pengeluaran
             netRevenue: revenue - totalExpenses,
-            sessionCount: sessions.length,
+            sessionCount: payments.length,
             activeSessions: activeSessions.length,
             minutesSinceOpen: opensSince,
             openHour: ReportService.OPEN_HOUR
@@ -386,37 +432,57 @@ export class ReportService {
     }
 
     static async getTransactionList(days = 1, startDateStr?: string, endDateStr?: string) {
-        let dateFilter: any = {};
+        let gteDate: Date;
+        let lteDate: Date | undefined;
 
         if (startDateStr && endDateStr) {
-            const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0);
+            gteDate = new Date(startDateStr);
+            gteDate.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+            
             const endDate = new Date(endDateStr);
-            endDate.setHours(23, 59, 59, 999);
-            dateFilter = { endTime: { gte: startDate, lte: endDate } };
+            endDate.setDate(endDate.getDate() + 1);
+            endDate.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+            endDate.setMilliseconds(endDate.getMilliseconds() - 1);
+            lteDate = endDate;
         } else {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - (days - 1));
-            startDate.setHours(0, 0, 0, 0);
-            dateFilter = { endTime: { gte: startDate } };
+            const { start } = ReportService.getOperationalDayBounds(days - 1);
+            gteDate = start;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sessions = await (prisma as any).session.findMany({
+        const payments = await prisma.payment.findMany({
             where: {
-                status: 'PAID',
-                ...dateFilter
+                status: 'SUCCESS',
+                createdAt: lteDate ? { gte: gteDate, lte: lteDate } : { gte: gteDate }
             },
             include: {
-                member: true,
-                table: true,
-                orders: { include: { product: true } },
-                package: true
+                session: {
+                    include: {
+                        member: true,
+                        table: true,
+                        orders: { include: { product: true } },
+                        package: true
+                    }
+                }
             },
-            orderBy: { endTime: 'desc' }
-        }) as any[];
+            orderBy: { createdAt: 'desc' }
+        });
 
-        return sessions.map((s: any) => {
+        return payments.map((p: any) => {
+            const s = p.session;
+            if (!s) {
+                // Return a simplified payment record if not linked to a session
+                return {
+                    id: p.id,
+                    date: p.createdAt.toISOString(),
+                    memberName: 'Debt Payment / Custom',
+                    totalAmount: p.amount,
+                    paymentMethod: p.method,
+                    tableName: '-',
+                    orderSummary: {}
+                };
+            }
+            
             const durationMinutes = s.startTime && s.endTime
                 ? Math.round((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000)
                 : s.durationOpts || 0;
@@ -428,8 +494,9 @@ export class ReportService {
             }, {});
 
             return {
-                id: s.id,
-                date: s.endTime ? new Date(s.endTime).toISOString() : (s.startTime ? new Date(s.startTime).toISOString() : null),
+                id: p.id,
+                sessionId: s.id,
+                date: p.createdAt.toISOString(),
                 startTime: s.startTime ? new Date(s.startTime).toISOString() : null,
                 endTime: s.endTime ? new Date(s.endTime).toISOString() : null,
                 memberName: s.member?.name || s.customerName || 'Walk-in Guest',
@@ -440,8 +507,8 @@ export class ReportService {
                 packageName: s.package?.name || null,
                 tableAmount: s.tableAmount || 0,
                 fnbAmount: s.fnbAmount || 0,
-                totalAmount: s.totalAmount || 0,
-                paymentMethod: (s as any).paymentMethod || 'CASH',
+                totalAmount: p.amount, // Real amount paid
+                paymentMethod: p.method,
                 orderSummary,
                 ordersCount: (s.orders || []).length,
             };

@@ -1,51 +1,36 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @theme {
   --color-primary: #3b82f6;
   --color-secondary: #101423;
   --color-accent: #a855f7;
-  --color-surface: #101423;
-  --color-surface-highlight: #1a1f35;
+  --color-surface: #1a1f35;
+  --color-surface-highlight: #252b45;
+  --font-display: "Inter", sans-serif;
 }
 
 :root {
-  --primary: #3b82f6;
-  --primary-glow: rgba(59, 130, 246, 0.4);
-  --accent: #a855f7;
-  --surface: #101423;
-  --surface-light: #1a1f35;
-  --surface-highlight: #252b45;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  -webkit-tap-highlight-color: transparent;
+  --bg-dark: #101423;
+  --surface-dark: #121212;
+  --surface-lighter: #1C1C1E;
+  --primary-color: #3b82f6;
+  --accent-color: #a855f7;
+  --text-muted: #8E8E93;
 }
 
 body {
-  background-color: var(--surface);
+  background-color: var(--bg-dark);
   color: #ffffff;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── DESIGN SYSTEM ──────────────────────────── */
-
+/* Fiery UI Tokens */
 .fiery-card {
   background: linear-gradient(145deg, #1d233d 0%, #151a2e 100%);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 28px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
 }
 
 .fiery-card-highlight {
@@ -55,7 +40,21 @@ body {
 }
 
 .fiery-glow {
-  box-shadow: 0 0 30px var(--primary-glow);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.fiery-nav {
+  background: rgba(26, 31, 53, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
+}
+
+.glass-card {
+  background: rgba(26, 31, 53, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
 }
 
 .fiery-btn-primary {
@@ -64,15 +63,9 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 14px 24px;
   border-radius: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fiery-btn-primary:hover {
@@ -80,37 +73,17 @@ body {
   box-shadow: 0 8px 30px rgba(37, 99, 235, 0.5);
 }
 
-.fiery-btn-primary:active {
-  transform: scale(0.97);
-}
-
 .fiery-btn-secondary {
   background: rgba(255, 255, 255, 0.05);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   transition: all 0.2s;
 }
 
-.fiery-input {
-  background: rgba(37, 43, 69, 0.5) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  border-radius: 18px !important;
-  color: white !important;
-  padding: 14px 18px !important;
-  font-weight: 600 !important;
-  transition: all 0.2s ease !important;
-  font-size: 16px !important;
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
-.fiery-input:focus {
-  border-color: rgba(59, 130, 246, 0.4) !important;
-  background: rgba(37, 43, 69, 0.8) !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-  outline: none !important;
-}
-
-/* ─── ANIMATIONS ─────────────────────────────── */
 
 @keyframes fadeIn {
   from {
@@ -124,12 +97,8 @@ body {
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes scaleIn {
@@ -144,12 +113,6 @@ body {
   }
 }
 
-.scale-in {
-  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* ─── UTILITIES ──────────────────────────────── */
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -159,8 +122,37 @@ body {
   scrollbar-width: none;
 }
 
-.glass-panel {
-  background: rgba(16, 20, 35, 0.8);
-  backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+/* QR Scanner Styling */
+#reader {
+  border: none !important;
+}
+
+#reader video {
+  border-radius: 24px !important;
+}
+
+#reader__dashboard_section_csr button {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-radius: 16px !important;
+  padding: 10px 20px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  border: none !important;
+  cursor: pointer;
+}
+.glow-logo {
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8));
+  animation: logo-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes logo-glow {
+  from {
+    filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));
+    transform: scale(1);
+  }
+  to {
+    filter: drop-shadow(0 0 15px rgba(59, 130, 246, 1));
+    transform: scale(1.05);
+  }
 }

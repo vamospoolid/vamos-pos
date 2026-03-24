@@ -3,7 +3,7 @@ import { AppError } from '../../utils/errors';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
 export class MemberService {
-    static async createMember(data: { name: string; phone: string; photo?: string }) {
+    static async createMember(data: { name: string; phone: string; photo?: string; handicap?: string; handicapLabel?: string }) {
         const existingMember = await prisma.member.findUnique({
             where: { phone: data.phone }
         });
@@ -15,6 +15,18 @@ export class MemberService {
         const newMember = await prisma.member.create({
             data
         });
+
+        // Award 50 bonus points for registration
+        try {
+            await LoyaltyService.addPoints(
+                newMember.id,
+                50,
+                'EARN_BONUS',
+                '🎁 Bonus Pendaftaran Member Baru'
+            );
+        } catch (error) {
+            console.error('Failed to award registration points:', error);
+        }
 
         // WhatsApp Welcome Message
         if (newMember.phone) {
@@ -86,7 +98,7 @@ export class MemberService {
         return member;
     }
 
-    static async updateMember(id: string, data: { name?: string; phone?: string; photo?: string }) {
+    static async updateMember(id: string, data: { name?: string; phone?: string; photo?: string; handicap?: string; handicapLabel?: string }) {
         const member = await prisma.member.findFirst({ where: { id, deletedAt: null } });
         if (!member) {
             throw new AppError('Member not found', 404);
@@ -163,11 +175,40 @@ export class MemberService {
         const member = await prisma.member.findUnique({ where: { id: memberId } });
         if (!member) return;
 
+        const m = member as any;
+        const now = new Date();
+
+        // Month transition check
+        const lastUpdated = member.updatedAt ? new Date(member.updatedAt) : new Date();
+        const isNewMonth = now.getMonth() !== lastUpdated.getMonth() || now.getFullYear() !== lastUpdated.getFullYear();
+
+        let currentHours = m.currentMonthPlayHours || 0;
+        let lastHours = m.lastMonthPlayHours || 0;
+
+        if (isNewMonth) {
+            lastHours = currentHours;
+            currentHours = 0;
+        }
+
         await prisma.member.update({
             where: { id: memberId },
             data: {
-                totalPlayHours: member.totalPlayHours + hoursPlayed
-            }
+                totalPlayHours: member.totalPlayHours + hoursPlayed,
+                currentMonthPlayHours: currentHours + hoursPlayed,
+                lastMonthPlayHours: lastHours
+            } as any
+        });
+    }
+
+    static async updateSpend(memberId: string, amount: number) {
+        const member = await prisma.member.findUnique({ where: { id: memberId } }) as any;
+        if (!member) return;
+
+        await prisma.member.update({
+            where: { id: memberId },
+            data: {
+                totalSpend: (member.totalSpend || 0) + amount
+            } as any
         });
     }
 
@@ -216,18 +257,18 @@ export class MemberService {
         return member;
     }
 
-    private static async checkAndAwardVerificationReward(memberId: string) {
+    static async checkAndAwardVerificationReward(memberId: string) {
         const member = await prisma.member.findUnique({
             where: { id: memberId }
         });
 
         if (!member) return;
 
-        if (member.isWaVerified && member.isPhotoVerified && !member.isVerificationRewardClaimed) {
-            // Award 35,000 points
+        if (member.isWaVerified && (member.isPhotoVerified || member.photo) && !member.isVerificationRewardClaimed) {
+            // Award 50 points (Adjusted from 35,000 to be more realistic)
             await LoyaltyService.addPoints(
                 memberId,
-                35000,
+                50,
                 'EARN_BONUS',
                 '🎁 Reward Verifikasi WhatsApp & Foto'
             );

@@ -5,7 +5,8 @@ import {
     getRewards, createReward, updateReward, deleteReward,
     toggleDoublePoint, getLoyaltyConfig, updateLoyaltyConfig,
     getLeaderboard, getMonthlyReport, awardPointsManual,
-    getRedemptions, updateRedemptionStatus,
+    getRedemptions, getPointLogs, updateRedemptionStatus, getPendingRedemptionCount,
+    runPointExpiry,
 } from './loyalty.controller';
 
 const router = Router();
@@ -29,6 +30,9 @@ router.patch('/admin/double-point-toggle', toggleDoublePoint);
 router.post('/admin/award-points', awardPointsManual);
 router.get('/admin/report', getMonthlyReport);
 router.get('/admin/redemptions', getRedemptions);
+router.get('/admin/redemptions/pending-count', getPendingRedemptionCount);
+router.get('/admin/logs', getPointLogs);
+router.post('/admin/run-expiry', runPointExpiry);
 router.patch('/admin/redemptions/:id', updateRedemptionStatus);
 
 // Reward management

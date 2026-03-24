@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    TrendingUp, Trophy,
-    ArrowRight, Clock, Activity, Shield, ChevronRight, Zap, BarChart3
+    Clock, Zap, BarChart3, Users, Receipt
 } from 'lucide-react';
 import { sessionsApi, reportsApi, membersApi, tournamentsApi } from '../services/api';
 
@@ -13,14 +12,19 @@ interface ActiveSession {
     status: string;
 }
 
+interface Transaction {
+    customer: string;
+    amount: number;
+    method: string;
+    date: string;
+}
+
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
-    const user = JSON.parse(localStorage.getItem('user') ?? '{}') as { name?: string };
-
     const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+    const [liveTransactions, setLiveTransactions] = useState<Transaction[]>([]);
     const [todayRevenue, setTodayRevenue] = useState<number>(0);
     const [todayExpenses, setTodayExpenses] = useState<number>(0);
-    const [todayHours, setTodayHours] = useState<number>(0);
     const [memberCount, setMemberCount] = useState<number>(0);
     const [activeTournaments, setActiveTournaments] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -28,48 +32,42 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [sessRes, revRes, playersRes, eventsRes, expRes, utilRes] = await Promise.allSettled([
+                const params = { startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] };
+                const [sessRes, revRes, playersRes, eventsRes, expRes, txRes] = await Promise.allSettled([
                     sessionsApi.getActive(),
                     reportsApi.dailyRevenue({ days: 1 }),
                     membersApi.getAll(),
                     tournamentsApi.getAll(),
                     reportsApi.getExpenses({ days: 1 }),
-                    reportsApi.tableUtilization({ days: 1 }),
+                    reportsApi.transactions(params)
                 ]);
 
                 if (sessRes.status === 'fulfilled') setActiveSessions(sessRes.value.data as ActiveSession[]);
-
-                if (revRes.status === 'fulfilled') {
-                    const res = revRes.value.data as any;
-                    if (res.success && res.data && res.data.length > 0) {
-                        setTodayRevenue(res.data[0].totalRevenue || 0);
+                if (txRes.status === 'fulfilled') {
+                    const res = txRes.value.data as any;
+                    if (res.success && Array.isArray(res.data)) {
+                        setLiveTransactions(res.data.map((t: any) => ({
+                            customer: t.memberName || 'Walk-in',
+                            amount: t.totalAmount,
+                            method: t.paymentMethod,
+                            date: t.endTime || t.createdAt
+                        })));
                     }
                 }
-
+                if (revRes.status === 'fulfilled') {
+                    const res = revRes.value.data as any;
+                    if (res.success && res.data && res.data.length > 0) setTodayRevenue(res.data[0].totalRevenue || 0);
+                }
                 if (expRes.status === 'fulfilled') {
                     const res = expRes.value.data as any;
                     const data = res.data || res;
-                    if (Array.isArray(data)) {
-                        const total = data.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-                        setTodayExpenses(total);
-                    }
+                    if (Array.isArray(data)) setTodayExpenses(data.reduce((sum: number, e: any) => sum + (e.amount || 0), 0));
                 }
-
-                if (utilRes.status === 'fulfilled') {
-                    const res = utilRes.value.data as any;
-                    const data = res.data || res;
-                    if (Array.isArray(data)) {
-                        const hours = data.reduce((sum: number, t: any) => sum + (t.totalHours || 0), 0);
-                        setTodayHours(hours);
-                    }
-                }
-
                 if (playersRes.status === 'fulfilled') {
                     const res = playersRes.value.data as any;
                     const data = res.data || res;
                     if (Array.isArray(data)) setMemberCount(data.length);
                 }
-
                 if (eventsRes.status === 'fulfilled') {
                     const res = eventsRes.value.data as any;
                     const data = res.data || res;
@@ -94,145 +92,179 @@ const Dashboard: React.FC = () => {
         return `${val}`;
     };
 
-    const getElapsed = (startTime: string) => {
-        const ms = Date.now() - new Date(startTime).getTime();
-        const h = Math.floor(ms / 3_600_000);
-        const m = Math.floor((ms % 3_600_000) / 60_000);
-        return `${h}h ${m}m`;
-    };
-
     return (
-        <div className="fade-in space-y-6 pb-6">
+        <div className="fade-in space-y-8 pb-32">
+            {/* Identity Block matched to Player App */}
+            <div className="fiery-card p-8 mt-4 relative overflow-hidden">
+                <div className="absolute top-[-10%] right-[-10%] w-32 h-32 bg-primary/10 rounded-full blur-[40px]" />
 
-            {/* ── IDENTITY / WELCOME BLOCK ─────────── */}
-            <div className="fiery-card p-6 mt-2 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-[60px] pointer-events-none" />
-                <div className="relative z-10 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-6 relative z-10">
+                    <div className="relative">
+                        <div className="w-24 h-24 rounded-[32px] bg-secondary border-2 border-primary/20 p-1 flex items-center justify-center overflow-hidden shadow-2xl">
+                            <Zap className="w-12 h-12 text-primary animate-pulse" />
+                        </div>
+                    </div>
+
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-400 mb-1 leading-none">Good day,</p>
-                        <h1 className="text-3xl font-black text-white italic uppercase tracking-tight leading-tight truncate">
-                            {user.name?.split(' ')[0] || 'Admin'}
+                        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter truncate leading-tight">
+                            COMMAND
                         </h1>
-                        <div className="flex items-center gap-2 mt-3">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                            <span className="text-sm font-bold text-emerald-400 leading-none">System Online</span>
+                        <div className="flex items-center gap-2 mt-2">
+                            <div className="px-3 py-1 bg-[#252b45] rounded-full border border-white/5 flex items-center gap-1.5">
+                                <span className="text-[10px] font-black text-primary uppercase tracking-widest">MASTER</span>
+                            </div>
+                            <div className="px-3 py-1 bg-yellow-500/10 rounded-full border border-yellow-500/10 flex items-center gap-1.5">
+                                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">ADMIN</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none mb-1">Sessions</p>
-                        <p className="text-5xl font-black text-primary leading-none">{activeSessions.length}</p>
-                        <p className="text-xs font-bold text-slate-500 leading-none mt-1">Live Now</p>
+                </div>
+
+                <div className="mt-8">
+                    <div className="flex justify-between items-center mb-2.5 px-1">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Daily Yield Progress</p>
+                        <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">{loading ? '...' : fmt(todayRevenue)} / 10M</p>
+                    </div>
+                    <div className="h-3 w-full bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/5">
+                        <div
+                            className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-1000 fiery-glow"
+                            style={{ width: `${Math.min((todayRevenue / 10000000) * 100, 100)}%` }}
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* ── STATS ROW (2+2 grid) ─────────────── */}
-            <div className="grid grid-cols-2 gap-3">
-                {[
-                    { label: 'Revenue', value: fmt(todayRevenue), sub: 'Today', color: '#f43f5e', icon: TrendingUp },
-                    { label: 'Expenses', value: fmt(todayExpenses), sub: 'Today', color: '#9333ea', icon: BarChart3 },
-                    { label: 'Playtime', value: `${todayHours.toFixed(1)}h`, sub: 'Total', color: '#2b80ff', icon: Clock },
-                    { label: 'Members', value: `${memberCount}`, sub: 'Registered', color: '#10b981', icon: Activity },
-                ].map((s, i) => (
-                    <div
-                        key={i}
-                        className="fiery-card p-5 relative overflow-hidden"
-                    >
-                        <div className="absolute top-0 left-0 right-0 h-1 rounded-t-[28px]" style={{ background: s.color }} />
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3 bg-white/5">
-                            <s.icon size={18} style={{ color: s.color }} />
-                        </div>
-                        <p className="text-2xl font-black text-white tracking-tight leading-none mb-1">
-                            {loading ? '–' : s.value}
-                        </p>
-                        <p className="text-sm font-bold text-white leading-none">{s.label}</p>
-                        <p className="text-xs font-semibold text-slate-500 mt-0.5">{s.sub}</p>
+            {/* Quick Stats Grid like QUICK ACTIONS in Player App */}
+            <div className="grid grid-cols-2 gap-4">
+                <button
+                    onClick={() => navigate('/events')}
+                    className="fiery-card p-6 flex flex-col gap-4 hover:scale-[1.02] transition-all duration-300"
+                >
+                    <div className="w-12 h-12 rounded-2xl bg-[#a855f7]/10 flex items-center justify-center border border-[#a855f7]/20">
+                        <Clock className="w-6 h-6 text-[#a855f7]" />
                     </div>
-                ))}
-            </div>
+                    <div className="text-left">
+                        <p className="text-lg font-black text-white uppercase italic truncate">Events</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Live: {activeTournaments}</p>
+                    </div>
+                </button>
 
-            {/* ── LIVE SESSIONS ────────────────────── */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                    <h2 className="text-lg font-black text-white tracking-tight">Active Sessions</h2>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                        <span className="text-sm font-bold text-primary">{activeSessions.length} Live</span>
-                    </div>
-                </div>
-
-                {loading ? (
-                    [1, 2].map(i => <div key={i} className="h-20 rounded-[28px] bg-[#1a1f35] animate-pulse" />)
-                ) : activeSessions.length === 0 ? (
-                    <div className="fiery-card p-12 text-center border-2 border-dashed border-white/5">
-                        <Activity size={36} className="mx-auto mb-4 text-slate-800" />
-                        <p className="text-base font-bold text-slate-600">No active sessions right now</p>
-                    </div>
-                ) : (
-                    activeSessions.slice(0, 4).map((s) => (
-                        <div key={s.id} className="fiery-card p-4 flex items-center gap-4 border-l-4 border-l-primary">
-                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                                <Activity size={22} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-base font-black text-white uppercase tracking-tight truncate">{s.table?.name ?? 'Table'}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <p className="text-sm font-bold text-emerald-400">{getElapsed(s.startTime)}</p>
-                                </div>
-                            </div>
-                            <ChevronRight size={18} className="text-slate-600 flex-shrink-0" />
-                        </div>
-                    ))
-                )}
-            </div>
-
-            {/* ── QUICK ACTIONS ─────────────────────── */}
-            <div className="space-y-3">
-                <h2 className="text-lg font-black text-white tracking-tight px-1">Quick Actions</h2>
-                <div className="grid grid-cols-2 gap-3">
-                    {[
-                        { label: 'Reports', sub: 'View Analytics', icon: BarChart3, color: '#f59e0b', path: '/reports' },
-                        { label: 'Events', sub: `${activeTournaments} Active`, icon: Trophy, color: '#2b80ff', path: '/events' },
-                        { label: 'Players', sub: `${memberCount} Total`, icon: Activity, color: '#10b981', path: '/players' },
-                        { label: 'Bulletin', sub: 'Post Updates', icon: Shield, color: '#9333ea', path: '/announcements' },
-                    ].map((a, i) => (
-                        <button
-                            key={i}
-                            onClick={() => navigate(a.path)}
-                            className="fiery-card p-5 flex flex-col items-start gap-3 hover:bg-[#252b45] active:scale-[0.97] transition-all text-left"
-                        >
-                            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: `${a.color}18`, border: `1px solid ${a.color}30` }}>
-                                <a.icon size={22} style={{ color: a.color }} />
-                            </div>
-                            <div>
-                                <p className="text-base font-black text-white leading-none">{a.label}</p>
-                                <p className="text-xs font-semibold text-slate-500 mt-0.5">{a.sub}</p>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* ── SYSTEM STATUS ─────────────────────── */}
-            <div className="fiery-card p-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                        <Zap size={18} className="text-primary" fill="currentColor" />
-                    </div>
-                    <div>
-                        <p className="text-base font-black text-white">System Firewall Active</p>
-                        <p className="text-sm font-bold text-slate-500">{memberCount} Ops Connected</p>
-                    </div>
-                </div>
                 <button
                     onClick={() => navigate('/players')}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-black rounded-2xl shadow-[0_4px_15px_rgba(59,130,246,0.4)] active:scale-95 transition-all"
+                    className="fiery-card p-6 flex flex-col gap-4 hover:scale-[1.02] transition-all duration-300"
                 >
-                    View <ArrowRight size={16} strokeWidth={3} />
+                    <div className="w-12 h-12 rounded-2xl bg-[#00d084]/10 flex items-center justify-center border border-[#00d084]/20">
+                        <Users className="w-6 h-6 text-[#00d084]" />
+                    </div>
+                    <div className="text-left">
+                        <p className="text-lg font-black text-white uppercase italic truncate">Members</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total: {memberCount}</p>
+                    </div>
                 </button>
             </div>
 
+            {/* Live Status Banner alike Player App */}
+            {activeSessions.length > 0 && (
+                <button
+                    onClick={() => navigate('/events')}
+                    className="scale-in fiery-card-highlight p-6 flex items-center justify-between fiery-glow border border-primary/20 w-full"
+                >
+                    <div className="flex items-center gap-5">
+                        <div className="relative">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/30">
+                                <Zap className="w-6 h-6 text-primary animate-pulse" fill="currentColor" />
+                            </div>
+                            <div className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-[#101423] animate-ping" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1 italic">
+                                LIVE SESSIONS
+                            </p>
+                            <h4 className="text-lg font-black text-white uppercase italic truncate leading-tight">
+                                {activeSessions.length} TABLES BUSY
+                            </h4>
+                        </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center cursor-pointer transition-all">
+                        <span className="text-xs font-black text-primary">ACT</span>
+                    </div>
+                </button>
+            )}
+
+            {/* Loyalty Vault matched block for Revenue */}
+            <div className="fiery-card p-8 relative overflow-hidden">
+                <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-accent/5 rounded-full blur-[50px] pointer-events-none" />
+
+                <div className="flex justify-between items-start mb-6 px-1">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 italic">Gross Revenue</p>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-primary font-black text-lg italic uppercase">RP</span>
+                            <h2 className="text-5xl font-black text-white tracking-tighter italic">
+                                {loading ? '...' : (todayRevenue).toLocaleString('id-ID')}
+                            </h2>
+                        </div>
+                    </div>
+                    <div className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                            MARGIN: {loading ? '...' : (todayRevenue > 0 ? ((todayRevenue - todayExpenses) / todayRevenue * 100).toFixed(0) : '0')}%
+                        </span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-8">
+                    <button
+                        onClick={() => navigate('/bookings')}
+                        className="fiery-btn-primary py-4 text-[10px] font-black flex items-center justify-center gap-2"
+                    >
+                        New Booking
+                    </button>
+                    <button
+                        onClick={() => navigate('/reports')}
+                        className="fiery-btn-secondary py-4 text-[10px] font-black uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2"
+                    >
+                        <BarChart3 className="w-4 h-4 text-slate-500" /> Metrics
+                    </button>
+                </div>
+            </div>
+
+            {/* Recent Activity alike "Challenge History" list in Player app */}
+            <div className="space-y-6 mt-8">
+                <div className="flex justify-between items-center px-1">
+                    <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Recent Tx</h3>
+                </div>
+                
+                <div className="space-y-4">
+                    {liveTransactions.length > 0 ? liveTransactions.slice(0, 3).map((tx, i) => (
+                        <div key={i} className="fiery-card p-6 flex flex-col gap-4 border-l-4 border-l-primary relative overflow-hidden group">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">Transaction Log</p>
+                                    <p className="text-sm font-black text-white uppercase italic truncate">
+                                        CLIENT: {tx.customer}
+                                    </p>
+                                    <div className="flex gap-3 items-center mt-2">
+                                        <p className="text-xs text-emerald-400 font-bold tracking-widest">+ {fmt(tx.amount)}</p>
+                                        <span className="text-[9px] px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-500 font-black uppercase border border-emerald-500/20">
+                                            {tx.method}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                                        {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="fiery-card p-12 text-center border-2 border-white/5 bg-[#1a1f35]/20">
+                            <Receipt className="w-8 h-8 text-slate-700 mx-auto mb-4 opacity-50" />
+                            <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] italic">No Logs Detected</p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

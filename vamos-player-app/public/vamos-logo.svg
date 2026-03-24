@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 190" fill="white">
+  <!-- Sayap kiri — lebar -->
+  <path d="M 12,6 L 100,184 L 73,50 Z" />
+  <!-- Lengan kanan — lebih ramping -->
+  <path d="M 188,6 L 100,184 L 117,50 Z" />
+  <!-- Inner notch — segitiga kecil di atas -->
+  <path d="M 73,50 L 100,10 L 117,50 Z" />
+</svg>

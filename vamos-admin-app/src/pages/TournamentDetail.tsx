@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trophy, Users, Settings, Shuffle, Save, Plus, AlertCircle, RefreshCw, Check, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, Trophy, Users, Settings, Shuffle, Save, Plus, AlertCircle, RefreshCw, Check, Trash2, XCircle, Download } from 'lucide-react';
 import { tournamentsApi, membersApi } from '../services/api';
-import type { Tournament, Match, Member } from '../services/api';
+import type { Tournament, Match, Member, Participant } from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
+import { io } from 'socket.io-client';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 type TabKey = 'bracket' | 'participants' | 'settings';
 
@@ -15,11 +18,13 @@ const TournamentDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [tab, setTab] = useState<TabKey>('bracket');
+    const [activeBracketTab, setActiveBracketTab] = useState<'WINNERS' | 'LOSERS'>('WINNERS');
 
     // Members for participant registration
     const [members, setMembers] = useState<Member[]>([]);
     const [regName, setRegName] = useState('');
     const [regMemberId, setRegMemberId] = useState('');
+    const [regHandicap, setRegHandicap] = useState('4');
     const [registering, setRegistering] = useState(false);
 
     // Score editing
@@ -31,6 +36,16 @@ const TournamentDetail: React.FC = () => {
     const [matchSelect, setMatchSelect] = useState<{ matchId: string; slot: 1 | 2 } | null>(null);
     const [quickName, setQuickName] = useState('');
     const [addingQuick, setAddingQuick] = useState(false);
+
+    // Settings editing
+    const [isEditingSettings, setIsEditingSettings] = useState(false);
+    const [settingsForm, setSettingsForm] = useState({
+        name: '',
+        format: '',
+        startDate: '',
+        venue: ''
+    });
+    const [updatingSettings, setUpdatingSettings] = useState(false);
 
     const fetchTournament = useCallback(async () => {
         if (!id) return;
@@ -56,6 +71,17 @@ const TournamentDetail: React.FC = () => {
                 setMembers(Array.isArray(d) ? d : []);
             })
             .catch(() => { });
+
+        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+        const socket = io(socketUrl);
+
+        socket.on('tournaments:updated', () => {
+            fetchTournament();
+        });
+
+        return () => {
+            socket.disconnect();
+        };
     }, [fetchTournament]);
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -63,9 +89,14 @@ const TournamentDetail: React.FC = () => {
         if (!id || !regName) return;
         setRegistering(true);
         try {
-            await tournamentsApi.registerParticipant(id, { name: regName, memberId: regMemberId || undefined });
+            await tournamentsApi.registerParticipant(id, { 
+                name: regName, 
+                memberId: regMemberId || undefined,
+                handicap: regHandicap ? parseInt(regHandicap, 10) : undefined
+            });
             setRegName('');
             setRegMemberId('');
+            setRegHandicap('4');
             fetchTournament();
         } catch (err: unknown) {
             const anyErr = err as { response?: { data?: { message?: string } } };
@@ -76,14 +107,38 @@ const TournamentDetail: React.FC = () => {
     };
 
     const handleGenerateBracket = async () => {
-        if (!id) return;
-        if (!(await vamosConfirm('Generate bracket? Posisi peserta akan diacak.'))) return;
+        if (!id || !tournament) return;
+
+        // Validation: Minimal 2 participants to deploy
+        if ((tournament.participants?.length || 0) < 2) {
+            vamosAlert('PESERTA BELUM CUKUP. Mohon daftarkan minimal 2 peserta sebelum melakukan deploy bracket.');
+            return;
+        }
+
+        // Calculate expected bracket size for the message
+        let bSize = 1;
+        const target = Math.max(tournament.participants?.length || 0, tournament.maxPlayers || 0);
+        while (bSize < target) bSize *= 2;
+
+        if (!(await vamosConfirm(`Generate bracket dengan ${bSize} slot? (Kapasitas: ${tournament.maxPlayers}). Slot kosong tetap bisa diisi manual nanti.`))) return;
         try {
             await tournamentsApi.generateBracket(id);
             fetchTournament();
         } catch (err: unknown) {
             const anyErr = err as { response?: { data?: { message?: string } } };
             vamosAlert(anyErr?.response?.data?.message ?? 'Gagal generate bracket');
+        }
+    };
+
+    const handleResetBracket = async () => {
+        if (!id) return;
+        if (!(await vamosConfirm('Reset bracket? Semua skor yang sudah dimasukkan akan hilang.'))) return;
+        try {
+            await tournamentsApi.resetBracket(id);
+            fetchTournament();
+        } catch (err: unknown) {
+            const anyErr = err as { response?: { data?: { message?: string } } };
+            vamosAlert(anyErr?.response?.data?.message ?? 'Gagal reset bracket');
         }
     };
 
@@ -141,6 +196,23 @@ const TournamentDetail: React.FC = () => {
         setScoreEdit(p => ({ ...p, [matchId]: { ...p[matchId], [field]: val } }));
     };
 
+    const handleUpdateSettings = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!id) return;
+        setUpdatingSettings(true);
+        try {
+            await tournamentsApi.update(id, settingsForm);
+            setIsEditingSettings(false);
+            fetchTournament();
+            vamosAlert('Settings updated successfully');
+        } catch (err: unknown) {
+            const anyErr = err as { response?: { data?: { message?: string } } };
+            vamosAlert(anyErr?.response?.data?.message ?? 'Failed to update settings');
+        } finally {
+            setUpdatingSettings(false);
+        }
+    };
+
     const handleUpdatePaymentStatus = async (participantId: string, currentStatus: string) => {
         if (!id) return;
         const newStatus = currentStatus === 'PAID' ? 'PENDING' : 'PAID';
@@ -153,10 +225,193 @@ const TournamentDetail: React.FC = () => {
         }
     };
 
-    // Group matches by round
-    const rounds = tournament?.matches
-        ? [...new Set(tournament.matches.map(m => m.round))].sort((a, b) => a - b)
+    const handleRemoveParticipant = async (participantId: string) => {
+        if (!id) return;
+        if (!(await vamosConfirm('Hapus pendaftaran peserta ini?'))) return;
+        try {
+            await tournamentsApi.removeParticipant(id, participantId);
+            fetchTournament();
+        } catch (err: unknown) {
+            const anyErr = err as { response?: { data?: { message?: string } } };
+            vamosAlert(anyErr?.response?.data?.message ?? 'Gagal menghapus peserta');
+        }
+    };
+
+    const handlePurgeParticipants = async () => {
+        if (!id) return;
+        if (!(await vamosConfirm('Hapus SEMUA pendaftaran? Bracket juga akan dihapus.'))) return;
+        try {
+            await tournamentsApi.purgeParticipants(id);
+            fetchTournament();
+        } catch (err: unknown) {
+            const anyErr = err as { response?: { data?: { message?: string } } };
+            vamosAlert(anyErr?.response?.data?.message ?? 'Gagal menghapus semua peserta');
+        }
+    };
+
+    const handleExportPDF = () => {
+        if (!tournament) return;
+
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // Theme colors (Clean & White Dominant)
+        const colors = {
+            primary: [37, 99, 235],    // blue-600
+            secondary: [15, 23, 42],   // slate-900 (Text)
+            muted: [100, 116, 139],    // slate-500
+            border: [226, 232, 240],   // slate-200
+            winner: [5, 150, 105],     // emerald-600
+            cardBg: [255, 255, 255],
+            headerLine: [37, 99, 235]
+        };
+
+        // Header (Narrowed to 25mm)
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, 25, 'F');
+        
+        // Identity Line
+        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setLineWidth(1);
+        doc.line(15, 22, pageWidth - 15, 22);
+
+        // Logo text 
+        doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text("VAMOS", 15, 15);
+        
+        doc.setFontSize(8);
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text("SMART ARENA POOL & CAFE", 45, 15);
+
+        // Tournament Title (Right Aligned)
+        doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+        doc.setFontSize(14);
+        doc.text(tournament.name.toUpperCase(), pageWidth - 15, 13, { align: 'right' });
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+        const dateStr = tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'UNDEFINED';
+        doc.text(`${tournament.venue?.toUpperCase() || 'VAMOS MAIN SECTOR'} | ${dateStr.toUpperCase()}`, pageWidth - 15, 18, { align: 'right' });
+
+        // Content Setup
+        const matchesByRound: Record<number, Match[]> = {};
+        tournament.matches?.forEach(m => {
+            if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
+            matchesByRound[m.round].push(m);
+        });
+
+        const sortedRounds = Object.keys(matchesByRound).map(Number).sort((a, b) => a - b);
+        const totalRoundsCount = sortedRounds.length;
+        const colWidth = (pageWidth - 30) / totalRoundsCount;
+        const startY = 40; // Adjusted starting Y for content
+        const cardWidth = colWidth - 8;
+        const cardHeight = 14; // Slightly slimmer cards
+
+        // Position tracking
+        const matchPositions: Record<string, { x: number, y: number }> = {};
+
+        sortedRounds.forEach((r, rIdx) => {
+            const roundMatches = matchesByRound[r].sort((a, b) => a.matchNumber - b.matchNumber);
+            const x = 15 + (rIdx * colWidth);
+
+            // Round Header Text (Minimalist)
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+            doc.text(roundLabel(r, totalRoundsCount), x + cardWidth / 2, startY - 5, { align: 'center' });
+
+            const totalAvailableHeight = pageHeight - startY - 20;
+            const matchesCount = roundMatches.length;
+
+            roundMatches.forEach((m, mIdx) => {
+                const spacing = totalAvailableHeight / matchesCount;
+                const y = startY + (mIdx * spacing) + (spacing / 2) - cardHeight / 2;
+
+                matchPositions[`${r}-${mIdx}`] = { x, y };
+
+                // Draw Slimmer Card
+                doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                doc.setLineWidth(0.2);
+                doc.setFillColor(255, 255, 255);
+                doc.roundedRect(x, y, cardWidth, cardHeight, 0.5, 0.5, 'FD');
+
+                // Helper for player text
+                const drawPlayer = (p: Participant | undefined, score: number | null | undefined, py: number, isWinner: boolean) => {
+                    const pName = p?.name || (p as any)?.member?.name || (m.status === 'COMPLETED' ? 'BYE' : 'TBD');
+                    const pHC = (p as any)?.member?.handicap || (p as any)?.handicap;
+                    const hcStr = pHC ? `[HC:${pHC}]` : '';
+
+                    doc.setFontSize(7);
+                    doc.setFont('helvetica', isWinner ? 'bold' : 'normal');
+                    doc.setTextColor(isWinner ? colors.winner[0] : colors.secondary[0], isWinner ? colors.winner[1] : colors.secondary[1], isWinner ? colors.winner[2] : colors.secondary[2]);
+
+                    let displayName = pName.toUpperCase();
+                    if (displayName.length > 18) displayName = displayName.substring(0, 16) + '..';
+
+                    doc.text(displayName, x + 2.5, py);
+
+                    if (hcStr) {
+                        doc.setFontSize(5.5);
+                        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                        doc.text(hcStr, x + cardWidth - 8, py, { align: 'right' });
+                    }
+
+                    // Score
+                    doc.setFontSize(7.5);
+                    doc.text(String(score || 0), x + cardWidth - 2, py, { align: 'right' });
+                };
+
+                const p1Winner = m.score1 !== null && m.score2 !== null && m.score1! > m.score2!;
+                const p2Winner = m.score2 !== null && m.score1 !== null && m.score2! > m.score1!;
+
+                drawPlayer(m.player1, m.score1, y + 5, p1Winner);
+                // Subtle Divider
+                doc.setDrawColor(248, 250, 252);
+                doc.line(x + 2, y + 7, x + cardWidth - 2, y + 7);
+                drawPlayer(m.player2, m.score2, y + 11, p2Winner);
+
+                // Connector lines to NEXT round
+                if (rIdx < totalRoundsCount - 1) {
+                    const nextX = x + cardWidth;
+                    const midX = nextX + (colWidth - cardWidth) / 2;
+                    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                    doc.line(nextX, y + cardHeight / 2, midX, y + cardHeight / 2);
+
+                    if (mIdx % 2 !== 0) {
+                        const prevMatchY = matchPositions[`${r}-${mIdx - 1}`].y;
+                        doc.line(midX, prevMatchY + cardHeight / 2, midX, y + cardHeight / 2);
+                        doc.line(midX, (prevMatchY + y) / 2 + cardHeight / 2, x + colWidth, (prevMatchY + y) / 2 + cardHeight / 2);
+                    }
+                }
+            });
+        });
+
+        // Legend / Stat Footer (Cleaner White Design)
+        doc.setFillColor(252, 252, 252);
+        doc.rect(0, pageHeight - 12, pageWidth, 12, 'F');
+        doc.setFontSize(6.5);
+        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+        doc.text(`TOTAL OPERATIVES: ${tournament.participants?.length || 0} | FORMAT: ${tournament.format || 'SINGLE ELIMINATION'}`, 15, pageHeight - 5);
+        doc.text(`VAMOS SMART ARENA - OFFICIAL BRACKET | ${new Date().toLocaleString('id-ID')}`, pageWidth - 15, pageHeight - 5, { align: 'right' });
+
+        doc.save(`BRACKET-${tournament.name.toUpperCase().replace(/\s+/g, '-')}.pdf`);
+    };
+
+    // Group matches by round (filtered by bracket tab)
+    const matchesFiltered = tournament?.matches
+        ? tournament.matches.filter(m => (m as any).bracket === activeBracketTab)
         : [];
+    const rounds = [...new Set(matchesFiltered.map(m => m.round))].sort((a, b) => a - b);
 
     const roundLabel = (r: number, total: number) => {
         if (r === total) return 'GRAND FINAL';
@@ -277,6 +532,23 @@ const TournamentDetail: React.FC = () => {
             {/* ══════════════════════════════════ BRACKET ═════════════════════════════════ */}
             {tab === 'bracket' && (
                 <div className="space-y-10 animate-in">
+                    {/* Bracket Selector (Only for Double Elimination) */}
+                    {(tournament as any).eliminationType === 'DOUBLE' && (
+                        <div className="flex gap-4 mb-2">
+                            <button 
+                                onClick={() => setActiveBracketTab('WINNERS')}
+                                className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] italic transition-all ${activeBracketTab === 'WINNERS' ? 'bg-primary text-white shadow-lg' : 'bg-[#1a1f35]/40 text-slate-500 border border-white/5 hover:text-white'}`}
+                            >
+                                Winners Bracket
+                            </button>
+                            <button 
+                                onClick={() => setActiveBracketTab('LOSERS')}
+                                className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] italic transition-all ${activeBracketTab === 'LOSERS' ? 'bg-primary text-white shadow-lg' : 'bg-[#1a1f35]/40 text-slate-500 border border-white/5 hover:text-white'}`}
+                            >
+                                Losers Bracket
+                            </button>
+                        </div>
+                    )}
                     {/* Action Hub */}
                     <div className="flex gap-4">
                         {tournament.status === 'PENDING' && (
@@ -287,6 +559,21 @@ const TournamentDetail: React.FC = () => {
                                 <Shuffle size={20} strokeWidth={3} /> RE-SHUFFLE & DEPLOY BRACKET
                             </button>
                         )}
+                        {tournament.status === 'ONGOING' && (
+                            <button
+                                onClick={handleResetBracket}
+                                className="fiery-btn-primary !bg-amber-600 !border-amber-500/50 flex-1 py-6 text-base italic flex items-center justify-center gap-4"
+                            >
+                                <RefreshCw size={20} strokeWidth={3} /> RESET & RE-RANDOMIZE BRACKET
+                            </button>
+                        )}
+                        <button
+                            onClick={handleExportPDF}
+                            className="p-5 rounded-[22px] bg-[#1a1f35]/40 border border-white/5 text-slate-500 hover:text-emerald-500 transition-all active:scale-95 group shadow-xl h-auto"
+                            title="Download Bracket PDF"
+                        >
+                            <Download size={24} />
+                        </button>
                     </div>
 
                     {rounds.length === 0 ? (
@@ -307,7 +594,7 @@ const TournamentDetail: React.FC = () => {
                         <div className="overflow-x-auto no-scrollbar -mx-6 px-10 pb-12">
                             <div className="flex gap-20" style={{ minWidth: `${rounds.length * 360}px` }}>
                                 {rounds.map(r => {
-                                    const roundMatches = tournament.matches!.filter(m => m.round === r);
+                                    const roundMatches = matchesFiltered.filter(m => m.round === r);
                                     const isLastRound = r === Math.max(...rounds);
                                     return (
                                         <div key={r} className="flex-1 min-w-[320px] space-y-10">
@@ -334,6 +621,12 @@ const TournamentDetail: React.FC = () => {
                                                         setScore(m.id, player === 1 ? 's1' : 's2', String(next));
                                                     };
 
+                                                    // A BYE match: completed with only 1 player (the other slot is null)
+                                                    const isByeMatch = m.status === 'COMPLETED' && (
+                                                        (m.player1 !== null && m.player2 === null) ||
+                                                        (m.player1 === null && m.player2 !== null)
+                                                    );
+
                                                     return (
                                                         <div key={m.id} className="relative">
                                                             {/* Tactical Visual Connector */}
@@ -344,105 +637,124 @@ const TournamentDetail: React.FC = () => {
                                                                     }`}></div>
                                                             )}
 
-                                                            <div className="fiery-card !p-0 overflow-hidden group hover:border-primary/40 transition-all shadow-2xl">
-                                                                {/* Match Intelligence Header */}
-                                                                <div className="flex justify-between items-center px-6 py-3 bg-[#101423] border-b border-white/5">
-                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic"> Engagement Entry #{m.matchNumber}</span>
+                                                            {/* BYE Match — compact card */}
+                                                            {isByeMatch ? (
+                                                                <div className="fiery-card !p-0 overflow-hidden border-amber-500/20 shadow-2xl">
+                                                                    <div className="flex justify-between items-center px-6 py-3 bg-[#101423] border-b border-amber-500/10">
+                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Entry #{m.matchNumber}</span>
+                                                                        <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 px-3 py-0.5 rounded-full">BYE</span>
+                                                                    </div>
+                                                                    <div className="px-6 py-5 flex items-center gap-4">
+                                                                        <div className="w-1.5 h-10 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]"></div>
+                                                                        <div>
+                                                                            <p className="text-base font-black text-amber-300 uppercase italic tracking-tighter">
+                                                                                {(m.player1 as any)?.name || (m.player2 as any)?.name || '—'}
+                                                                            </p>
+                                                                            <p className="text-[9px] font-black text-amber-500/60 uppercase tracking-[0.3em] mt-0.5">Auto-advance · No match needed</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="fiery-card !p-0 overflow-hidden group hover:border-primary/40 transition-all shadow-2xl">
+                                                                    {/* Match Intelligence Header */}
+                                                                    <div className="flex justify-between items-center px-6 py-3 bg-[#101423] border-b border-white/5">
+                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic"> Engagement Entry #{m.matchNumber}</span>
+                                                                        {isLive && (
+                                                                            <span className="flex items-center gap-2 text-[9px] font-black text-primary uppercase animate-pulse italic">
+                                                                                <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" /> LOGGING...
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <div className="p-6 space-y-6">
+                                                                        {/* Combatant 1 */}
+                                                                        <div className="flex items-center gap-5">
+                                                                            <div className={`w-1.5 h-12 rounded-full transition-all duration-500 ${p1Winner ? 'bg-primary shadow-[0_0_15px_var(--primary)]' : 'bg-slate-800/50'}`}></div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    {m.player1 ? (
+                                                                                        <p
+                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
+                                                                                            className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p1Winner ? 'text-white' : 'text-slate-500'}`}
+                                                                                        >
+                                                                                            {(m.player1 as any)?.name || (m.player1 as any)?.member?.name || 'OPERATIVE ALPHA'}
+                                                                                        </p>
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
+                                                                                            className="text-[10px] font-black text-primary/40 hover:text-primary transition-all uppercase tracking-widest italic"
+                                                                                        >
+                                                                                            + ASSIGN OPERATIVE
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })} />
+                                                                                </div>
+                                                                                {p1Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <button onClick={() => adjustScore(1, -1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">-</button>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={edit.s1}
+                                                                                    onChange={e => setScore(m.id, 's1', e.target.value)}
+                                                                                    className="!w-14 !p-2 !text-center !rounded-xl !bg-[#101423] !border-primary/20 !text-lg !font-black !text-primary outline-none focus:ring-2 ring-primary/20 shadow-inner"
+                                                                                />
+                                                                                <button onClick={() => adjustScore(1, 1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">+</button>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Combatant 2 */}
+                                                                        <div className="flex items-center gap-5">
+                                                                            <div className={`w-1.5 h-12 rounded-full transition-all duration-500 ${p2Winner ? 'bg-primary shadow-[0_0_15px_var(--primary)]' : 'bg-slate-800/50'}`}></div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    {m.player2 ? (
+                                                                                        <p
+                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
+                                                                                            className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p2Winner ? 'text-white' : 'text-slate-500'}`}
+                                                                                        >
+                                                                                            {(m.player2 as any)?.name || (m.player2 as any)?.member?.name || 'OPERATIVE BRAVO'}
+                                                                                        </p>
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
+                                                                                            className="text-[10px] font-black text-primary/40 hover:text-primary transition-all uppercase tracking-widest italic"
+                                                                                        >
+                                                                                            + ASSIGN OPERATIVE
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })} />
+                                                                                </div>
+                                                                                {p2Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <button onClick={() => adjustScore(2, -1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">-</button>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={edit.s2}
+                                                                                    onChange={e => setScore(m.id, 's2', e.target.value)}
+                                                                                    className="!w-14 !p-2 !text-center !rounded-xl !bg-[#101423] !border-white/5 !text-lg !font-black !text-slate-300 outline-none focus:ring-2 ring-white/10 shadow-inner"
+                                                                                />
+                                                                                <button onClick={() => adjustScore(2, 1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">+</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Deployment Action Bar */}
                                                                     {isLive && (
-                                                                        <span className="flex items-center gap-2 text-[9px] font-black text-primary uppercase animate-pulse italic">
-                                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" /> LOGGING...
-                                                                        </span>
+                                                                        <button
+                                                                            onClick={() => handleSaveScore(m)}
+                                                                            disabled={saving[m.id]}
+                                                                            className={`w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] italic flex items-center justify-center gap-3 transition-all ${saved[m.id]
+                                                                                ? 'bg-emerald-500 text-white'
+                                                                                : 'bg-primary/20 text-primary hover:text-black hover:bg-primary'
+                                                                                }`}
+                                                                        >
+                                                                            {saved[m.id] ? <Check size={16} strokeWidth={3} /> : saving[m.id] ? <RefreshCw size={16} className="animate-spin" /> : <><Save size={16} /> AUTHORIZE RESULT</>}
+                                                                        </button>
                                                                     )}
                                                                 </div>
-
-                                                                <div className="p-6 space-y-6">
-                                                                    {/* Combatant 1 */}
-                                                                    <div className="flex items-center gap-5">
-                                                                        <div className={`w-1.5 h-12 rounded-full transition-all duration-500 ${p1Winner ? 'bg-primary shadow-[0_0_15px_var(--primary)]' : 'bg-slate-800/50'}`}></div>
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <div className="flex items-center gap-3">
-                                                                                {m.player1 ? (
-                                                                                    <p
-                                                                                        onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
-                                                                                        className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p1Winner ? 'text-white' : 'text-slate-500'}`}
-                                                                                    >
-                                                                                        {(m.player1 as any)?.name || (m.player1 as any)?.member?.name || 'OPERATIVE ALPHA'}
-                                                                                    </p>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
-                                                                                        className="text-[10px] font-black text-primary/40 hover:text-primary transition-all uppercase tracking-widest italic"
-                                                                                    >
-                                                                                        + ASSIGN OPERATIVE
-                                                                                    </button>
-                                                                                )}
-                                                                                <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })} />
-                                                                            </div>
-                                                                            {p1Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <button onClick={() => adjustScore(1, -1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">-</button>
-                                                                            <input
-                                                                                type="number"
-                                                                                value={edit.s1}
-                                                                                onChange={e => setScore(m.id, 's1', e.target.value)}
-                                                                                className="!w-14 !p-2 !text-center !rounded-xl !bg-[#101423] !border-primary/20 !text-lg !font-black !text-primary outline-none focus:ring-2 ring-primary/20 shadow-inner"
-                                                                            />
-                                                                            <button onClick={() => adjustScore(1, 1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">+</button>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Combatant 2 */}
-                                                                    <div className="flex items-center gap-5">
-                                                                        <div className={`w-1.5 h-12 rounded-full transition-all duration-500 ${p2Winner ? 'bg-primary shadow-[0_0_15px_var(--primary)]' : 'bg-slate-800/50'}`}></div>
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <div className="flex items-center gap-3">
-                                                                                {m.player2 ? (
-                                                                                    <p
-                                                                                        onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
-                                                                                        className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p2Winner ? 'text-white' : 'text-slate-500'}`}
-                                                                                    >
-                                                                                        {(m.player2 as any)?.name || (m.player2 as any)?.member?.name || 'OPERATIVE BRAVO'}
-                                                                                    </p>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
-                                                                                        className="text-[10px] font-black text-primary/40 hover:text-primary transition-all uppercase tracking-widest italic"
-                                                                                    >
-                                                                                        + ASSIGN OPERATIVE
-                                                                                    </button>
-                                                                                )}
-                                                                                <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })} />
-                                                                            </div>
-                                                                            {p2Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <button onClick={() => adjustScore(2, -1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">-</button>
-                                                                            <input
-                                                                                type="number"
-                                                                                value={edit.s2}
-                                                                                onChange={e => setScore(m.id, 's2', e.target.value)}
-                                                                                className="!w-14 !p-2 !text-center !rounded-xl !bg-[#101423] !border-white/5 !text-lg !font-black !text-slate-300 outline-none focus:ring-2 ring-white/10 shadow-inner"
-                                                                            />
-                                                                            <button onClick={() => adjustScore(2, 1)} className="w-8 h-8 rounded-xl bg-[#101423] border border-white/5 text-slate-600 hover:text-white transition-all text-xs font-black shadow-inner">+</button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Deployment Action Bar */}
-                                                                {isLive && (
-                                                                    <button
-                                                                        onClick={() => handleSaveScore(m)}
-                                                                        disabled={saving[m.id]}
-                                                                        className={`w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] italic flex items-center justify-center gap-3 transition-all ${saved[m.id]
-                                                                            ? 'bg-emerald-500 text-white'
-                                                                            : 'bg-primary/20 text-primary hover:text-black hover:bg-primary'
-                                                                            }`}
-                                                                    >
-                                                                        {saved[m.id] ? <Check size={16} strokeWidth={3} /> : saving[m.id] ? <RefreshCw size={16} className="animate-spin" /> : <><Save size={16} /> AUTHORIZE RESULT</>}
-                                                                    </button>
-                                                                )}
-                                                            </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
@@ -455,7 +767,6 @@ const TournamentDetail: React.FC = () => {
                     )}
                 </div>
             )}
-
             {/* ══════════════════════════════ PARTICIPANTS ═════════════════════════════ */}
             {tab === 'participants' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-in">
@@ -474,19 +785,31 @@ const TournamentDetail: React.FC = () => {
                         </div>
 
                         <form onSubmit={handleRegister} className="space-y-8 relative z-10">
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex justify-between italic pl-2">
-                                    <span>Operative Codename</span>
-                                    <span className="text-primary">* ESSENTIAL</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. AHMAD ASTO"
-                                    value={regName}
-                                    onChange={e => setRegName(e.target.value)}
-                                    required
-                                    className="fiery-input !py-5 !px-6"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex justify-between italic pl-2">
+                                        <span>Codename</span>
+                                        <span className="text-primary">* ESSENTIAL</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. AHMAD ASTO"
+                                        value={regName}
+                                        onChange={e => setRegName(e.target.value)}
+                                        required
+                                        className="fiery-input !py-5 !px-6"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic pl-2">Handicap</label>
+                                    <input
+                                        type="number"
+                                        placeholder="4"
+                                        value={regHandicap}
+                                        onChange={e => setRegHandicap(e.target.value)}
+                                        className="fiery-input !py-5 !px-6"
+                                    />
+                                </div>
                             </div>
 
                             <div className="space-y-3">
@@ -496,7 +819,12 @@ const TournamentDetail: React.FC = () => {
                                     onChange={e => {
                                         const m = members.find(x => x.id === e.target.value);
                                         setRegMemberId(e.target.value);
-                                        if (m && !regName) setRegName(m.name);
+                                        if (m) {
+                                            if (!regName) setRegName(m.name);
+                                            // Handle member handicap if available, or keep default
+                                            const mHandicap = (m as any).handicap;
+                                            if (mHandicap) setRegHandicap(String(mHandicap));
+                                        }
                                     }}
                                     className="fiery-input !py-5 !px-6 cursor-pointer appearance-none"
                                 >
@@ -524,7 +852,12 @@ const TournamentDetail: React.FC = () => {
                                     {tournament.participants?.length ?? 0} <span className="text-primary text-sm tracking-widest ml-1 font-black">UNITS CHECKED-IN</span>
                                 </p>
                             </div>
-                            <button className="text-[10px] font-black text-slate-500 uppercase tracking-widest border border-white/5 px-6 py-2 rounded-full hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all italic">Purge Sector</button>
+                            <button
+                                onClick={handlePurgeParticipants}
+                                className="text-[10px] font-black text-slate-500 uppercase tracking-widest border border-white/5 px-6 py-2 rounded-full hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all italic"
+                            >
+                                Purge Sector
+                            </button>
                         </div>
 
                         {(tournament.participants ?? []).length === 0 ? (
@@ -559,13 +892,16 @@ const TournamentDetail: React.FC = () => {
                                             <button
                                                 onClick={() => handleUpdatePaymentStatus(p.id, p.paymentStatus || 'PENDING')}
                                                 className={`p-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg min-w-[100px] ${p.paymentStatus === 'PAID'
-                                                        ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white'
-                                                        : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                                                    ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white'
+                                                    : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
                                                     }`}
                                             >
                                                 {p.paymentStatus === 'PAID' ? 'Mark Pending' : 'Mark Paid'}
                                             </button>
-                                            <button className="p-3 bg-rose-500/10 rounded-xl text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-lg animate-in slide-in-from-right-4">
+                                            <button
+                                                onClick={() => handleRemoveParticipant(p.id)}
+                                                className="p-3 bg-rose-500/10 rounded-xl text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-lg animate-in slide-in-from-right-4"
+                                            >
                                                 <Trash2 size={20} />
                                             </button>
                                         </div>
@@ -581,24 +917,94 @@ const TournamentDetail: React.FC = () => {
             {tab === 'settings' && (
                 <div className="max-w-2xl mx-auto space-y-10 animate-in">
                     <div className="fiery-card overflow-hidden !p-0 shadow-2xl">
-                        <div className="px-10 py-6 border-b border-white/5 bg-white/[0.02]">
+                        <div className="px-10 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
                             <h3 className="text-lg font-black text-white italic uppercase tracking-widest">Sector Intelligence</h3>
-                        </div>
-                        {[
-                            { label: 'Deployment Status', value: tournament.status, highlight: true },
-                            { label: 'Operational Format', value: tournament.format || 'Single Elimination' },
-                            { label: 'Vanguard Activation', value: tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase() : 'UNDEFINED' },
-                            { label: 'Conflict Zone', value: tournament.venue || 'VAMOS MAIN SECTOR' },
-                            { label: 'Unit Capacity', value: `${tournament._count?.participants ?? tournament.participants?.length ?? 0} REGISTERED OPERATIVES` },
-                        ].map((item, i) => (
-                            <div
-                                key={i}
-                                className="flex items-center justify-between p-8 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all"
+                            <button
+                                onClick={() => {
+                                    if (!isEditingSettings) {
+                                        setSettingsForm({
+                                            name: tournament.name || '',
+                                            format: tournament.format || '8-Ball',
+                                            startDate: tournament.startDate ? new Date(tournament.startDate).toISOString().split('T')[0] : '',
+                                            venue: tournament.venue || ''
+                                        });
+                                    }
+                                    setIsEditingSettings(!isEditingSettings);
+                                }}
+                                className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-white transition-all italic underline"
                             >
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">{item.label}</span>
-                                <span className={`font-black text-base italic uppercase tracking-tighter ${item.highlight ? 'text-primary shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'text-slate-200'}`}>{item.value}</span>
-                            </div>
-                        ))}
+                                {isEditingSettings ? 'CANCEL' : 'UPDATE INTEL'}
+                            </button>
+                        </div>
+
+                        {isEditingSettings ? (
+                            <form onSubmit={handleUpdateSettings} className="p-10 space-y-8">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">MISSION DESIGNATION</label>
+                                    <input
+                                        type="text"
+                                        value={settingsForm.name}
+                                        onChange={e => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                                        className="fiery-input w-full uppercase"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">COMBAT FORMAT</label>
+                                    <input
+                                        type="text"
+                                        value={settingsForm.format}
+                                        onChange={e => setSettingsForm({ ...settingsForm, format: e.target.value })}
+                                        className="fiery-input w-full uppercase"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">VANGUARD DATE</label>
+                                        <input
+                                            type="date"
+                                            value={settingsForm.startDate}
+                                            onChange={e => setSettingsForm({ ...settingsForm, startDate: e.target.value })}
+                                            className="fiery-input w-full"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">OPERATIONAL SECTOR</label>
+                                        <input
+                                            type="text"
+                                            value={settingsForm.venue}
+                                            onChange={e => setSettingsForm({ ...settingsForm, venue: e.target.value })}
+                                            className="fiery-input w-full uppercase"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={updatingSettings}
+                                    className="fiery-btn-primary w-full py-5 text-[10px] flex items-center justify-center gap-3 italic"
+                                >
+                                    {updatingSettings ? <RefreshCw size={18} className="animate-spin" /> : <><Save size={18} /> AUTHORIZE CHANGES</>}
+                                </button>
+                            </form>
+                        ) : (
+                            <>
+                                {[
+                                    { label: 'Deployment Status', value: tournament.status, highlight: true },
+                                    { label: 'Operational Format', value: tournament.format || 'Single Elimination' },
+                                    { label: 'Vanguard Activation', value: tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase() : 'UNDEFINED' },
+                                    { label: 'Conflict Zone', value: tournament.venue || 'VAMOS MAIN SECTOR' },
+                                    { label: 'Unit Capacity', value: `${tournament._count?.participants ?? tournament.participants?.length ?? 0} REGISTERED OPERATIVES` },
+                                ].map((item, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center justify-between p-8 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all"
+                                    >
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">{item.label}</span>
+                                        <span className={`font-black text-base italic uppercase tracking-tighter ${item.highlight ? 'text-primary shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'text-slate-200'}`}>{item.value}</span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
 
                     <div className="p-10 rounded-[40px] bg-rose-500/5 border-2 border-rose-500/20 shadow-2xl relative overflow-hidden group">

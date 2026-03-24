@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { RelayService } from '../relay/relay.service';
 
 const prisma = new PrismaClient();
+
 
 // ─── DEFAULT SEED DATA ───────────────────────────────────────────────────────
 // Pricing rules & packages yang akan di-seed setelah reset
@@ -163,7 +163,8 @@ export class SystemService {
             await tx.table.updateMany({ data: { status: 'AVAILABLE' } });
         });
 
-        // Matikan semua relay
+        // Matikan semua relay (lazy import hindari circular dependency)
+        const { RelayService } = await import('../relay/relay.service');
         for (const table of tables) {
             try {
                 await RelayService.sendCommand(table.relayChannel, 'off');
@@ -184,23 +185,25 @@ export class SystemService {
     }
 
     /**
-     * Fix tables that are stuck in PLAYING but have no active session
+     * Fix tables that are stuck in PLAYING but have no active session.
+     * Delegates ke TableService.fixStuckTables() agar logika relay OFF terpusat.
      */
     static async fixStuckTables() {
-        const playingTables = await prisma.table.findMany({ where: { status: 'PLAYING' } });
+        const { TableService } = await import('../tables/table.service');
+        const result = await TableService.fixStuckTables();
 
-        let fixedCount = 0;
-        for (const table of playingTables) {
-            const activeSession = await prisma.session.findFirst({
-                where: { tableId: table.id, status: 'ACTIVE' },
-            });
-            if (!activeSession) {
-                await prisma.table.update({ where: { id: table.id }, data: { status: 'AVAILABLE' } });
-                try { await RelayService.sendCommand(table.relayChannel, 'off'); } catch (_) { }
-                fixedCount++;
-            }
-        }
-
-        return { success: true, message: `${fixedCount} meja stuck berhasil diperbaiki.` };
+        return {
+            success: true,
+            message: result.fixed > 0
+                ? `${result.fixed} meja stuck berhasil diperbaiki & lampu dimatikan: [${result.tableNames.join(', ')}]`
+                : 'Tidak ada meja yang stuck.',
+            details: {
+                fixed: result.fixed,
+                tableNames: result.tableNames,
+                relayOff: result.relayOff,
+                relayErrors: result.relayErrors,
+            },
+        };
     }
 }
+

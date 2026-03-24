@@ -1,0 +1,171 @@
+{
+  "products": [
+    {
+      "id": "fe7b9812-b3ac-49e0-a971-bebd06834db3",
+      "name": "ICE COFFEE VAMOS",
+      "price": 15000,
+      "stock": 44,
+      "category": "Beverage (Minuman)",
+      "createdAt": "2026-03-05T15:38:26.199Z",
+      "updatedAt": "2026-03-08T01:47:46.707Z",
+      "deletedAt": null
+    },
+    {
+      "id": "6f8fa422-697c-4fb2-af1b-a7e954696557",
+      "name": "ICE COFFEE GULA ARENT",
+      "price": 18000,
+      "stock": 11,
+      "category": "Beverage (Minuman)",
+      "createdAt": "2026-03-05T15:39:32.559Z",
+      "updatedAt": "2026-03-08T02:37:49.639Z",
+      "deletedAt": null
+    },
+    {
+      "id": "9097c706-5880-4515-a39e-9f38736e3b65",
+      "name": "BUTTERSCOOT ICE",
+      "price": 18000,
+      "stock": 48,
+      "category": "Beverage (Minuman)",
+      "createdAt": "2026-03-05T15:38:52.831Z",
+      "updatedAt": "2026-03-08T03:20:55.491Z",
+      "deletedAt": null
+    },
+    {
+      "id": "c4c82510-ca94-4e0d-9479-64e78930edb0",
+      "name": "AIR MINERAL",
+      "price": 5000,
+      "stock": 59,
+      "category": "Beverage (Minuman)",
+      "createdAt": "2026-03-05T15:37:53.008Z",
+      "updatedAt": "2026-03-08T07:53:02.197Z",
+      "deletedAt": null
+    }
+  ],
+  "venue": {
+    "id": "b9fd29be-79b6-47de-8810-95498299d11a",
+    "name": "VAMOS POOL AND CAFE",
+    "address": "Kompleks Perumahan Balanipa Residence Wonomulyo",
+    "openTime": "09:00",
+    "closeTime": "07:00",
+    "relayComPort": "COM4",
+    "printerPath": "USB001",
+    "createdAt": "2026-03-05T13:09:31.151Z",
+    "updatedAt": "2026-03-05T18:16:56.155Z",
+    "deletedAt": null,
+    "blinkWarningMinutes": 5,
+    "servicePercent": 5,
+    "taxPercent": 11
+  },
+  "tables": [
+    {
+      "id": "3cf70798-d6cb-40fb-80f1-a333a9a7ed18",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 03",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 3,
+      "createdAt": "2026-03-05T13:16:09.760Z",
+      "updatedAt": "2026-03-08T01:48:49.123Z",
+      "deletedAt": null
+    },
+    {
+      "id": "e46cbd1b-bddd-4689-bc0c-a882a1cc70f8",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 02",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 2,
+      "createdAt": "2026-03-05T13:16:09.756Z",
+      "updatedAt": "2026-03-08T02:38:32.342Z",
+      "deletedAt": null
+    },
+    {
+      "id": "c3a09598-78ba-4f72-9470-c1e8bf9bc302",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 04",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 4,
+      "createdAt": "2026-03-05T13:16:09.764Z",
+      "updatedAt": "2026-03-08T01:28:19.141Z",
+      "deletedAt": null
+    },
+    {
+      "id": "ddbeff45-0dcc-4978-8671-9bf6d287663a",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 01",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 1,
+      "createdAt": "2026-03-05T13:16:09.749Z",
+      "updatedAt": "2026-03-08T01:45:32.106Z",
+      "deletedAt": null
+    },
+    {
+      "id": "3cd1c1e8-dea7-4c3c-b22b-494808a11bf7",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 05",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 5,
+      "createdAt": "2026-03-05T13:16:09.768Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    },
+    {
+      "id": "fbfb93c6-177f-49ef-844f-cbb7c03dca7f",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 10",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 10,
+      "createdAt": "2026-03-05T13:16:09.786Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    },
+    {
+      "id": "570bfbaa-4e55-4180-b1c6-9899e53dcc0c",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 09",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 9,
+      "createdAt": "2026-03-05T13:16:09.783Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    },
+    {
+      "id": "e3ed6b0a-66f6-4f56-83cd-b46dc2173efa",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 07",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 7,
+      "createdAt": "2026-03-05T13:16:09.776Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    },
+    {
+      "id": "441260b8-2d0d-4659-b770-4aa90b01da6b",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 06",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 6,
+      "createdAt": "2026-03-05T13:16:09.772Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    },
+    {
+      "id": "465f54b4-39ca-4f32-acc2-30230b1fdc0a",
+      "venueId": "b9fd29be-79b6-47de-8810-95498299d11a",
+      "name": "Table 08",
+      "type": "REGULAR",
+      "status": "AVAILABLE",
+      "relayChannel": 8,
+      "createdAt": "2026-03-05T13:16:09.779Z",
+      "updatedAt": "2026-03-08T00:05:26.476Z",
+      "deletedAt": null
+    }
+  ]
+}

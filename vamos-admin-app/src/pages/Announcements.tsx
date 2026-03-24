@@ -27,8 +27,9 @@ const Announcements: React.FC = () => {
         try {
             const res = await announcementsApi.getAll();
             setAnnouncements(res.data.data || []);
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Gagal memuat data bulletin');
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || 'Gagal memuat data bulletin');
         } finally {
             setLoading(false);
         }
@@ -74,8 +75,9 @@ const Announcements: React.FC = () => {
             }
             setShowModal(false);
             fetchData();
-        } catch (err: any) {
-            vamosAlert(err.response?.data?.message || 'Terjadi kesalahan');
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            vamosAlert(error.response?.data?.message || 'Terjadi kesalahan');
         } finally {
             setSubmitting(false);
         }
@@ -86,7 +88,7 @@ const Announcements: React.FC = () => {
             try {
                 await announcementsApi.delete(id);
                 fetchData();
-            } catch (err: any) {
+            } catch (err: unknown) {
                 vamosAlert('Gagal menghapus');
             }
         }

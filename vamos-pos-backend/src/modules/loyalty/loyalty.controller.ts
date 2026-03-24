@@ -123,10 +123,38 @@ export const getRedemptions = catchAsync(async (req: Request, res: Response) => 
     res.json({ success: true, data: redemptions });
 });
 
+export const getPointLogs = catchAsync(async (req: Request, res: Response) => {
+    const logs = await prisma.pointLog.findMany({
+        include: { member: { select: { id: true, name: true, tier: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+    });
+    res.json({ success: true, data: logs });
+});
+
 export const updateRedemptionStatus = catchAsync(async (req: Request, res: Response) => {
     const redemption = await prisma.redemption.update({
         where: { id: req.params.id },
         data: { status: req.body.status, notes: req.body.notes },
     });
+
+    const { getIO } = await import('../../socket');
+    const io = getIO();
+    if (io) {
+        io.emit('redemptions:updated');
+    }
+
     res.json({ success: true, data: redemption });
+});
+
+export const getPendingRedemptionCount = catchAsync(async (_req: Request, res: Response) => {
+    const count = await prisma.redemption.count({
+        where: { status: 'PENDING' }
+    });
+    res.json({ success: true, count });
+});
+
+export const runPointExpiry = catchAsync(async (_req: Request, res: Response) => {
+    const count = await LoyaltyService.processAllExpiry();
+    res.json({ success: true, message: `Berhasil memproses kadaluarsa poin untuk ${count} member.` });
 });

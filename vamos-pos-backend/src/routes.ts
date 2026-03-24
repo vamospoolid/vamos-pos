@@ -24,6 +24,7 @@ import announcementRoutes from './modules/announcements/announcement.route';
 import discountRoutes from './modules/discounts/discount.route';
 import shiftRoutes from './modules/shifts/shift.route';
 import whatsappRoutes from './modules/whatsapp/whatsapp.route';
+import licenseRoutes from './modules/license/license.route';
 
 const router = Router();
 
@@ -51,5 +52,7 @@ router.use('/waitlist', waitlistRoutes);
 router.use('/system', systemRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/discounts', discountRoutes);
+router.use('/shifts', shiftRoutes);
+router.use('/license', licenseRoutes);
 
 export default router;

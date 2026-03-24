@@ -20,7 +20,15 @@ const Events: React.FC = () => {
     const [showCreate, setShowCreate] = useState(false);
 
     // Create form state
-    const [form, setForm] = useState({ name: '', format: 'SINGLE_ELIMINATION', startDate: '', venue: '', participants: '' });
+    const [form, setForm] = useState({ 
+        name: '', 
+        format: '8-Ball', 
+        startDate: '', 
+        venue: '', 
+        participants: '',
+        eliminationType: 'SINGLE' as 'SINGLE' | 'DOUBLE',
+        transitionSize: '32'
+    });
     const [creating, setCreating] = useState(false);
 
     const fetchTournaments = useCallback(async () => {
@@ -46,9 +54,21 @@ const Events: React.FC = () => {
         setCreating(true);
         try {
             const players = form.participants.split('\n').filter(p => p.trim());
-            await tournamentsApi.create({ ...form, participants: players });
+            await tournamentsApi.create({ 
+                ...form, 
+                participants: players,
+                transitionSize: form.eliminationType === 'DOUBLE' ? parseInt(form.transitionSize) : undefined
+            });
             setShowCreate(false);
-            setForm({ name: '', format: 'SINGLE_ELIMINATION', startDate: '', venue: '', participants: '' });
+            setForm({ 
+                name: '', 
+                format: '8-Ball', 
+                startDate: '', 
+                venue: '', 
+                participants: '',
+                eliminationType: 'SINGLE',
+                transitionSize: '32'
+            });
             fetchTournaments();
             vamosAlert('Strategic Operation Initialized Successfully.');
         } catch (err: unknown) {
@@ -257,16 +277,37 @@ const Events: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">COMBAT FORMAT</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">COMBAT PROTOCOL</label>
                                     <select
-                                        value={form.format}
-                                        onChange={e => setForm(f => ({ ...f, format: e.target.value }))}
+                                        value={form.eliminationType}
+                                        onChange={e => setForm(f => ({ ...f, eliminationType: e.target.value as 'SINGLE' | 'DOUBLE' }))}
                                         className="fiery-input w-full uppercase appearance-none"
                                     >
-                                        <option value="SINGLE_ELIMINATION" className="bg-[#101423]">Single Elimination</option>
-                                        <option value="DOUBLE_ELIMINATION" className="bg-[#101423]">Double Elimination</option>
-                                        <option value="ROUND_ROBIN" className="bg-[#101423]">Round Robin</option>
+                                        <option value="SINGLE" className="bg-[#101423]">Single Elimination</option>
+                                        <option value="DOUBLE" className="bg-[#101423]">Double Elimination (Hybrid)</option>
                                     </select>
+                                </div>
+                                {form.eliminationType === 'DOUBLE' && (
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">TRANSITION THRESHOLD (E.G. 32)</label>
+                                        <input
+                                            type="number"
+                                            value={form.transitionSize}
+                                            onChange={e => setForm(f => ({ ...f, transitionSize: e.target.value }))}
+                                            className="fiery-input w-full"
+                                            placeholder="32"
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">GAME FORMAT</label>
+                                    <input
+                                        type="text"
+                                        value={form.format}
+                                        onChange={e => setForm(f => ({ ...f, format: e.target.value }))}
+                                        className="fiery-input w-full uppercase"
+                                        placeholder="E.G. 9-BALL"
+                                    />
                                 </div>
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">DEPLOYMENT DATE</label>

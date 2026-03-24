@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw } from 'lucide-react';
+import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw, Trophy } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { QRCodeSVG } from 'qrcode.react';
@@ -25,7 +25,7 @@ export default function Settings() {
 
     // Form Table
     const [isTableModalOpen, setIsTableModalOpen] = useState(false);
-    const [tableForm, setTableForm] = useState({ id: '', venueId: '', name: '', type: 'REGULAR', relayChannel: 1 });
+    const [tableForm, setTableForm] = useState({ id: '', venueId: '', name: '', type: 'REGULAR', relayChannel: 1, isKingTable: false });
     const [editingTable, setEditingTable] = useState(false);
 
     // Form User
@@ -41,18 +41,27 @@ export default function Settings() {
     const [isWaTemplateModalOpen, setIsWaTemplateModalOpen] = useState(false);
     const [selectedWaTemplate, setSelectedWaTemplate] = useState<any>(null);
     const [waTemplateBody, setWaTemplateBody] = useState('');
+    const [loyaltyConfig, setLoyaltyConfig] = useState<any>({
+        isPointsEnabled: true,
+        pointPerRupiah: 1,
+        streakThreshold: 5,
+        streakWindowDays: 30,
+        streakBonusPoints: 100
+    });
 
     const fetchData = async () => {
         try {
-            const [vRes, tRes, uRes, waTplRes] = await Promise.all([
+            const [vRes, tRes, uRes, waTplRes, lRes] = await Promise.all([
                 api.get('/venues'),
                 api.get('/tables'),
                 api.get('/users'),
-                api.get('/whatsapp/templates')
+                api.get('/whatsapp/templates'),
+                api.get('/loyalty/config')
             ]);
             setTables(tRes.data.data);
             setUsers(uRes.data.data);
             setWaTemplates(waTplRes.data.data);
+            if (lRes.data.success) setLoyaltyConfig(lRes.data.data);
 
             if (vRes.data.data.length > 0) {
                 // Prioritize "Serpong" or use the first one if not found
@@ -142,6 +151,10 @@ export default function Settings() {
             } else {
                 await api.post('/tables', payload);
             }
+            if (payload.isKingTable) {
+                // Trigger real-time update for king status
+                api.get('/player/kings').catch(() => {});
+            }
             setIsTableModalOpen(false);
             fetchData();
         } catch (err: any) {
@@ -206,6 +219,28 @@ export default function Settings() {
             // No alert needed, user will hear the relay click
         } catch (err) {
             vamosAlert(`Hardware Test Failed: Could not send ${command} to Channel ${channel}`);
+        }
+    };
+
+    const toggleKingTable = async (table: any) => {
+        try {
+            const nextStatus = !table.isKingTable;
+            await api.put(`/tables/${table.id}`, { isKingTable: nextStatus });
+            fetchData();
+            vamosAlert(`Meja ${table.name} sekarang ${nextStatus ? 'menjadi' : 'bukan lagi'} King Table!`);
+        } catch (err) {
+            vamosAlert('Gagal mengubah status King Table');
+        }
+    };
+
+    const handleTogglePoints = async () => {
+        try {
+            const nextStatus = !loyaltyConfig.isPointsEnabled;
+            await api.patch('/loyalty/config', { isPointsEnabled: nextStatus });
+            setLoyaltyConfig({ ...loyaltyConfig, isPointsEnabled: nextStatus });
+            vamosAlert(`Sistem Poin sekarang ${nextStatus ? 'DIAKTIFKAN' : 'DINONAKTIFKAN'}`);
+        } catch (err) {
+            vamosAlert('Gagal mengubah pengaturan poin');
         }
     };
 
@@ -534,6 +569,58 @@ export default function Settings() {
                             </div>
                         </div>
 
+                        {/* Loyalty & Points System */}
+                        <div className="bg-[#141414] border border-[#222] rounded-2xl p-6 shadow-xl">
+                            <div className="flex items-center mb-6">
+                                <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center mr-3 border border-yellow-500/20">
+                                    <Trophy className="w-5 h-5 text-yellow-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Loyalty Ecosystem</h2>
+                                <div className={`ml-auto px-2 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase ${loyaltyConfig.isPointsEnabled ? 'bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/20' : 'bg-gray-500/10 text-gray-500 border border-gray-700/20'}`}>
+                                    {loyaltyConfig.isPointsEnabled ? 'ENABLED' : 'DISABLED'}
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-6">
+                                <div className="p-4 bg-[#111] border border-[#222] rounded-xl group hover:border-yellow-500/30 transition-all">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-bold text-white">Sistem Poin (Reward)</p>
+                                            <p className="text-[10px] text-gray-500 font-medium">Aktifkan untuk memberikan poin setiap transaksi.</p>
+                                        </div>
+                                        <div
+                                            onClick={handleTogglePoints}
+                                            className="flex items-center space-x-2 cursor-pointer group/toggle"
+                                        >
+                                            <div className={`w-10 h-5 rounded-full transition-colors relative ${loyaltyConfig.isPointsEnabled ? 'bg-yellow-500' : 'bg-gray-800'}`}>
+                                                <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-all ${loyaltyConfig.isPointsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#111] border border-[#222] rounded-xl p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <Database className="w-4 h-4 text-gray-500" />
+                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Configuration Summary</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-[#0d0d0d] p-3 rounded-lg border border-white/5">
+                                            <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Rate Poin</p>
+                                            <p className="text-xs font-bold text-white">{loyaltyConfig.pointPerRupiah} Poin / 1k</p>
+                                        </div>
+                                        <div className="bg-[#0d0d0d] p-3 rounded-lg border border-white/5">
+                                            <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Streak Bonus</p>
+                                            <p className="text-xs font-bold text-white">Min {loyaltyConfig.streakThreshold}x</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-gray-700 mt-4 italic text-center">
+                                        * Pengaturan detail dapat diakses melalui menu Rewards.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Database & Maintenance */}
                         <div className="bg-[#141414] border border-[#222] rounded-2xl p-6 shadow-xl">
                             <div className="flex items-center mb-6">
@@ -593,7 +680,7 @@ export default function Settings() {
                                     onClick={() => {
                                         const nextRelay = tables.length > 0 ? Math.max(...tables.map(t => Number(t.relayChannel))) + 1 : 1;
                                         setEditingTable(false);
-                                        setTableForm({ id: '', venueId: venueForm.id, name: '', type: 'REGULAR', relayChannel: nextRelay });
+                                        setTableForm({ id: '', venueId: venueForm.id, name: '', type: 'REGULAR', relayChannel: nextRelay, isKingTable: false });
                                         setIsTableModalOpen(true);
                                     }}
                                     className="bg-[#00ff66]/10 border border-[#00ff66]/30 text-[#00ff66] px-4 py-2 rounded-xl text-xs font-black hover:bg-[#00ff66] hover:text-[#0a0a0a] transition-all flex items-center"
@@ -609,6 +696,7 @@ export default function Settings() {
                                             <th className="px-6 py-5">Label</th>
                                             <th className="px-6 py-5">Class</th>
                                             <th className="px-6 py-5 text-center">Relay CH</th>
+                                            <th className="px-6 py-5 text-center">King Status</th>
                                             <th className="px-6 py-5 text-center">Live Status</th>
                                             <th className="px-6 py-5 text-right">Action</th>
                                         </tr>
@@ -624,9 +712,18 @@ export default function Settings() {
                                                     <span className="text-[9px] px-2 py-1 bg-white/5 border border-white/10 text-gray-300 rounded-md font-black tracking-widest">{t.type}</span>
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
-                                                    <span className="bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] px-4 py-1.5 rounded-full font-mono font-black text-xs">
+                                                    <span className={`bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] px-4 py-1.5 rounded-full font-mono font-black text-xs`}>
                                                         CH {String(t.relayChannel).padStart(2, '0')}
                                                     </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <button 
+                                                        onClick={() => toggleKingTable(t)}
+                                                        className={`flex items-center gap-2 mx-auto px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${t.isKingTable ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 'bg-gray-800/20 text-gray-500 border-gray-700/30 hover:border-gray-500'}`}
+                                                    >
+                                                        <Trophy className={`w-3 h-3 ${t.isKingTable ? 'animate-bounce' : ''}`} />
+                                                        {t.isKingTable ? 'CHAMPION' : 'ACTIVATE'}
+                                                    </button>
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
                                                     <span className={`text-[10px] px-3 py-1.5 rounded-full border font-black tracking-wider uppercase ${t.status === 'AVAILABLE' ? 'text-[#00ff66] border-[#00ff66]/30 bg-[#00ff66]/10' : 'text-[#ff3333] border-[#ff3333]/30 bg-[#ff3333]/10'}`}>
@@ -649,7 +746,7 @@ export default function Settings() {
                                                                 OFF
                                                             </button>
                                                         </div>
-                                                        <button onClick={() => { setEditingTable(true); setTableForm({ id: t.id, venueId: t.venueId, name: t.name, type: t.type, relayChannel: t.relayChannel }); setIsTableModalOpen(true); }} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-[#00ff66] rounded-xl text-gray-400 hover:text-[#00ff66] transition-all" title="Edit Hardware Mapping">
+                                                        <button onClick={() => { setEditingTable(true); setTableForm({ id: t.id, venueId: t.venueId, name: t.name, type: t.type, relayChannel: t.relayChannel, isKingTable: !!t.isKingTable }); setIsTableModalOpen(true); }} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-[#00ff66] rounded-xl text-gray-400 hover:text-[#00ff66] transition-all" title="Edit Hardware Mapping">
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                         <button onClick={() => deleteTable(t.id)} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-red-500 rounded-xl text-gray-400 hover:text-red-500 transition-all" title="Delete Table">
@@ -771,6 +868,7 @@ export default function Settings() {
                                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Category</label>
                                         <select value={tableForm.type} onChange={e => setTableForm({ ...tableForm, type: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00ff66] text-sm font-bold transition-all">
                                             <option value="REGULAR">Regular</option>
+                                            <option value="EXEBITION">Exhibition</option>
                                             <option value="VIP">VIP</option>
                                             <option value="VVIP">VVIP Room</option>
                                             <option value="CAROM">Carom</option>
@@ -781,6 +879,21 @@ export default function Settings() {
                                         <label className="block text-[10px] font-black text-[#00aaff] uppercase tracking-[0.2em] mb-2 pl-1">Relay CH</label>
                                         <input type="number" min="1" max="99" value={tableForm.relayChannel} onChange={e => setTableForm({ ...tableForm, relayChannel: parseInt(e.target.value) || 1 })} className="w-full bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00aaff] font-mono font-black text-center text-lg" />
                                     </div>
+                                </div>
+                                <div className="flex items-center justify-between p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <Trophy className={`w-5 h-5 ${tableForm.isKingTable ? 'text-yellow-500 animate-bounce' : 'text-gray-600'}`} />
+                                        <div>
+                                            <p className="text-xs font-black text-white uppercase italic tracking-tight">Champion Table Mode</p>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Enable King of the Table</p>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={tableForm.isKingTable} 
+                                        onChange={e => setTableForm({ ...tableForm, isKingTable: e.target.checked })}
+                                        className="w-5 h-5 accent-yellow-500"
+                                    />
                                 </div>
                                 <div className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-xl">
                                     <p className="text-[10px] text-orange-500 font-bold leading-relaxed">

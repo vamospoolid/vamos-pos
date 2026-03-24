@@ -10,4 +10,8 @@ router.post('/reset', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemCont
 router.post('/seed', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.seedDefaults);
 router.post('/fix-tables', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.fixTables);
 
+// Database backup (pg_dump)
+router.post('/backup', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.runBackup);
+router.get('/backup/list', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.listBackups);
+
 export default router;

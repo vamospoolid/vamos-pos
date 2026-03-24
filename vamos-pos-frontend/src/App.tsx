@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Pause, Play } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import Inventory from './Inventory';
@@ -15,18 +16,82 @@ import Employees from './Employees';
 import Rewards from './Rewards';
 import Waitlist from './Waitlist';
 import Discounts from './Discounts';
-import { Tag } from 'lucide-react';
+import { VamosLogo } from './components/VamosLogo';
+import ActivationPage from './ActivationPage';
+
+interface AuthUser {
+  id: string;
+  name: string;
+  role: 'ADMIN' | 'KASIR' | 'OWNER';
+  email: string;
+}
+
+interface Table {
+  id: string;
+  name: string;
+  type: string;
+  status: 'AVAILABLE' | 'PLAYING' | 'MAINTENANCE';
+  relayChannel?: number;
+  activeSession?: Session;
+  venue?: {
+    id: string;
+    name: string;
+    taxPercent: number;
+    servicePercent: number;
+  };
+}
+
+interface Session {
+  id: string;
+  tableId: string;
+  status: 'ACTIVE' | 'PENDING' | 'CLOSED' | 'FINISHED';
+  startTime: string;
+  endTime?: string;
+  pausedAt?: string | null;
+  table?: Table;
+  member?: {
+    id: string;
+    name: string;
+    loyaltyPoints: number;
+  };
+  tableAmount?: number;
+  fnbAmount?: number;
+  totalAmount?: number;
+  memberId?: string | null;
+  customerName?: string;
+  createdAt?: string;
+}
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('vamos_token'));
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLicensed, setIsLicensed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const rawUser = localStorage.getItem('vamos_user');
-    if (rawUser) setUser(JSON.parse(rawUser));
+    const checkLicense = async () => {
+      try {
+        const res = await api.get('/license/status');
+        setIsLicensed(res.data.data.isActivated);
+      } catch (err) {
+        console.error('License check failed', err);
+        setIsLicensed(false);
+      }
+    };
+    checkLicense();
   }, []);
 
-  const handleLogin = (t: string, u: any) => {
+  useEffect(() => {
+    try {
+      const rawUser = localStorage.getItem('vamos_user');
+      if (rawUser) setUser(JSON.parse(rawUser));
+    } catch (e) {
+      console.error('Failed to parse user from localStorage', e);
+      localStorage.removeItem('vamos_user');
+      localStorage.removeItem('vamos_token');
+    }
+  }, []);
+
+  const handleLogin = (t: string, u: AuthUser) => {
     localStorage.setItem('vamos_token', t);
     localStorage.setItem('vamos_user', JSON.stringify(u));
     setToken(t);
@@ -53,6 +118,18 @@ function App() {
     return () => api.interceptors.response.eject(interceptor);
   }, []);
 
+  if (isLicensed === null) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (isLicensed === false) {
+    return <ActivationPage />;
+  }
+
   if (!token) {
     return <Login onLogin={handleLogin} />;
   }
@@ -61,7 +138,7 @@ function App() {
 }
 
 // --- LOGIN COMPONENT ---
-function Login({ onLogin }: { onLogin: (token: string, user: any) => void }) {
+function Login({ onLogin }: { onLogin: (token: string, user: AuthUser) => void }) {
   const [email, setEmail] = useState('admin@vamos.pos');
   const [password, setPassword] = useState('admin123'); // Adjust to correct test user password
   const [error, setError] = useState('');
@@ -85,8 +162,8 @@ function Login({ onLogin }: { onLogin: (token: string, user: any) => void }) {
     <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white">
       <div className="w-full max-w-md bg-[#141414] p-8 rounded-2xl border border-[#222222] shadow-[0_0_50px_rgba(0,255,102,0.05)]">
         <div className="flex items-center space-x-3 mb-8 justify-center">
-          <div className="w-10 h-10 rounded bg-[#00ff66] flex items-center justify-center text-[#0a0a0a] font-black text-xl">V</div>
-          <span className="text-3xl font-bold tracking-wider">VAMOS.</span>
+          <VamosLogo className="w-12 h-12" color="#00ff66" glowing />
+          <span className="text-3xl font-bold tracking-wider">VAMOS POOL</span>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -124,18 +201,22 @@ function Login({ onLogin }: { onLogin: (token: string, user: any) => void }) {
 }
 
 // --- DASHBOARD COMPONENT ---
-function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
+function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [tables, setTables] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [pendingBills, setPendingBills] = useState<any[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [pendingBills, setPendingBills] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string>('');
   const [todayRevenue, setTodayRevenue] = useState<number>(0);
   const [todayQrisRevenue, setTodayQrisRevenue] = useState<number>(0);
+  const [todayCashRevenue, setTodayCashRevenue] = useState<number>(0);
   const [todayExpenses, setTodayExpenses] = useState<number>(0);
   const [utilizationSplit, setUtilizationSplit] = useState<{ dayHours: string, nightHours: string }>({ dayHours: '0.0', nightHours: '0.0' });
   const [waitlistCount, setWaitlistCount] = useState(0);
+  const [arenaPendingCount, setArenaPendingCount] = useState(0);
+  const [unpaidDebtCount, setUnpaidDebtCount] = useState(0);
+  const [redemptionPendingCount, setRedemptionPendingCount] = useState(0);
 
   // Hardware Init States
   const [hwStatus, setHwStatus] = useState<'IDLE' | 'CHECKING' | 'ERROR' | 'READY'>('IDLE');
@@ -166,6 +247,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [memberQuery, setMemberQuery] = useState<string>(''); // separate display value from ID
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [billingMode, setBillingMode] = useState<'OPEN' | 'PACKAGE' | 'CUSTOM'>('CUSTOM');
+  const [billingClass, setBillingClass] = useState<string>('');
   const [customMinutes, setCustomMinutes] = useState<number>(60);
   const [packages, setPackages] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
@@ -185,6 +267,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
   const [showFnbSessionModal, setShowFnbSessionModal] = useState(false);
   const [fnbMemberId, setFnbMemberId] = useState('');
+  const [memberSearchCheckout, setMemberSearchCheckout] = useState('');
   const [confirmEndSessionId, setConfirmEndSessionId] = useState<string | null>(null);
 
   // Active Session Detail State
@@ -217,10 +300,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         api.get('/members'),
         api.get('/discounts'),
         api.get('/waitlist'),
-        api.get('/shifts/active')
+        api.get('/shifts/active'),
+        api.get('/player/challenges/pending-verification'),
+        api.get('/expenses/pending-count'),
+        api.get('/loyalty/admin/redemptions/pending-count')
       ]);
 
-      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes] = results;
+      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes, arenaRes, debtRes, redRes] = results;
 
       if (tRes.status === 'fulfilled') setTables(tRes.value.data.data);
       if (sRes.status === 'fulfilled') setSessions(sRes.value.data);
@@ -234,12 +320,18 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (memRes.status === 'fulfilled') setMembers(memRes.value.data.data);
       if (discRes.status === 'fulfilled') setDiscountCategories(discRes.value.data.data);
       if (revRes.status === 'fulfilled' && revRes.value.data.data?.[0]) {
-        setTodayRevenue(revRes.value.data.data[0].totalRevenue);
-        setTodayQrisRevenue(revRes.value.data.data[0].qrisRevenue || 0);
-        setTodayExpenses(revRes.value.data.data[0].totalExpenses || 0);
+        const revData = revRes.value.data.data[0];
+        setTodayRevenue(revData.totalRevenue);
+        setTodayQrisRevenue(revData.qrisRevenue || 0);
+        // Gunakan cashRevenue dari backend yang sudah dipotong Expense
+        setTodayCashRevenue(revData.cashRevenue ?? (revData.totalRevenue - (revData.qrisRevenue || 0)));
+        setTodayExpenses(revData.totalExpenses || 0);
       }
       if (utilRes.status === 'fulfilled') setUtilizationSplit(utilRes.value.data.data);
       if (waitRes.status === 'fulfilled') setWaitlistCount(Array.isArray(waitRes.value.data) ? waitRes.value.data.length : 0);
+      if (arenaRes.status === 'fulfilled') setArenaPendingCount(arenaRes.value.data.data?.length || 0);
+      if (debtRes.status === 'fulfilled') setUnpaidDebtCount((debtRes as any).value.data.count || 0);
+      if (redRes.status === 'fulfilled') setRedemptionPendingCount((redRes as any).value.data.count || 0);
 
       if (shiftRes.status === 'fulfilled') {
         const shiftData = shiftRes.value.data.data;
@@ -248,9 +340,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       }
 
       setFetchError('');
-    } catch (err: any) {
-      console.error('Failed to fetch data', err);
-      setFetchError(err?.response?.data?.message || err.message || String(err));
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      console.error('Failed to fetch data', error);
+      setFetchError(error.response?.data?.message || 'Unknown network error');
     } finally {
       setLoading(false);
     }
@@ -274,22 +367,22 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       const { data } = res.data;
 
       if (data.isConnected) {
+        setHwStatus('READY');
         if (!silent) {
           setHwProgress(100);
           setHwMessage(`Hardware Connected on ${data.port}`);
-          setHwStatus('READY');
           setTimeout(() => setShowHwProgress(false), 2000);
         }
       } else {
+        setHwStatus('ERROR');
         if (!silent) {
-          setHwStatus('ERROR');
           setHwMessage('Hardware Not Found or Offline');
           setTimeout(() => setShowHwProgress(false), 5000);
         }
       }
     } catch (err) {
+      setHwStatus('ERROR');
       if (!silent) {
-        setHwStatus('ERROR');
         setHwMessage('Could not communicate with Backend');
         setTimeout(() => setShowHwProgress(false), 5000);
       }
@@ -298,17 +391,43 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
   useEffect(() => {
     fetchData();
-    checkHardware(); // Run hardware sequence on startup
+    checkHardware(true); // Run hardware sequence silently on startup
 
-    // Refresh active sessions every minute
-    const inter = setInterval(fetchData, 60000);
-    return () => clearInterval(inter);
+    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+    const socket = io(socketUrl);
+
+    socket.on('sessions:updated', () => fetchData());
+    socket.on('orders:updated', () => fetchData());
+    socket.on('waitlist:updated', () => fetchData());
+    socket.on('redemptions:updated', () => fetchData());
+    socket.on('notification:new', (notif: any) => {
+      if (notif.type === 'REDEMPTION') {
+        vamosAlert(`🆕 ${notif.title}\n${notif.message}`);
+      }
+    });
+    socket.on('tables:updated', () => fetchData());
+    socket.on('members:updated', () => {
+      console.log('[Socket] Received members:updated');
+      fetchData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const inter = setInterval(() => setTick(t => t + 1), 1000); // 1s visual update for timer
     return () => clearInterval(inter);
+  }, []);
+
+  // Tambahkan background sync setiap 30 detik (fallback)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Update dynamic price estimate
@@ -330,7 +449,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         try {
           const res = await api.get('/pricing/estimate', {
             params: {
-              tableType: table.type,
+              tableType: billingClass || table.type,
               durationMinutes: customMinutes,
               isMember: !!memberId
             }
@@ -345,7 +464,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       }
     };
     fetchEstimate();
-  }, [billingMode, selectedPackage, customMinutes, memberId, startTableId, tables, packages]);
+  }, [billingMode, selectedPackage, customMinutes, memberId, startTableId, tables, packages, billingClass]);
 
   const startSession = async () => {
     if (!startTableId) return;
@@ -357,6 +476,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         payload.packageId = selectedPackage;
       } else if (billingMode === 'CUSTOM') {
         payload.durationOpts = customMinutes; // send in minutes
+        if (billingClass) payload.billingType = billingClass;
+      } else if (billingMode === 'OPEN') {
+        if (billingClass) payload.billingType = billingClass;
       }
 
       await api.post('/sessions/start', payload);
@@ -409,16 +531,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   };
 
-  const togglePauseSession = async (session: any) => {
-    try {
-      const isPaused = !!session.pausedAt;
-      const action = isPaused ? 'resume' : 'pause';
-      await api.post(`/sessions/${action}/${session.id}`);
-      fetchData();
-    } catch (err: any) {
-      vamosAlert(err.response?.data?.message || 'Failed to toggle pause');
-    }
-  };
 
   const endSession = async (sessionId: string) => {
     try {
@@ -459,6 +571,26 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     const taxValue = applyTax ? Math.round((subtotal + serviceCharge) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0;
     const totalWithCharges = subtotal + serviceCharge + taxValue;
     const finalAmount = Math.max(0, totalWithCharges - checkoutDiscount);
+
+    if (checkoutMethod === 'BON') {
+      try {
+        await api.post(`/sessions/${checkoutBill.id}/pay-debt`, {
+          discount: checkoutDiscount || 0,
+          taxAmount: taxValue,
+          serviceAmount: serviceCharge
+        });
+        setCheckoutBill(null);
+        setCheckoutDiscount(0);
+        setCheckoutReceived(0);
+        setApplyTax(false);
+        setApplyService(false);
+        fetchData();
+        vamosAlert('Bill berhasil dicatat sebagai BON (Piutang)');
+      } catch (err: any) {
+        vamosAlert(err.response?.data?.message || 'Gagal menyimpan sebagai BON');
+      }
+      return;
+    }
 
     try {
       await api.post(`/sessions/${checkoutBill.id}/pay`, {
@@ -607,12 +739,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
       {/* ─── Sidebar ─────────────────────────────────────────────────── */}
-      <aside className="w-64 bg-[#111] border-r border-[#1e1e1e] flex flex-col hidden md:flex shrink-0 relative">
+      <aside className="w-56 lg:w-64 bg-[#111] border-r border-[#1e1e1e] flex flex-col hidden md:flex shrink-0 relative">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3 border-b border-[#1e1e1e]">
-          <div className="w-9 h-9 rounded-xl bg-[#00ff66] flex items-center justify-center text-[#0a0a0a] font-black text-lg shadow-[0_0_12px_rgba(0,255,102,0.3)]">V</div>
+          <VamosLogo className="w-10 h-10" color="#00ff66" glowing />
           <div>
-            <span className="text-lg font-black tracking-widest text-white">VAMOS.</span>
+            <span className="text-lg font-black tracking-widest text-white">VAMOS POOL</span>
             <p className="text-[9px] text-gray-600 uppercase tracking-widest font-bold">Billiard Management</p>
           </div>
         </div>
@@ -627,7 +759,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           {/* Operations */}
           <p className="px-3 py-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Operations</p>
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard />} label="Dashboard" />
-          <NavItem active={activeTab === 'challenges'} onClick={() => setActiveTab('challenges')} icon={<Swords />} label="Arena Challenges" accent="gold" />
+          <NavItem active={activeTab === 'challenges'} onClick={() => setActiveTab('challenges')} icon={<Swords />} label="Arena Challenges" accent="gold" badge={arenaPendingCount > 0 ? arenaPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'bills'} onClick={() => setActiveTab('bills')} icon={<Receipt />} label="Pending Bills" badge={pendingBills.length > 0 ? pendingBills.length : null} badgeColor="red" />
           <NavItem active={activeTab === 'waitlist'} onClick={() => setActiveTab('waitlist')} icon={<Clock />} label="Waiting List" badge={waitlistCount > 0 ? waitlistCount : null} badgeColor="blue" />
           <NavItem active={activeTab === 'fnb-order'} onClick={() => setActiveTab('fnb-order')} icon={<Utensils />} label="New F&B Order" />
@@ -636,7 +768,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           {/* Analytics */}
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Analytics</p>
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<BarChart3 />} label="Reports" />
-          <NavItem active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Wallet />} label="Expenses" />
+          <NavItem active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Wallet />} label="Expenses" badge={unpaidDebtCount > 0 ? unpaidDebtCount : null} badgeColor="orange" />
           {user?.role !== 'KASIR' && (
             <NavItem active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy />} label="Competitions" />
           )}
@@ -646,7 +778,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           <NavItem active={activeTab === 'pricing'} onClick={() => setActiveTab('pricing')} icon={<span className="font-black text-sm w-5 text-center block">$</span>} label="Pricing" />
           <NavItem active={activeTab === 'discounts'} onClick={() => setActiveTab('discounts')} icon={<Tag />} label="Discounts" />
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
-          <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" />
+          <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" badge={redemptionPendingCount > 0 ? redemptionPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'employees'} onClick={() => setActiveTab('employees')} icon={<Users />} label="Employees" />
           {user?.role !== 'KASIR' && (
             <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
@@ -745,13 +877,26 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             {/* Hardware Status Indicator (Mini) */}
             {!showHwProgress && (
               <div
-                onClick={() => checkHardware()}
+                onClick={async () => {
+                  if (hwStatus === 'ERROR' && venueConfig) {
+                    try {
+                      await api.put(`/venues/${venueConfig.id}`, { 
+                        ...venueConfig, 
+                        relayComPort: 'COM3' 
+                      });
+                      setVenueConfig({ ...venueConfig, relayComPort: 'COM3' });
+                    } catch (err) {
+                      console.error('Failed to auto-set COM3', err);
+                    }
+                  }
+                  checkHardware();
+                }}
                 className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#1e1e1e] border border-[#222222] hover:bg-[#252525] cursor-pointer transition-colors"
                 title="Click to re-sync hardware"
               >
                 <div className={`w-2 h-2 rounded-full ${hwStatus === 'READY' ? 'bg-[#00ff66] animate-pulse shadow-[0_0_5px_#00ff66]' : 'bg-red-500 shadow-[0_0_5px_#ff0000]'}`} />
                 <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
-                  HW: {hwStatus === 'READY' ? 'SYNC' : 'OFF'}
+                  HW: {hwStatus === 'READY' ? 'SYNC' : 'COM 3'}
                 </span>
               </div>
             )}
@@ -789,6 +934,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
+
             {fetchError && (
               <div className="bg-[#ff3333]/10 border border-[#ff3333]/40 text-[#ff3333] px-4 py-3 rounded-xl mb-5 text-sm font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" /> {fetchError}
@@ -833,23 +979,23 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                           setStartTableId(table.id);
                         }}
                         onEnd={() => table.activeSession && setConfirmEndSessionId(table.activeSession.id)}
-                        onOrderFnB={() => setOrderSessionId(table.activeSession?.id)}
-                        onMove={() => setMoveSessionId(table.activeSession?.id)}
+                        onOrderFnB={() => setOrderSessionId(table.activeSession?.id || null)}
+                        onMove={() => setMoveSessionId(table.activeSession?.id || null)}
                         onAddDuration={() => {
                           setBillingMode('PACKAGE');
                           setSelectedPackage('');
                           setCustomMinutes(60);
-                          setAddDurationSessionId(table.activeSession.id);
+                          if (table.activeSession) setAddDurationSessionId(table.activeSession.id);
                         }}
-                        onTogglePause={() => table.activeSession && togglePauseSession(table.activeSession)}
                         onViewDetail={() => setDetailSession(table.activeSession)}
                         onToggleRelay={async (tableId: string, command: 'on' | 'off') => {
                           const t = tables.find(t => t.id === tableId);
                           if (!t) return;
                           try {
-                            const res = await api.post(`/relay/${command}`, { channel: t.relayChannel });
+                            const channel = (t as any).relayChannel;
+                            const res = await api.post(`/relay/${command}`, { channel });
                             if (res.data.success) {
-                              vamosAlert(`Relay ${command.toUpperCase()} signal sent to Table ${t.name} (Channel ${t.relayChannel})`);
+                              vamosAlert(`Relay ${command.toUpperCase()} signal sent to Table ${t.name} (Channel ${channel})`);
                             } else {
                               vamosAlert(`Failed to send Relay ${command.toUpperCase()} signal.`);
                             }
@@ -905,19 +1051,36 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       </thead>
                       <tbody>
                         {pendingBills.map(bill => (
-                          <tr key={bill.id} className="group border-t border-[#1a1a1a] hover:bg-white/[0.02] transition-colors">
+                          <tr key={bill.id} 
+                            onClick={() => setCheckoutBill(bill)}
+                            className="group border-t border-[#1a1a1a] hover:bg-white/[0.05] cursor-pointer transition-colors"
+                          >
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center font-black text-sm"
                                   style={{ background: 'rgba(0,255,102,0.08)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.15)' }}>
-                                  {(bill.table?.name || 'F').charAt(0)}
+                                  {(bill.member?.name || bill.table?.name || bill.customerName || 'F').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
                                   <p className="font-bold text-sm text-white">
-                                    {bill.table?.name || (bill.member ? bill.member.name : bill.customerName || 'Direct F&B')}
+                                    {bill.table?.name || bill.customerName || 'Direct F&B'}
                                   </p>
-                                  <p className="text-[10px] text-gray-600 font-mono">
-                                    {new Date(bill.endTime || bill.createdAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                                  {bill.member ? (
+                                    <p className="text-[10px] font-bold mt-0.5 flex items-center gap-1" style={{ color: '#00ff66' }}>
+                                      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#00ff66' }} />
+                                      {bill.member.name}
+                                    </p>
+                                  ) : bill.customerName ? (
+                                    <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                                      {bill.customerName}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[10px] text-gray-700 font-bold uppercase tracking-widest mt-0.5">
+                                      Walk-in
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                                    {new Date(bill.endTime || bill.createdAt || 0).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
                                   </p>
                                 </div>
                               </div>
@@ -941,15 +1104,44 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                             </td>
                             <td className="px-5 py-4">
                               <div className="flex gap-2 justify-end">
+                                {bill.id && (
+                                  <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!bill.memberId) {
+                                          setCheckoutBill(bill);
+                                          vamosAlert('Pilih member terlebih dahulu di modal checkout untuk melakukan BON');
+                                          return;
+                                        }
+                                        if (!(await vamosConfirm(`Catat tagihan ${bill.table?.name || 'FNB'} sebesar Rp ${(bill.totalAmount || 0).toLocaleString('id-ID')} sebagai BON?`))) return;
+                                        try {
+                                          await api.post(`/sessions/${bill.id}/pay-debt`, {
+                                            discount: 0,
+                                            taxAmount: 0,
+                                            serviceAmount: 0
+                                          });
+                                          fetchData();
+                                          vamosAlert('Bill berhasil dicatat sebagai BON');
+                                        } catch (err: any) {
+                                          vamosAlert(err.response?.data?.message || 'Gagal menyimpan sebagai BON');
+                                        }
+                                      }}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105"
+                                    style={{ background: 'rgba(255, 153, 0, 0.1)', color: '#ff9900', border: '1px solid rgba(255, 153, 0, 0.25)' }}
+                                  >
+                                    BON
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => setOrderSessionId(bill.id)}
+                                  onClick={(e) => { e.stopPropagation(); setOrderSessionId(bill.id); }}
                                   className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105"
                                   style={{ background: 'rgba(255,153,0,0.1)', color: '#ff9900', border: '1px solid rgba(255,153,0,0.25)' }}
                                 >
                                   + F&B
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setApplyTax(false);
                                     setApplyService(false);
                                     setCheckoutBill(bill);
@@ -981,9 +1173,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 user={user}
                 todayRevenue={todayRevenue}
                 todayQrisRevenue={todayQrisRevenue}
+                todayCashRevenue={todayCashRevenue}
                 todayExpenses={todayExpenses}
                 pendingBillsCount={pendingBills.length}
-                pendingBillsAmount={pendingBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0)}
+                pendingBillsAmount={pendingBills.reduce((acc, b) => acc + (b.totalAmount || (b.tableAmount || 0) + (b.fnbAmount || 0) || 0), 0)}
                 utilizationSplit={utilizationSplit}
               />
             )}
@@ -1000,7 +1193,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       {checkoutBill && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
-            <div className="p-5 md:p-6 border-b border-[#222222] bg-gradient-to-r from-[#1a1a1a] to-[#0a0a0a] flex justify-between items-center shrink-0">
+            <div className="p-4 md:p-5 border-b border-[#222222] bg-gradient-to-r from-[#1a1a1a] to-[#0a0a0a] flex justify-between items-center shrink-0">
               <h2 className="text-xl font-black flex items-center text-white italic tracking-tight">
                 <Receipt className="w-5 h-5 mr-3 text-[#00ff66]" />
                 Checkout Detail
@@ -1012,7 +1205,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
               {/* Left Column: Details */}
-              <div className="flex-1 p-5 md:p-8 space-y-4 overflow-y-auto custom-scrollbar md:border-r border-[#222222]">
+              <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto custom-scrollbar md:border-r border-[#222222]">
                 <div className="bg-[#0a0a0a] rounded-2xl border border-[#222222] overflow-hidden">
                   {/* Table & Play Time Info */}
                   <div className="p-4 md:p-5 border-b border-[#222222] bg-[#111]">
@@ -1044,9 +1237,71 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       </div>
                     )}
                     <div className="flex justify-between items-center mt-4 pt-4 border-t border-[#222] text-sm">
-                      <span className="text-gray-400 font-semibold uppercase tracking-widest text-[10px]">Table Bill</span>
-                      <span className="font-bold font-mono text-white text-base bg-[#1a1a1a] px-3 py-1 rounded-lg border border-[#333]">Rp {(checkoutBill.tableAmount || 0).toLocaleString()}</span>
+                      <span className="text-gray-400 font-semibold uppercase tracking-widest text-[10px]">Pelanggan / Member</span>
+                      {checkoutBill.memberId ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#ff9900] bg-[#ff9900]/10 border border-[#ff9900]/20 px-3 py-1 rounded-lg text-xs uppercase tracking-wider">
+                            {checkoutBill.member?.name || members.find(m => m.id === checkoutBill.memberId)?.name || 'Member'}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.post(`/sessions/update/${checkoutBill.id}`, { memberId: null });
+                                setCheckoutBill({ ...checkoutBill, memberId: null, member: null });
+                                fetchData();
+                              } catch (err) {
+                                vamosAlert('Gagal melepas member');
+                              }
+                            }}
+                            className="p-1 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative w-48">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+                          <input
+                            type="text"
+                            placeholder="Cari member..."
+                            value={memberSearchCheckout}
+                            onChange={(e) => setMemberSearchCheckout(e.target.value)}
+                            className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#00ff66]"
+                          />
+                          {memberSearchCheckout && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto">
+                              {members
+                                .filter(m => m.name.toLowerCase().includes(memberSearchCheckout.toLowerCase()) || m.phone.includes(memberSearchCheckout))
+                                .map(m => (
+                                  <div
+                                    key={m.id}
+                                    onClick={async () => {
+                                      try {
+                                        await api.post(`/sessions/update/${checkoutBill.id}`, { memberId: m.id });
+                                        setCheckoutBill({ ...checkoutBill, memberId: m.id, member: m });
+                                        setMemberSearchCheckout('');
+                                        fetchData();
+                                      } catch (err) {
+                                        vamosAlert('Gagal memasang member');
+                                      }
+                                    }}
+                                    className="px-3 py-2 hover:bg-white/5 cursor-pointer text-[10px] border-b border-[#222] flex justify-between items-center"
+                                  >
+                                    <span className="font-bold">{m.name} {m.handicap ? `- HC: ${m.handicap}` : ''}</span>
+                                    <span className="text-gray-500 font-mono">{m.phone}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
+                    {checkoutBill.tableId && (
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-[#222] text-sm">
+                        <span className="text-gray-400 font-semibold uppercase tracking-widest text-[10px]">Table Bill</span>
+                        <span className="font-bold font-mono text-white text-base bg-[#1a1a1a] px-3 py-1 rounded-lg border border-[#333]">Rp {(checkoutBill.tableAmount || 0).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* F&B Detail */}
@@ -1171,15 +1426,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               </div>
 
               {/* Right Column: Payment & Checkout */}
-              <div className="w-full md:w-[380px] lg:w-[420px] flex flex-col bg-[#0d0d0d] shrink-0 overflow-y-auto custom-scrollbar shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
-                <div className="p-6 md:p-8 flex-1 space-y-8 flex flex-col justify-center">
+              <div className="w-full md:w-[360px] lg:w-[400px] flex flex-col bg-[#0d0d0d] shrink-0 overflow-y-auto custom-scrollbar shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
+                <div className="p-5 md:p-6 flex-1 space-y-6 flex flex-col justify-center">
 
                   {/* Grand Total Highlight Box */}
-                  <div className="p-8 pb-10 border border-[#00ff66]/30 rounded-3xl bg-gradient-to-br from-[#0a0a0a] to-[#001a0a] flex flex-col items-center justify-center shadow-[0_0_40px_rgba(0,255,102,0.1)] relative overflow-hidden group">
+                  <div className="p-6 pb-8 border border-[#00ff66]/30 rounded-3xl bg-gradient-to-br from-[#0a0a0a] to-[#001a0a] flex flex-col items-center justify-center shadow-[0_0_40px_rgba(0,255,102,0.1)] relative overflow-hidden group">
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#00ff66]/10 blur-[50px] pointer-events-none rounded-full group-hover:bg-[#00ff66]/20 transition-all duration-700" />
                     <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 blur-[50px] pointer-events-none rounded-full group-hover:bg-blue-500/20 transition-all duration-700" />
                     <span className="font-black text-[#00ff66]/60 uppercase tracking-[0.3em] text-[10px] mb-3 relative z-10">Total Pembayaran</span>
-                    <span className="font-black text-[#00ff66] text-4xl lg:text-5xl font-mono drop-shadow-[0_0_15px_rgba(0,255,102,0.5)] text-center relative z-10 tracking-tighter">
+                    <span className="font-black text-[#00ff66] text-3xl lg:text-4xl font-mono drop-shadow-[0_0_15px_rgba(0,255,102,0.5)] text-center relative z-10 tracking-tighter">
                       Rp {(
                         (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
                           (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
@@ -1196,14 +1451,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Metode Pembayaran</label>
                       <div className="h-px bg-gradient-to-l from-transparent to-[#333] flex-1" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3 mb-2">
-                      {['CASH', 'QRIS', 'CARD'].map(method => (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+                      {['CASH', 'QRIS', 'CARD', ...(checkoutBill.memberId ? ['BON'] : [])].map(method => (
                         <button
                           key={method}
                           onClick={() => setCheckoutMethod(method)}
                           className={`py-4 rounded-2xl text-xs font-black tracking-[0.1em] transition-all border ${checkoutMethod === method
                             ? 'bg-[#00ff66] text-[#0a0a0a] border-[#00ff66] shadow-[0_8px_20px_rgba(0,255,102,0.3)] scale-105 z-10'
-                            : 'bg-[#141414] text-gray-500 border-[#222222] hover:border-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                            : (method === 'BON' ? 'bg-orange-500/10 text-orange-500 border-orange-500/30' : 'bg-[#141414] text-gray-500 border-[#222222] hover:border-gray-400 hover:text-white hover:bg-[#1a1a1a]')
                             }`}
                         >
                           {method}
@@ -1212,8 +1467,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                     </div>
 
                     {/* Cash Input Drawer */}
-                    <div className={`transition-all duration-500 overflow-hidden ${checkoutMethod === 'CASH' ? 'max-h-[400px] opacity-100 mt-6' : 'max-h-0 opacity-0 mt-0'}`}>
-                      <div className="bg-[#111] p-6 rounded-3xl border border-[#222222] relative shadow-inner">
+                    <div className={`transition-all duration-500 overflow-hidden ${checkoutMethod === 'CASH' ? 'max-h-[400px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'}`}>
+                      <div className="bg-[#111] p-5 rounded-3xl border border-[#222222] relative shadow-inner">
                         <div className="flex justify-between items-center mb-5">
                           <span className="text-gray-400 font-bold text-[11px] uppercase tracking-widest">Cash Received</span>
                           <input
@@ -1226,7 +1481,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         </div>
 
                         {/* Quick Cash Buttons */}
-                        <div className="grid grid-cols-4 gap-2 mb-5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
                           {[50000, 100000, 150000, 'PAS'].map((amt) => {
                             const grandTotal = Math.max(0, (
                               (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
@@ -1283,10 +1538,37 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <div className="p-6 border-t border-[#222222] bg-[#0d0d0d] flex space-x-4 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20">
                   <button
                     onClick={saveToPending}
-                    className="flex-[0.8] py-4 rounded-xl bg-transparent border-2 border-[#333] text-gray-400 font-bold hover:bg-[#1a1a1a] hover:text-white hover:border-gray-500 transition-all text-xs tracking-wider"
+                    className="flex-[0.5] py-4 rounded-xl bg-transparent border-2 border-[#333] text-gray-400 font-bold hover:bg-[#1a1a1a] hover:text-white hover:border-gray-500 transition-all text-[10px] tracking-wider"
                   >
-                    Simpan (Pending)
+                    Hold
                   </button>
+                  {(checkoutBill.memberId) && (
+                    <button
+                      onClick={async () => {
+                        const subtotal = (checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0);
+                        const serviceCharge = applyService ? Math.round(subtotal * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0;
+                        const taxValue = applyTax ? Math.round((subtotal + serviceCharge) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0;
+                        
+                        try {
+                          await api.post(`/sessions/${checkoutBill.id}/pay-debt`, {
+                            discount: checkoutDiscount || 0,
+                            taxAmount: taxValue,
+                            serviceAmount: serviceCharge
+                          });
+                          setCheckoutBill(null);
+                          setCheckoutDiscount(0);
+                          setCheckoutReceived(0);
+                          fetchData();
+                          vamosAlert('Bill berhasil dicatat sebagai BON (Piutang)');
+                        } catch (err: any) {
+                          vamosAlert(err.response?.data?.message || 'Gagal menyimpan sebagai BON');
+                        }
+                      }}
+                      className="flex-1 py-4 rounded-xl bg-orange-500/10 border-2 border-orange-500/30 text-orange-500 font-black uppercase tracking-[0.1em] text-xs hover:bg-orange-500/20 transition-all"
+                    >
+                      BAYAR BON
+                    </button>
+                  )}
                   <button
                     onClick={payBill}
                     disabled={checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
@@ -1336,7 +1618,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                     {members.filter((m: any) => m.name.toLowerCase().includes(fnbMemberId.toLowerCase()) || m.phone.includes(fnbMemberId)).map((m: any) => (
                       <div key={m.id} onClick={() => setFnbMemberId(m.id)}
                         className="px-4 py-3 hover:bg-white/5 cursor-pointer text-sm border-b border-[#222222] flex justify-between items-center">
-                        <span className="font-bold">{m.name}</span>
+                        <span className="font-bold">{m.name} {m.handicap ? `- HC: ${m.handicap}` : ''}</span>
                         <span className="text-gray-500 font-mono text-xs">{m.phone}</span>
                       </div>
                     ))}
@@ -1366,279 +1648,347 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
         return (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-[#141414] border border-[#1e1e1e] rounded-2xl w-full max-w-md shadow-[0_0_60px_rgba(0,0,0,0.6)] overflow-hidden">
-
-              {/* Modal Header */}
-              <div className="px-6 py-5 border-b border-[#1e1e1e] flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#00ff66]/10 border border-[#00ff66]/20 flex items-center justify-center">
-                    <Activity className="w-5 h-5 text-[#00ff66]" />
+            <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-[2rem] w-full max-w-4xl shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[95vh] animate-in fade-in zoom-in-95 duration-500">
+              
+              {/* Premium Header */}
+              <div className="px-8 py-3.5 border-b border-[#1e1e1e] bg-gradient-to-r from-[#111] via-[#0a0a0a] to-[#111] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#00ff66]/20 to-blue-500/20 border border-[#00ff66]/30 flex items-center justify-center shadow-[0_0_20px_rgba(0,255,102,0.1)]">
+                    <Activity className="w-6 h-6 text-[#00ff66]" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">Start New Session</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Configure billing for play session</p>
+                    <h2 className="text-2xl font-black text-white italic tracking-tight uppercase">Start New Session</h2>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-0.5">Initialize play time and billing mode</p>
                   </div>
                 </div>
-                {/* Table Badge */}
-
-                <div className="hidden lg:flex flex-col items-end mr-6">
-                  <span className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-lg"
-                    style={{ background: 'rgba(0,255,102,0.1)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.2)' }}>
-                    {startTable?.name || 'Table'}
-                  </span>
-                  <span className="text-[10px] text-gray-600 font-mono">{startTable?.type || 'REGULAR'}</span>
+                
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Assigned Table</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-black text-[#00ff66] font-mono tracking-tighter">
+                        {startTable?.name || 'MEJA 00'}
+                      </span>
+                      <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {startTable?.type || 'REGULAR'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-
-                {/* ── Member Search ── */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Member (Opsional)</span>
-                  </label>
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                    <input
-                      type="text"
-                      value={selectedMember ? selectedMember.name : memberQuery}
-                      onChange={e => {
-                        if (selectedMember) {
-                          // Clear selection to allow new search
-                          setMemberId('');
-                        }
-                        setMemberQuery(e.target.value);
-                      }}
-                      placeholder="Cari nama atau nomor HP..."
-                      className="w-full bg-[#0a0a0a] border rounded-xl pl-9 pr-10 py-2.5 focus:outline-none transition-colors text-sm"
-                      style={{
-                        borderColor: selectedMember ? '#00ff66' : '#2a2a2a',
-                        color: selectedMember ? '#00ff66' : '#fff'
-                      }}
-                    />
-                    {selectedMember && (
-                      <button
-                        onClick={() => { setMemberId(''); setMemberQuery(''); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Dropdown */}
-                  {!selectedMember && memberQuery.length > 1 && (() => {
-                    const filtered = members.filter((m: any) =>
-                      m.name?.toLowerCase().includes(memberQuery.toLowerCase()) ||
-                      m.phone?.includes(memberQuery)
-                    );
-                    return (
-                      <div className="mt-1 bg-[#111] border border-[#2a2a2a] rounded-xl shadow-xl z-50 max-h-44 overflow-y-auto custom-scrollbar">
-                        {filtered.length > 0 ? filtered.map((m: any) => (
-                          <div
-                            key={m.id}
-                            onClick={() => { setMemberId(m.id); setMemberQuery(''); }}
-                            className="px-4 py-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-[#1a1a1a] last:border-0 transition-colors"
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  
+                  {/* Left Column: Member & Modes */}
+                  <div className="space-y-4">
+                    {/* Member Selection Section */}
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-[#00ff66]/20 to-blue-500/20 rounded-2xl blur opacity-25 group-focus-within:opacity-50 transition duration-500"></div>
+                      <div className="relative bg-[#0d0d0d] border border-[#1e1e1e] rounded-2xl p-5 space-y-4">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <label className="flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
+                            <Users className="w-3.5 h-3.5 text-[#00ff66]" />
+                            Customer / Member (Optional)
+                          </label>
+                          <button 
+                            onClick={(e) => { e.preventDefault(); fetchData(); }}
+                            className="p-1 hover:bg-white/5 rounded-lg text-gray-600 hover:text-[#00ff66] transition-all"
+                            title="Refresh Member Data"
                           >
-                            <div>
-                              <p className="font-bold text-sm text-white">{m.name}</p>
-                              <p className="text-[11px] text-gray-500 font-mono">{m.phone}</p>
+                            <RefreshCw className="w-3 h-3" />
+                          </button>
+                        </div>
+                        
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                          <input
+                            type="text"
+                            value={selectedMember ? selectedMember.name : memberQuery}
+                            onChange={e => {
+                              if (selectedMember) setMemberId('');
+                              setMemberQuery(e.target.value);
+                            }}
+                            placeholder="Cari nama atau nomor HP..."
+                            className="w-full bg-[#050505] border border-[#222] rounded-xl pl-10 pr-10 py-3.5 focus:outline-none focus:border-[#00ff66] transition-all text-sm font-bold placeholder:text-gray-700"
+                            style={selectedMember ? { borderColor: '#00ff66', color: '#00ff66' } : {}}
+                          />
+                          {selectedMember && (
+                            <button
+                              onClick={() => { setMemberId(''); setMemberQuery(''); }}
+                              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Search Results Dropdown */}
+                        {!selectedMember && memberQuery.length > 1 && (() => {
+                          const filtered = members.filter((m: any) =>
+                            m.name?.toLowerCase().includes(memberQuery.toLowerCase()) ||
+                            m.phone?.includes(memberQuery)
+                          );
+                          return (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#111] border border-[#222] rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
+                              {filtered.length > 0 ? filtered.map((m: any) => (
+                                <div key={m.id} onClick={() => { setMemberId(m.id); setMemberQuery(''); }}
+                                  className="px-5 py-4 hover:bg-[#00ff66]/5 cursor-pointer flex justify-between items-center border-b border-[#1a1a1a] last:border-0 group">
+                                  <div>
+                                    <p className="font-black text-sm text-white group-hover:text-[#00ff66] transition-colors">{m.name}</p>
+                                    <p className="text-[10px] text-gray-500 font-mono mt-0.5 tracking-wider">{m.phone}</p>
+                                  </div>
+                                  <div className="bg-[#00ff66]/10 px-3 py-1 rounded-lg border border-[#00ff66]/20">
+                                    <p className="text-[10px] font-black text-[#00ff66] uppercase">{m.loyaltyPoints || 0} PTS</p>
+                                  </div>
+                                </div>
+                              )) : (
+                                <div className="px-5 py-8 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-widest">No matching members</p></div>
+                              )}
                             </div>
-                            <div className="text-right">
-                              <p className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(0,255,102,0.1)', color: '#00ff66' }}>
-                                {m.loyaltyPoints || 0} pts
-                              </p>
+                          );
+                        })()}
+
+                        {selectedMember && (
+                          <div className="bg-[#00ff66]/5 border border-[#00ff66]/20 rounded-xl p-4 flex items-center gap-4 animate-in slide-in-from-left-2 transition-all">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00ff66] to-blue-500 flex items-center justify-center font-black text-white text-lg shadow-[0_4px_12px_rgba(0,255,102,0.3)]">
+                              {selectedMember.name?.charAt(0)}
                             </div>
-                          </div>
-                        )) : (
-                          <div className="px-4 py-4 text-sm text-gray-500 text-center">
-                            Tidak ada member yang cocok.
+                            <div className="flex-1">
+                              <p className="font-black text-white tracking-tight leading-none mb-1">{selectedMember.name}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-[#00ff66] uppercase tracking-widest">{selectedMember.memberType || 'VAMOS MEMBER'}</span>
+                                <span className="w-1 h-1 rounded-full bg-gray-600" />
+                                <span className="text-[9px] text-gray-500 font-mono">{selectedMember.phone}</span>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
-                    );
-                  })()}
-
-                  {/* Selected member info card */}
-                  {selectedMember && (
-                    <div className="mt-2 flex items-center gap-3 bg-[#0a0a0a] border border-[#00ff66]/20 rounded-xl p-3">
-                      <div className="w-8 h-8 rounded-full bg-[#00ff66]/10 border border-[#00ff66]/30 flex items-center justify-center text-[#00ff66] font-black text-sm">
-                        {selectedMember.name?.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-sm text-[#00ff66]">{selectedMember.name}</p>
-                        <p className="text-[11px] text-gray-500 font-mono">{selectedMember.phone} · {selectedMember.loyaltyPoints || 0} pts</p>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
-                        style={{ background: 'rgba(0,255,102,0.1)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.2)' }}>
-                        {selectedMember.memberType || 'MEMBER'}
-                      </span>
                     </div>
-                  )}
-                  {!selectedMember && memberQuery.length <= 1 && (
-                    <p className="text-[11px] text-gray-600 mt-1.5">Pilih member untuk menerapkan harga member dan poin loyalitas.</p>
-                  )}
-                </div>
 
-                {/* ── Billing Mode ── */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Billing Mode</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: 'OPEN', label: 'Open Time', icon: '⏱️', desc: 'Bayar per jam saat selesai' },
-                      { key: 'PACKAGE', label: 'Paket', icon: '📦', desc: 'Pilih paket harga bundled' },
-                      { key: 'CUSTOM', label: 'Jam Tetap', icon: '🕐', desc: 'Set durasi bermain' },
-                    ].map(({ key, label, icon, desc }) => (
-                      <button
-                        key={key}
-                        onClick={() => setBillingMode(key as any)}
-                        className="flex flex-col items-center p-3 rounded-xl border transition-all text-left"
-                        style={billingMode === key ? {
-                          background: 'rgba(0,255,102,0.08)',
-                          borderColor: '#00ff66',
-                          boxShadow: '0 0 10px rgba(0,255,102,0.1)'
-                        } : {
-                          background: '#0a0a0a',
-                          borderColor: '#2a2a2a'
-                        }}
-                      >
-                        <span className="text-lg mb-1">{icon}</span>
-                        <span className={`text-xs font-black ${billingMode === key ? 'text-[#00ff66]' : 'text-gray-300'}`}>{label}</span>
-                        <span className={`text-[9px] mt-0.5 text-center leading-tight ${billingMode === key ? 'text-[#00ff66]/60' : 'text-gray-600'}`}>{desc}</span>
-                      </button>
-                    ))}
+                    {/* Billing Class (Rate Selection) */}
+                    <div className="space-y-3">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Pilih Kelas Harga</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['REGULAR', 'EXEBITION'].map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => setBillingClass(type)}
+                            className={`p-3 rounded-xl border font-black text-[10px] tracking-widest uppercase transition-all ${
+                              (billingClass || startTable?.type || 'REGULAR') === type
+                                ? 'bg-white/10 border-[#00ff66] text-[#00ff66] shadow-[0_0_15px_rgba(0,255,102,0.1)]'
+                                : 'bg-[#0d0d0d] border-[#1e1e1e] text-gray-600 hover:border-gray-500'
+                            }`}
+                          >
+                            {type === 'EXEBITION' ? 'Exhibition (500/Min)' : type}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-gray-700 italic px-1">
+                        * Pilih "Exhibition" untuk tarif per menit Rp 500. Pilih "Regular" untuk tarif per jam normal.
+                      </p>
+                    </div>
+
+                    {/* Billing Mode Grid */}
+                    <div className="space-y-3">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Select Billing Mode</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { key: 'OPEN', label: 'Open Time', icon: <Clock className="w-4 h-4" />, color: '#00aaff' },
+                          { key: 'PACKAGE', label: 'Paket Promo', icon: <Package2 className="w-4 h-4" />, color: '#ff9900' },
+                          { key: 'CUSTOM', label: 'Jam Tetap', icon: <TimerReset className="w-4 h-4" />, color: '#00ff66' },
+                        ].map(({ key, label, icon, color }) => (
+                          <button
+                            key={key}
+                            onClick={() => setBillingMode(key as any)}
+                            className="relative group transition-all duration-300 transform active:scale-95"
+                          >
+                            <div className={`absolute -inset-[1px] rounded-2xl blur-sm transition-opacity duration-300 ${billingMode === key ? 'opacity-30' : 'opacity-0'}`} style={{ backgroundColor: color }}></div>
+                            <div className={`relative flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all duration-300 ${
+                              billingMode === key ? 'bg-[#0d0d0d] border-opacity-100 shadow-xl' : 'bg-[#0d0d0d] border-[#1e1e1e] border-opacity-50 hover:border-gray-600 grayscale opacity-60'
+                            }`} style={billingMode === key ? { borderColor: color } : {}}>
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2 transition-colors" style={billingMode === key ? { backgroundColor: `${color}15`, color: color } : { color: '#666' }}>
+                                {icon}
+                              </div>
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${billingMode === key ? 'text-white' : 'text-gray-500'}`}>{label}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Dynamic Controller Area */}
+                  <div className="space-y-4">
+                    <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-[1.5rem] p-6 min-h-[300px] flex flex-col justify-start items-center relative overflow-hidden group">
+                      {/* Animated Background Decor */}
+                      <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/5 blur-[80px] rounded-full group-hover:bg-blue-500/10 transition-all duration-1000" />
+                      <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-[#00ff66]/5 blur-[80px] rounded-full group-hover:bg-[#00ff66]/10 transition-all duration-1000" />
+
+                      {billingMode === 'CUSTOM' && (
+                        <div className="w-full space-y-5 animate-in zoom-in-95 duration-500 pt-4">
+                          <div className="text-center">
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-4 block">Set Target Duration</span>
+                            <div className="flex items-center justify-center gap-8">
+                              <button onClick={() => setCustomMinutes(Math.max(30, customMinutes - 30))}
+                                className="w-12 h-12 rounded-2xl border border-[#222] bg-[#1a1a1a] hover:bg-[#222] flex items-center justify-center text-gray-400 hover:text-white transition-all shadow-lg active:scale-90">
+                                <Minus className="w-5 h-5" />
+                              </button>
+                              <div className="text-center relative">
+                                <div className="flex items-baseline justify-center">
+                                  <span className="text-6xl font-black font-mono text-white tracking-tighter shadow-sm">{Math.floor(customMinutes / 60)}</span>
+                                  <span className="text-2xl font-black text-[#00ff66] ml-2 italic">H</span>
+                                  {customMinutes % 60 > 0 && (
+                                    <><span className="text-3xl font-black font-mono text-gray-400 ml-4">{customMinutes % 60}</span><span className="text-xl font-black text-gray-400 italic">M</span></>
+                                  )}
+                                </div>
+                                <div className="mt-1 text-[10px] font-black text-gray-600 uppercase tracking-widest">{customMinutes} Total Minutes</div>
+                              </div>
+                              <button onClick={() => setCustomMinutes(customMinutes + 30)}
+                                className="w-12 h-12 rounded-2xl border border-[#00ff66]/30 bg-[#00ff66]/10 hover:bg-[#00ff66]/20 flex items-center justify-center text-[#00ff66] transition-all shadow-[0_0_20px_rgba(0,255,102,0.1)] active:scale-90">
+                                <Plus className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-center flex-wrap gap-2">
+                            {[60, 120, 180].map(m => (
+                              <button key={m} onClick={() => setCustomMinutes(m)}
+                                className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${
+                                  customMinutes === m ? 'bg-[#00ff66] text-[#0a0a0a] border-[#00ff66] shadow-lg' : 'bg-[#141414] text-gray-500 border-[#222] hover:border-gray-500'
+                                }`}>
+                                {m >= 60 ? `${m/60} JAM` : `${m} MIN`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {billingMode === 'OPEN' && (
+                        <div className="text-center animate-in fade-in zoom-in-95 duration-500 py-10">
+                          <div className="w-20 h-20 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-6">
+                            <Clock className="w-10 h-10 text-blue-500" />
+                          </div>
+                          <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Manual Track Mode</h3>
+                          <p className="text-sm text-gray-500 mt-2 max-w-xs leading-relaxed">Timer akan mulai berjalan tanpa batasan waktu. Tagihan dihitung per menit saat sesi berakhir.</p>
+                        </div>
+                      )}
+
+                      {billingMode === 'PACKAGE' && (
+                        <div className="text-center animate-in fade-in zoom-in-95 duration-500 py-10 w-full">
+                           {!selectedPackage ? (
+                            <div className="space-y-4">
+                              <div className="w-20 h-20 rounded-3xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-6">
+                                <Package2 className="w-10 h-10 text-orange-500" />
+                              </div>
+                              <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Select Table Package</h3>
+                              <p className="text-sm text-gray-500 max-w-xs mx-auto">Pilih salah satu paket promo yang tersedia di bagian bawah untuk melanjutkan.</p>
+                            </div>
+                           ) : (() => {
+                             const pkg = packages.find(p => p.id === selectedPackage);
+                             return (
+                               <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#ff9900]/30 rounded-[1.5rem] p-5 w-full shadow-2xl relative overflow-hidden">
+                                 <div className="absolute top-3 right-3 bg-[#ff9900] text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase italic tracking-widest">Active Package</div>
+                                 <h4 className="text-[9px] font-black text-[#ff9900] uppercase tracking-[0.4em] mb-1">Package Confirmation</h4>
+                                 <h3 className="text-xl font-black text-white mb-2 tracking-tighter truncate">{pkg?.name}</h3>
+                                 <div className="flex justify-center items-center gap-8 border-y border-white/5 py-3 mb-3">
+                                   <div className="text-center">
+                                      <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest mb-0.5">Duration</p>
+                                      <p className="text-xl font-black text-white font-mono">{pkg?.duration / 60}H</p>
+                                   </div>
+                                   <div className="w-px h-8 bg-white/10" />
+                                   <div className="text-center">
+                                      <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest mb-0.5">Base Price</p>
+                                      <p className="text-xl font-black text-[#00ff66] font-mono">Rp {pkg?.price.toLocaleString()}</p>
+                                   </div>
+                                 </div>
+                                 
+                                 <button onClick={() => setSelectedPackage('')} className="text-[9px] font-black text-gray-500 hover:text-red-500 uppercase tracking-[0.2em] transition-colors">Clear Selection</button>
+                               </div>
+                             );
+                           })()}
+                        </div>
+                      )}
+
+                      {/* Estimate Preview */}
+                      {pricingEstimate !== null && (
+                        <div className="mt-auto w-full flex items-center justify-between px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-sm animate-in slide-in-from-bottom-2">
+                          <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em]">Estimated Bill</span>
+                          <span className="text-lg font-black text-[#00ff66] font-mono tracking-tighter">Rp {Math.round(pricingEstimate).toLocaleString('id-ID')}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* ── Package Selection ── */}
+                {/* ── Wide Bottom Section for Packages ── */}
                 {billingMode === 'PACKAGE' && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-bold text-[#00ff66] uppercase tracking-widest">Pilih Paket</label>
-                    <div className="max-h-[160px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  <div className="mt-2 space-y-2 animate-in slide-in-from-bottom-4 duration-700">
+                    <div className="flex items-center gap-4">
+                      <h4 className="flex-none text-[9px] font-black text-gray-500 uppercase tracking-[0.4em]">Available Packages</h4>
+                      <div className="flex-1 h-px bg-gradient-to-r from-[#222] to-transparent" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                       {packages.map((p: any) => (
                         <button
                           key={p.id}
                           onClick={() => setSelectedPackage(p.id)}
-                          className="w-full text-left p-3 rounded-xl border transition-all flex justify-between items-center"
-                          style={selectedPackage === p.id ? {
-                            borderColor: '#00ff66',
-                            background: 'rgba(0,255,102,0.07)'
-                          } : {
-                            borderColor: '#2a2a2a',
-                            background: '#0a0a0a'
-                          }}
+                          className={`relative text-left p-4 rounded-2xl border-2 transition-all duration-300 group overflow-hidden ${
+                            selectedPackage === p.id 
+                            ? 'bg-[#1a1a1a] border-[#ff9900] shadow-[0_5px_20px_rgba(255,153,0,0.15)] scale-[1.02] z-10' 
+                            : 'bg-[#0d0d0d] border-[#1e1e1e] hover:border-gray-500 hover:bg-[#111]'
+                          }`}
                         >
-                          <div>
-                            <p className={`font-bold text-sm ${selectedPackage === p.id ? 'text-[#00ff66]' : 'text-white'}`}>{p.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">⏱ {p.duration / 60} Jam Bermain</p>
+                          {selectedPackage === p.id && (
+                            <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff9900] flex items-center justify-center text-black">
+                              <Check className="w-3 h-3" strokeWidth={4} />
+                            </div>
+                          )}
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-colors ${
+                            selectedPackage === p.id ? 'bg-[#ff9900] text-black' : 'bg-white/5 text-gray-500 group-hover:text-white'
+                          }`}>
+                            <Activity className="w-4 h-4" />
                           </div>
-                          <div className="text-right">
-                            <p className="font-black font-mono text-sm text-white">
+                          <h5 className={`font-black text-xs tracking-tight mb-0.5 truncate ${selectedPackage === p.id ? 'text-white' : 'text-gray-300'}`}>{p.name}</h5>
+                          <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-2">⏱ {p.duration / 60}H Play</p>
+                          <div className="mt-auto pt-2 border-t border-white/5 flex justify-between items-baseline">
+                            <span className="text-[8px] font-black text-gray-600 uppercase">Rate</span>
+                            <span className={`font-black font-mono text-sm ${selectedPackage === p.id ? 'text-[#ff9900]' : 'text-gray-400'}`}>
                               Rp {(selectedMember && p.memberPrice ? p.memberPrice : p.price).toLocaleString('id-ID')}
-                            </p>
-                            {selectedMember && p.memberPrice && (
-                              <p className="text-[10px] text-[#00ff66] line-through-none">Harga member ✓</p>
-                            )}
+                            </span>
                           </div>
                         </button>
                       ))}
-                      {packages.length === 0 && (
-                        <p className="text-sm text-gray-600 italic text-center py-4 border border-dashed border-[#2a2a2a] rounded-xl">
-                          Belum ada paket yang dikonfigurasi.
-                        </p>
-                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* ── Custom Hours Picker ── */}
-                {billingMode === 'CUSTOM' && (
-                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] p-5 rounded-xl">
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 text-center">Durasi Bermain</label>
-                    <div className="flex items-center justify-center gap-6">
-                      <button
-                        onClick={() => setCustomMinutes(Math.max(30, customMinutes - 30))}
-                        className="w-12 h-12 rounded-full border border-[#333] bg-[#141414] hover:bg-[#222] flex items-center justify-center text-gray-400 hover:text-white transition-all active:scale-95"
-                      >
-                        <Minus className="w-5 h-5" />
-                      </button>
-                      <div className="text-center">
-                        <span className="text-5xl font-black font-mono text-white">
-                          {Math.floor(customMinutes / 60)}
-                        </span>
-                        <span className="text-2xl font-black text-[#00ff66] ml-1">j</span>
-                        {customMinutes % 60 > 0 && (
-                          <><span className="text-3xl font-black font-mono text-gray-400 ml-1">{customMinutes % 60}</span><span className="text-lg font-black text-gray-400">m</span></>
-                        )}
-                        <p className="text-xs text-gray-600 mt-1">{customMinutes} menit</p>
+                    
+                    {packages.length === 0 && (
+                      <div className="py-12 bg-white/5 border border-dashed border-[#222] rounded-3xl text-center">
+                        <Package2 className="w-10 h-10 text-gray-700 mx-auto mb-4 opacity-30" />
+                        <p className="text-xs text-gray-600 font-black uppercase tracking-widest">No promo packages active</p>
                       </div>
-                      <button
-                        onClick={() => setCustomMinutes(customMinutes + 30)}
-                        className="w-12 h-12 rounded-full border border-[#00ff66]/30 bg-[#00ff66]/10 hover:bg-[#00ff66]/20 flex items-center justify-center text-[#00ff66] transition-all active:scale-95"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* Quick Presets */}
-                    <div className="flex justify-center gap-2 mt-4">
-                      {[60, 120, 180, 240].map(m => (
-                        <button
-                          key={m}
-                          onClick={() => setCustomMinutes(m)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all"
-                          style={customMinutes === m ? {
-                            background: '#00ff66',
-                            color: '#0a0a0a'
-                          } : {
-                            background: '#141414',
-                            color: '#9ca3af',
-                            border: '1px solid #2a2a2a'
-                          }}
-                        >
-                          {m >= 60 ? `${m / 60}j` : `${m}m`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Open Time Info ── */}
-                {billingMode === 'OPEN' && (
-                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] p-4 rounded-xl text-center">
-                    <span className="text-3xl">⏱️</span>
-                    <p className="text-sm font-bold text-white mt-2">Mode Open Time</p>
-                    <p className="text-xs text-gray-500 mt-1">Timer mulai berjalan saat session dimulai. Tagihan dihitung saat End Session.</p>
-                  </div>
-                )}
-
-                {/* ── Estimated Cost ── */}
-                {pricingEstimate !== null && (
-                  <div className="flex items-center justify-between bg-[#0f0f0f] border border-[#00ff66]/15 rounded-xl px-4 py-3">
-                    <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estimasi Biaya Table</span>
-                    <span className="font-black font-mono text-[#00ff66]">
-                      Rp {Math.round(pricingEstimate).toLocaleString('id-ID')}
-                    </span>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="px-6 py-4 border-t border-[#1e1e1e] flex gap-3">
+              {/* Action Buttons Footer */}
+              <div className="px-6 py-2.5 border-t border-[#1e1e1e] bg-[#0d0d0d] flex gap-4 shrink-0">
                 <button
                   onClick={() => { setStartTableId(null); setMemberId(''); setMemberQuery(''); }}
-                  className="flex-1 py-3 rounded-xl bg-transparent border border-[#2a2a2a] text-gray-400 font-semibold hover:bg-white/5 hover:text-white transition-all text-sm"
+                  className="flex-1 py-4 rounded-2xl bg-white/5 border border-[#1e1e1e] text-gray-500 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 hover:text-white transition-all active:scale-95"
                 >
-                  Batal
+                  Terminate
                 </button>
                 <button
                   onClick={startSession}
                   disabled={billingMode === 'PACKAGE' && !selectedPackage}
-                  className="flex-[2] py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: '#00ff66', color: '#0a0a0a', boxShadow: '0 0 20px rgba(0,255,102,0.2)' }}
+                  className="flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.97] disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed shadow-[0_10px_40px_rgba(0,255,102,0.2)]"
+                  style={{ background: '#00ff66', color: '#0a0a0a' }}
                 >
-                  <Activity className="w-4 h-4" />
-                  Mulai Session
+                  <Activity className="w-5 h-5" />
+                  Initialize Session
                 </button>
               </div>
             </div>
@@ -2243,35 +2593,29 @@ function formatDuration(session: any, _tick: number) {
   }
 }
 
-function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onAddDuration, onTogglePause, onViewDetail, onToggleRelay }: any) {
+function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onAddDuration, onViewDetail, onToggleRelay }: any) {
   const isPlaying = table.status === 'PLAYING' && table.activeSession;
   const isAvailable = table.status === 'AVAILABLE';
-  const isPaused = isPlaying && !!table.activeSession.pausedAt;
 
   const isTimeUp = (() => {
     if (!isPlaying || !table.activeSession?.durationOpts) return false;
     const start = new Date(table.activeSession.startTime).getTime();
     const totalPausedMs = table.activeSession.totalPausedMs || 0;
-    const pausedAt = table.activeSession.pausedAt ? new Date(table.activeSession.pausedAt).getTime() : null;
-    const now = pausedAt || Date.now();
-
+    const now = Date.now();
     const elapsedMs = (now - start) - totalPausedMs;
     const totalDurationMs = table.activeSession.durationOpts * 60000;
-
     return elapsedMs >= totalDurationMs;
   })();
 
   const warningMins = venue?.blinkWarningMinutes || 5;
   const isTimeBlinking = (() => {
-    if (!isPlaying || !table.activeSession?.durationOpts || isTimeUp || isPaused) return false;
+    if (!isPlaying || !table.activeSession?.durationOpts || isTimeUp) return false;
     const start = new Date(table.activeSession.startTime).getTime();
     const totalPausedMs = table.activeSession.totalPausedMs || 0;
     const now = Date.now();
-
     const elapsedMs = (now - start) - totalPausedMs;
     const totalDurationMs = table.activeSession.durationOpts * 60000;
     const remainingMins = (totalDurationMs - elapsedMs) / 60000;
-
     return remainingMins > 0 && remainingMins <= warningMins;
   })();
 
@@ -2288,6 +2632,16 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
         <div>
           <h3 className="text-xl font-bold mb-1">{table.name}</h3>
           <p className="text-xs text-gray-400 tracking-wider uppercase">{table.type}</p>
+          {isPlaying && (() => {
+            const session = table.activeSession;
+            const displayName = session.memberName || session.customerName || null;
+            return displayName ? (
+              <p className="text-xs text-[#00ff66] font-bold mt-1 flex items-center gap-1 truncate max-w-[120px]">
+                <Users className="w-3 h-3 shrink-0" />
+                <span className="truncate">{displayName}</span>
+              </p>
+            ) : null;
+          })()}
         </div>
         <div className="flex flex-col items-end space-y-2">
           <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider
@@ -2300,17 +2654,6 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
           {/* Quick Actions (Hover) */}
           {isPlaying && (
             <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-6 right-[85px]">
-              <button
-                onClick={onTogglePause}
-                className={`w-7 h-7 flex items-center justify-center rounded border transition-all ${isPaused
-                  ? 'bg-[#00ff66] text-black border-[#00ff66] shadow-[0_0_10px_rgba(0,255,102,0.4)]'
-                  : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30 hover:bg-yellow-500 hover:text-black'
-                  }`}
-                title={isPaused ? "Resume Timer" : "Pause Timer"}
-              >
-                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                {isPaused && <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#00ff66] text-black text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-lg">Paused</span>}
-              </button>
               <button onClick={onMove} className="w-7 h-7 bg-[#00aaff]/10 border border-[#00aaff]/30 rounded flex items-center justify-center text-[#00aaff] hover:bg-[#00aaff] hover:text-white transition-colors" title="Move Table">
                 <ArrowRightLeft className="w-3.5 h-3.5" />
               </button>
@@ -2325,15 +2668,9 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
       <div className="flex-1 flex flex-col items-center justify-center py-4">
         {isPlaying ? (
           <>
-            <div className={`text-4xl font-mono font-bold tracking-tight mb-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all ${table.activeSession.durationOpts ? 'text-orange-400' : ''} ${isPaused ? 'opacity-40 grayscale blur-[1px] scale-95' : ''}`}>
+            <div className={`text-4xl font-mono font-bold tracking-tight mb-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all relative
+              ${table.activeSession.durationOpts ? 'text-orange-400' : ''}`}>
               {formatDuration(table.activeSession, tick)}
-              {isPaused && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-black text-[#00ff66] bg-black/80 px-4 py-1 rounded-full border border-[#00ff66]/50 shadow-[0_0_15px_rgba(0,255,102,0.3)] animate-pulse tracking-[0.2em] uppercase">
-                    PAUSED
-                  </span>
-                </div>
-              )}
               {isTimeUp && (
                 <div className="text-[10px] text-yellow-500 text-center uppercase font-black tracking-widest mt-2 bg-yellow-500/20 py-1 px-3 rounded-full border border-yellow-500/50 w-full animate-bounce">
                   Ready To Pay
@@ -2380,6 +2717,7 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
         )}
       </div>
 
+      {/* Bottom Action Buttons */}
       <div className="mt-4 flex space-x-2">
         {isPlaying ? (
           <>
@@ -2415,7 +2753,17 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
 }
 
 
-function NavItem({ icon, label, active, onClick, badge, badgeColor, accent }: any) {
+interface NavItemProps {
+  icon: React.ReactElement;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  badge?: number | string | null;
+  badgeColor?: 'red' | 'blue' | 'green' | 'orange';
+  accent?: 'gold' | 'green';
+}
+
+function NavItem({ icon, label, active, onClick, badge, badgeColor, accent }: NavItemProps) {
   const accentColor = accent === 'gold' ? '#f59e0b' : '#00ff66';
   return (
     <button
@@ -2432,12 +2780,17 @@ function NavItem({ icon, label, active, onClick, badge, badgeColor, accent }: an
       }}
     >
       <div className="shrink-0" style={{ color: active ? accentColor : 'inherit' }}>
-        {React.cloneElement(icon, { style: { width: '1.1rem', height: '1.1rem' }, className: undefined })}
+        {React.cloneElement(icon as any, { style: { width: '1.1rem', height: '1.1rem' }, className: undefined } as any)}
       </div>
       <span className="text-sm flex-1 text-left">{label}</span>
       {badge && (
         <span className="text-[10px] font-black px-1.5 py-0.5 rounded-lg min-w-[20px] text-center"
-          style={badgeColor === 'red' ? { background: 'rgba(255,51,51,0.15)', color: '#ff5555' } : { background: 'rgba(0,255,102,0.15)', color: '#00ff66' }}>
+          style={
+            badgeColor === 'red' ? { background: 'rgba(255,51,51,0.15)', color: '#ff5555' } :
+              badgeColor === 'orange' ? { background: 'rgba(249,115,22,0.15)', color: '#f97316' } :
+                badgeColor === 'blue' ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa' } :
+                  { background: 'rgba(0,255,102,0.15)', color: '#00ff66' }
+          }>
           {badge}
         </span>
       )}

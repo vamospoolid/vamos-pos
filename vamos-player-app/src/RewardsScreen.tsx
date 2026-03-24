@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Star, Share2, Zap, Gift, ShoppingBag, Lock, Box, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Star, Share2, Zap, Gift, ShoppingBag, Lock, Box, ArrowRight, TrendingUp, TrendingDown, UserCog } from 'lucide-react';
 import { useAppStore } from './store/appStore';
 import { useState, useEffect } from 'react';
 import { api } from './api';
@@ -6,9 +6,9 @@ import { api } from './api';
 // ─── Tier config ──────────────────────────────────────────────────────────────
 const TIER = {
     BRONZE: { color: '#cd7f32', label: 'Bronze', emoji: '🥉', min: 0, nextMin: 1000 },
-    SILVER: { color: '#a8a9ad', label: 'Silver', emoji: '🥈', min: 1000, nextMin: 2000 },
-    GOLD: { color: '#00d4ff', label: 'Elite Gold', emoji: '🥇', min: 2000, nextMin: 3000 },
-    PLATINUM: { color: '#1f22ff', label: 'Champion', emoji: '💎', min: 3000, nextMin: 3000 },
+    SILVER: { color: '#a8a9ad', label: 'Silver', emoji: '🥈', min: 1000, nextMin: 2500 },
+    GOLD: { color: '#00d4ff', label: 'Pool Gold', emoji: '🥇', min: 2500, nextMin: 5000 },
+    PLATINUM: { color: '#1f22ff', label: 'Champion', emoji: '💎', min: 5000, nextMin: 5000 },
 } as const;
 
 const NEXT_TIER: Record<string, keyof typeof TIER> = {
@@ -16,23 +16,23 @@ const NEXT_TIER: Record<string, keyof typeof TIER> = {
 };
 
 const TIER_BENEFITS: Record<string, string[]> = {
-    BRONZE: ['Basic rewards access', 'Earn 1 point per Rp10.000 spent'],
-    SILVER: ['5% discount on F&B', 'Priority table booking', 'Early access to tournaments'],
-    GOLD: ['10% discount on all items', 'Monthly free signature drink', 'VIP event access'],
-    PLATINUM: ['15% discount on all items', 'Free weekend booking', 'Personal coach session', 'All lower tier benefits'],
+    BRONZE: ['Dashboard Access', 'View Leaderboard', 'Basic rewards access'],
+    SILVER: ['Priority table booking', 'Point Multiplier (1.1x)', 'Early access to tournaments'],
+    GOLD: ['Point Multiplier (1.25x)', 'Monthly free signature drink', 'VIP event access', 'All lower tier benefits'],
+    PLATINUM: ['Point Multiplier (1.5x)', 'Free weekend booking', 'Personal coach session', 'All lower tier VIP benefits'],
 };
 
 export function RewardsScreen() {
-    const { member, setMember, setActiveTab } = useAppStore();
+    const { member, setMember, setActiveTab, rewardsTab, setRewardsTab } = useAppStore();
 
     const [rewards, setRewards] = useState<any[]>([]);
     const [redemptions, setRedemptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [redeemingId, setRedeemingId] = useState<string | null>(null);
-    const [activeView, setActiveView] = useState<'catalog' | 'vault' | 'history' | 'tiers'>('catalog');
     const [confirmReward, setConfirmReward] = useState<any>(null);
 
     const points = member?.loyaltyPoints || 0;
+    const experience = member?.experience || 0;
     const tier = (member?.tier || 'BRONZE') as keyof typeof TIER;
     const tierCfg = TIER[tier] || TIER.BRONZE;
     const nextTierKey = NEXT_TIER[tier];
@@ -40,9 +40,9 @@ export function RewardsScreen() {
     const isMaxTier = tier === 'PLATINUM';
 
     const progressFloor = tierCfg.min;
-    const progressCeil = isMaxTier ? points : nextTierCfg.min;
-    const progressPct = isMaxTier ? 100 : Math.min(100, Math.round(((points - progressFloor) / (progressCeil - progressFloor)) * 100));
-    const ptsToGo = isMaxTier ? 0 : Math.max(0, nextTierCfg.min - points);
+    const progressCeil = isMaxTier ? experience : nextTierCfg.min;
+    const progressPct = isMaxTier ? 100 : Math.min(100, Math.max(0, Math.round(((experience - progressFloor) / (progressCeil - progressFloor)) * 100)));
+    const xpToGo = isMaxTier ? 0 : Math.max(0, nextTierCfg.min - experience);
 
     useEffect(() => {
         fetchAll();
@@ -57,6 +57,14 @@ export function RewardsScreen() {
             ]);
             setRewards(rewardsRes.data.data || []);
             setRedemptions(redemptionsRes.data.data || []);
+            
+            // Re-fetch member to get latest pointLogs
+            if (member?.id) {
+                const memberRes = await api.get(`/player/${member.id}`);
+                if (memberRes.data.success) {
+                    setMember(memberRes.data.data);
+                }
+            }
         } catch (err) {
             console.error('Failed to fetch rewards', err);
         } finally {
@@ -133,7 +141,7 @@ export function RewardsScreen() {
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">Estimated Req.</p>
-                                <p className="text-xs font-black text-primary italic">+{(ptsToGo * 1000).toLocaleString('id-ID')} Rp</p>
+                                <p className="text-xs font-black text-primary italic">+{(xpToGo).toLocaleString('id-ID')} XP</p>
                             </div>
                         </div>
                         <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden p-[2px] border border-white/5">
@@ -151,8 +159,8 @@ export function RewardsScreen() {
                         { key: 'history', label: 'History' },
                         { key: 'tiers', label: 'Ranks' },
                     ].map(t => (
-                        <button key={t.key} onClick={() => setActiveView(t.key as any)}
-                            className={`flex-1 py-4 text-[10px] font-black rounded-[24px] uppercase tracking-widest transition-all italic ${activeView === t.key ? 'bg-primary text-secondary fiery-glow shadow-primary/20' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <button key={t.key} onClick={() => setRewardsTab(t.key as any)}
+                            className={`flex-1 py-4 text-[10px] font-black rounded-[24px] uppercase tracking-widest transition-all italic ${rewardsTab === t.key ? 'bg-primary text-secondary fiery-glow shadow-primary/20' : 'text-slate-500 hover:text-slate-300'}`}>
                             {t.label}
                         </button>
                     ))}
@@ -169,7 +177,7 @@ export function RewardsScreen() {
                 )}
 
                 {/* Catalog */}
-                {!loading && activeView === 'catalog' && (
+                {!loading && rewardsTab === 'catalog' && (
                     <div className="space-y-6">
                         {rewards.length === 0 && (
                             <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-60">
@@ -230,7 +238,7 @@ export function RewardsScreen() {
                 )}
 
                 {/* Vault */}
-                {!loading && activeView === 'vault' && (
+                {!loading && rewardsTab === 'vault' && (
                     <div className="space-y-6">
                         {redemptions.filter(r => r.status === 'PENDING').length === 0 ? (
                             <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-60">
@@ -267,40 +275,42 @@ export function RewardsScreen() {
                 )}
 
                 {/* History */}
-                {!loading && activeView === 'history' && (
+                {!loading && rewardsTab === 'history' && (
                     <div className="space-y-4">
-                        {redemptions.length === 0 ? (
+                        {(member?.pointLogs || []).length === 0 ? (
                             <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-60">
                                 <ShoppingBag className="w-14 h-14 text-slate-700 mx-auto mb-6" />
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">No mission records found.</p>
                             </div>
-                        ) : redemptions.map((r: any) => (
-                            <div key={r.id} className="fiery-card p-6 flex items-center gap-6 border border-white/5 bg-[#1a1f35]/40 hover:bg-[#1a1f35]/60 transition-all rounded-[32px]">
-                                <div className="w-16 h-16 rounded-2xl shrink-0 overflow-hidden bg-black/40 border border-white/5">
-                                    {r.reward?.imageUrl
-                                        ? <img src={r.reward.imageUrl} alt={r.reward.title} className="w-full h-full object-cover" />
-                                        : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-slate-700" /></div>
-                                    }
+                        ) : member.pointLogs.map((log: any) => {
+                            const isPositive = log.points > 0;
+                            const Icon = log.type === 'REDEEM' ? ShoppingBag : (log.type === 'ADMIN_ADJUST' ? UserCog : (isPositive ? TrendingUp : TrendingDown));
+                            
+                            return (
+                                <div key={log.id} className="fiery-card p-6 flex items-center gap-6 border border-white/5 bg-[#1a1f35]/40 hover:bg-[#1a1f35]/60 transition-all rounded-[32px]">
+                                    <div className={`w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center border border-white/5 ${isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                        <Icon className="w-7 h-7" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-black text-xs text-white uppercase italic tracking-widest leading-none mb-1.5">{log.description || log.type}</p>
+                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">
+                                            {new Date(log.createdAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className={`text-xl font-black italic tracking-tighter ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+                                            {isPositive ? '+' : ''}{log.points}
+                                        </p>
+                                        <span className="text-[8px] font-black text-slate-600 uppercase tracking-[0.2em] italic">Credits</span>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-black text-base text-white truncate leading-tight uppercase italic tracking-tighter">{r.reward?.title}</p>
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 italic">
-                                        {new Date(r.claimedAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                    </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-base font-black text-red-500/80 italic mb-2">-{r.reward?.pointsRequired}</p>
-                                    <span className={`text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic ${r.status === 'DELIVERED' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-white/5 text-slate-500 border border-white/5'}`}>
-                                        {r.status === 'DELIVERED' ? 'Finalized' : 'Pending'}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
                 {/* Tiers / Ranks */}
-                {!loading && activeView === 'tiers' && (
+                {!loading && rewardsTab === 'tiers' && (
                     <div className="space-y-6">
                         {Object.entries(TIER).map(([key, cfg]) => {
                             const isCurrentTier = key === tier;
@@ -318,7 +328,7 @@ export function RewardsScreen() {
                                         <div>
                                             <p className="font-black text-3xl leading-none italic uppercase tracking-tighter" style={{ color: cfg.color }}>{cfg.label}</p>
                                             <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-3 italic">
-                                                {cfg.min === 0 ? 'Foundation Level' : `REQ ${(cfg.min * 1000).toLocaleString('id-ID')} RP SPENT`}
+                                                {cfg.min === 0 ? 'Foundation Level' : `REQ ${(cfg.min).toLocaleString('id-ID')} XP`}
                                             </p>
                                         </div>
                                     </div>

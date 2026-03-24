@@ -107,6 +107,29 @@ export class WaitlistService {
                 (waitlist! as any).durationMinutes || 60,
                 (waitlist! as any).price || undefined
             );
+
+            // APP BOOKING INCENTIVE (+20 Points)
+            if (waitlist.memberId) {
+                try {
+                    const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                    await LoyaltyService.addPoints(
+                        waitlist.memberId, 
+                        20, 
+                        'EARN_BONUS', 
+                        '🎁 Bonus: Booking via Player App'
+                    );
+
+                    if (waitlist.phone) {
+                        const { waService } = await import('../whatsapp/wa.service');
+                        await waService.sendMessage(
+                            waitlist.phone,
+                            `*TABLE READY!* 🎱\n\nHalo ${waitlist.customerName}, meja Anda sudah siap. \n\nTerima kasih telah booking via Player App! Anda mendapatkan *Bonus 20 Poin Loyalty*. Selamat bermain! 🔥`
+                        );
+                    }
+                } catch (e) {
+                    console.error('Failed to award app booking bonus:', e);
+                }
+            }
         }
 
         const updated = await prisma.waitlist.update({
@@ -126,5 +149,56 @@ export class WaitlistService {
 
         await AuditService.log(userId, 'WAITLIST_DELETE', 'Waitlist', { waitlistId: id });
         return { success: true };
+    }
+
+    static async checkExpiredWaitlist() {
+        const threshold = new Date(Date.now() - 30 * 60 * 1000);
+
+        const expiredEntries = await prisma.waitlist.findMany({
+            where: {
+                status: 'WAITING',
+                reservedTime: { lt: threshold },
+                deletedAt: null
+            },
+            include: { member: true }
+        });
+
+        if (expiredEntries.length === 0) return;
+
+        for (const entry of expiredEntries) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    await tx.waitlist.update({
+                        where: { id: entry.id },
+                        data: { status: 'EXPIRED' }
+                    });
+
+                    if (entry.memberId) {
+                        const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                        await LoyaltyService.addPoints(
+                            entry.memberId,
+                            -50,
+                            'ADJUSTMENT',
+                            '💀 Penalty: No-show booking (Antrian Hangus)'
+                        );
+
+                        if (entry.member?.phone) {
+                            const { waService } = await import('../whatsapp/wa.service');
+                            await waService.sendMessage(
+                                entry.member.phone,
+                                `*BOOKING EXPIRED* 💀\n\nHalo ${entry.member.name}, antrian Anda di VAMOS telah hangus karena melewati batas waktu 30 menit. \n\nSesuai ketentuan, poin Anda dipotong *50 Poin* sebagai kompensasi. Mohon hadir tepat waktu di booking berikutnya ya! 🙏`
+                            );
+                        }
+                    }
+                });
+            } catch (err: any) {
+                console.error(`Error processing expired waitlist ${entry.id}:`, err.message);
+            }
+        }
+
+        try {
+            const { getIO } = await import('../../socket');
+            getIO().emit('waitlist:updated');
+        } catch (e) { }
     }
 }

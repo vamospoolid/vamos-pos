@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { io } from 'socket.io-client';
 import { api } from './api';
-import { vamosAlert, vamosConfirm } from './utils/dialog';
+import { vamosAlert, vamosConfirm, vamosPaymentMethod } from './utils/dialog';
 import {
     Wallet, Plus, Trash2, Loader2, Calendar, FileText,
-    ShoppingCart, Zap, DollarSign, Tag, X, Download, Filter
+    ShoppingCart, Zap, DollarSign, Tag, X, Download, Filter, Users, Search
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -45,6 +46,13 @@ const CATEGORIES: Record<string, { label: string; color: string; bg: string; bor
         border: 'rgba(156,163,175,0.25)',
         icon: <FileText className="w-3 h-3" />,
     },
+    DEBT: {
+        label: 'Piutang Member',
+        color: '#f97316',
+        bg: 'rgba(249,115,22,0.12)',
+        border: 'rgba(249,115,22,0.3)',
+        icon: <Users className="w-3 h-3" />,
+    },
 };
 
 const getDefaultDateTime = () => {
@@ -58,12 +66,19 @@ export default function Expenses() {
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
+    const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [memberSearch, setMemberSearch] = useState<string>('');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Form states
     const [category, setCategory] = useState('OPERATIONAL');
     const [amount, setAmount] = useState<string>('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(getDefaultDateTime());
+    const [members, setMembers] = useState<any[]>([]);
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
 
     const fetchExpenses = async () => {
         try {
@@ -76,7 +91,56 @@ export default function Expenses() {
         }
     };
 
-    useEffect(() => { fetchExpenses(); }, []);
+    const fetchMembers = async () => {
+        try {
+            const res = await api.get('/members');
+            setMembers(res.data.data || []);
+        } catch (error) {
+            console.error('Failed to fetch members', error);
+        }
+    };
+
+    useEffect(() => { 
+        fetchExpenses(); 
+        fetchMembers();
+    }, []);
+
+    useEffect(() => {
+        if (timeFilter === 'daily') {
+            const end = new Date().toISOString().split('T')[0];
+            const start = end;
+            setStartDate(start);
+            setEndDate(end);
+        } else if (timeFilter === 'weekly') {
+            const end = new Date().toISOString().split('T')[0];
+            const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            setStartDate(start);
+            setEndDate(end);
+        } else if (timeFilter === 'monthly') {
+            const end = new Date().toISOString().split('T')[0];
+            const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            setStartDate(start);
+            setEndDate(end);
+        }
+    }, [timeFilter]);
+
+    useEffect(() => {
+        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+        const socket = io(socketUrl);
+
+        const handleUpdate = () => {
+            fetchExpenses();
+            fetchMembers();
+        };
+
+        socket.on('expenses:updated', handleUpdate);
+        socket.on('sessions:updated', handleUpdate);
+        socket.on('members:updated', handleUpdate);
+
+        return () => {
+            socket.disconnect();
+        };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,13 +159,15 @@ export default function Expenses() {
                 category,
                 amount: numAmount,
                 description: description.trim(),
-                date: date || new Date().toISOString()
+                date: date || new Date().toISOString(),
+                memberId: category === 'DEBT' ? selectedMemberId : null
             });
             setShowModal(false);
             setAmount('');
             setDescription('');
             setDate(getDefaultDateTime());
             setCategory('OPERATIONAL');
+            setSelectedMemberId('');
             fetchExpenses();
         } catch (err: any) {
             console.error('Failed to save expense', err);
@@ -117,15 +183,84 @@ export default function Expenses() {
         try {
             await api.delete(`/expenses/${id}`);
             setExpenses(prev => prev.filter(e => e.id !== id));
+            setSelectedIds(prev => prev.filter(sid => sid !== id));
         } catch (err) {
             vamosAlert('Gagal menghapus pengeluaran.');
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        if (!(await vamosConfirm(`Hapus ${selectedIds.length} catatan pengeluaran yang terpilih?`))) return;
+        
+        try {
+            await api.post('/expenses/bulk-delete', { ids: selectedIds });
+            setExpenses(prev => prev.filter(e => !selectedIds.includes(e.id)));
+            setSelectedIds([]);
+            vamosAlert('Pengeluaran berhasil dihapus secara massal');
+        } catch (err) {
+            vamosAlert('Gagal menghapus pengeluaran massal.');
+        }
+    };
+
+    const handlePayDebt = async (id: string) => {
+        const method = await vamosPaymentMethod('Pilih metode pembayaran untuk piutang ini. Saldo kasir akan bertambah sesuai metode yang dipilih.');
+        if (!method) return;
+
+        try {
+            await api.post(`/expenses/${id}/pay-debt`, { method });
+            vamosAlert(`Piutang berhasil dibayar menggunakan ${method}!`);
+            fetchExpenses();
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal membayar piutang.');
+        }
+    };
+
     const filteredExpenses = useMemo(() => {
-        if (filterCategory === 'ALL') return expenses;
-        return expenses.filter(e => e.category === filterCategory);
-    }, [expenses, filterCategory]);
+        let list = expenses;
+        if (filterCategory !== 'ALL') {
+            list = list.filter(e => e.category === filterCategory);
+        }
+        
+        list = list.filter(e => {
+            if (!e.date) return false;
+            const d = new Date(e.date);
+            // OPERATIONAL CYCLE: 10:00 AM -> 09:59 AM NEXT DAY
+            const OPEN_HOUR = 10;
+            const opDate = new Date(d);
+            if (opDate.getHours() < OPEN_HOUR) {
+                opDate.setDate(opDate.getDate() - 1);
+            }
+            const opDateStr = `${opDate.getFullYear()}-${String(opDate.getMonth() + 1).padStart(2, '0')}-${String(opDate.getDate()).padStart(2, '0')}`;
+            
+            return opDateStr >= startDate && opDateStr <= endDate;
+        });
+
+        if (memberSearch.trim()) {
+            const query = memberSearch.toLowerCase();
+            list = list.filter(e => 
+                (e.member?.name || '').toLowerCase().includes(query) ||
+                (e.description || '').toLowerCase().includes(query)
+            );
+        }
+        return list;
+    }, [expenses, filterCategory, timeFilter, startDate, endDate, memberSearch]);
+
+    const memberSummary = useMemo(() => {
+        if (!memberSearch.trim()) return null;
+        const query = memberSearch.toLowerCase();
+        const memberExpenses = expenses.filter(e => (e.member?.name || '').toLowerCase().includes(query));
+        
+        const totalPending = memberExpenses
+            .filter(e => e.category === 'DEBT' && e.status === 'PENDING')
+            .reduce((sum, e) => sum + (e.amount || 0), 0);
+            
+        const totalPaid = memberExpenses
+            .filter(e => e.category === 'DEBT' && e.status === 'PAID')
+            .reduce((sum, e) => sum + (e.amount || 0), 0);
+            
+        return { totalPending, totalPaid, count: memberExpenses.length };
+    }, [expenses, memberSearch]);
 
     const categorySummary = useMemo(() => {
         const summary: Record<string, number> = {};
@@ -154,7 +289,9 @@ export default function Expenses() {
         doc.text('Expense Management Report', 15, 27);
         doc.setFontSize(9);
         doc.setTextColor(130, 130, 130);
-        doc.text(`Generated: ${dateStr} ${timeStr} | Filter: ${filterCategory}`, 15, 35);
+
+        const periodText = timeFilter === 'custom' ? `${startDate} sampai ${endDate}` : timeFilter === 'daily' ? 'Hari Ini' : timeFilter === 'weekly' ? '7 Hari Terakhir' : '30 Hari Terakhir';
+        doc.text(`Dicetak: ${dateStr} ${timeStr} | Kategori: ${filterCategory} | Periode: ${periodText}`, 15, 35);
 
         let y = 50;
 
@@ -229,6 +366,15 @@ export default function Expenses() {
                     </div>
                 </div>
                 <div className="flex gap-3">
+                    {selectedIds.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all animate-in fade-in zoom-in-95 duration-200"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Hapus Terpilih ({selectedIds.length})
+                        </button>
+                    )}
                     <button
                         onClick={exportPDF}
                         disabled={expenses.length === 0}
@@ -278,10 +424,96 @@ export default function Expenses() {
                         </p>
                     </button>
                 ))}
+            </div>            {/* ─── Search & Global Stats ───────────────────────────────── */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-red-500 transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="Cari Member atau Deskripsi..."
+                        value={memberSearch}
+                        onChange={e => setMemberSearch(e.target.value)}
+                        className="w-full bg-[#141414] border border-[#222] rounded-2xl py-3.5 pl-11 pr-4 text-sm font-medium focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/20 transition-all"
+                    />
+                    {memberSearch && (
+                        <button 
+                            onClick={() => setMemberSearch('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-full transition-colors"
+                        >
+                            <X className="w-4 h-4 text-gray-500" />
+                        </button>
+                    )}
+                </div>
+                
+                <div className="flex flex-wrap gap-2 md:min-w-[300px]">
+                    <select 
+                        value={filterCategory} 
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        className="bg-[#141414] border border-[#222] rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-red-500 appearance-none flex-1 min-w-[140px]"
+                    >
+                        <option value="ALL">All Categories</option>
+                        {Object.entries(CATEGORIES).map(([key, cfg]) => (
+                            <option key={key} value={key}>{cfg.label}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={timeFilter}
+                        onChange={e => setTimeFilter(e.target.value as any)}
+                        className="bg-[#141414] border border-[#222] rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-red-500 appearance-none min-w-[120px]"
+                    >
+                        <option value="daily">Hari Ini</option>
+                        <option value="weekly">1 Minggu</option>
+                        <option value="monthly">1 Bulan</option>
+                        <option value="custom">Pilih Tanggal</option>
+                    </select>
+
+                    {timeFilter === 'custom' && (
+                        <div className="flex items-center gap-2 bg-[#141414] border border-[#222] rounded-2xl px-2 py-1">
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={e => setStartDate(e.target.value)}
+                                className="bg-transparent border-none text-xs font-bold text-gray-300 focus:outline-none focus:ring-0 px-2"
+                            />
+                            <span className="text-gray-500">-</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={e => setEndDate(e.target.value)}
+                                className="bg-transparent border-none text-xs font-bold text-gray-300 focus:outline-none focus:ring-0 px-2"
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
 
+            <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#ff3333]/30">
+                INFO: Laporan Pengeluaran mengikuti Siklus Operasional (10:00 Pagi s/d 09:59 Pagi berikutnya)
+            </div>
 
-
+            {memberSummary && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 fade-in">
+                    <div className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-2xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-orange-500/60 mb-1">Total Piutang (BON)</p>
+                        <p className="text-2xl font-black text-orange-500 font-mono">
+                            Rp {memberSummary.totalPending.toLocaleString('id-ID')}
+                        </p>
+                    </div>
+                    <div className="bg-green-500/5 border border-green-500/20 p-4 rounded-2xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-green-500/60 mb-1">Total Bon Terbayar</p>
+                        <p className="text-2xl font-black text-green-500 font-mono">
+                            Rp {memberSummary.totalPaid.toLocaleString('id-ID')}
+                        </p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Total Transaksi</p>
+                        <p className="text-2xl font-black text-white font-mono">
+                            {memberSummary.count} <span className="text-xs text-gray-500 font-bold uppercase ml-1">KALI</span>
+                        </p>
+                    </div>
+                </div>
+            )}
             {/* ─── Filter indicator ─────────────────────────────────── */}
             {filterCategory !== 'ALL' && (
                 <div className="flex items-center gap-2 mb-4 text-sm">
@@ -315,6 +547,20 @@ export default function Expenses() {
                     <table className="w-full text-sm">
                         <thead style={{ background: '#0f0f0f' }}>
                             <tr className="border-b border-[#222]">
+                                <th className="px-5 py-3.5 w-10">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded border-[#333] bg-[#0a0a0a] text-red-500 focus:ring-red-500/20"
+                                        checked={filteredExpenses.length > 0 && selectedIds.length === filteredExpenses.length}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedIds(filteredExpenses.map(exp => exp.id));
+                                            } else {
+                                                setSelectedIds([]);
+                                            }
+                                        }}
+                                    />
+                                </th>
                                 {['Tanggal & Waktu', 'Kategori', 'Deskripsi', 'Jumlah', 'Aksi'].map((col, i) => (
                                     <th key={col} className={`px-5 py-3.5 text-xs font-bold uppercase tracking-widest text-gray-500 ${i === 3 ? 'text-right' : i === 4 ? 'text-center' : 'text-left'}`}>
                                         {col}
@@ -327,8 +573,22 @@ export default function Expenses() {
                                 const cat = CATEGORIES[e.category] || CATEGORIES['OTHER'];
                                 return (
                                     <tr key={e.id}
-                                        className="border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors group"
+                                        className={`border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors group ${selectedIds.includes(e.id) ? 'bg-red-500/5' : ''}`}
                                     >
+                                        <td className="px-5 py-4">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-[#333] bg-[#0a0a0a] text-red-500 focus:ring-red-500/20"
+                                                checked={selectedIds.includes(e.id)}
+                                                onChange={(ev) => {
+                                                    if (ev.target.checked) {
+                                                        setSelectedIds(prev => [...prev, e.id]);
+                                                    } else {
+                                                        setSelectedIds(prev => prev.filter(id => id !== e.id));
+                                                    }
+                                                }}
+                                            />
+                                        </td>
                                         <td className="px-5 py-4 text-gray-400 font-mono text-xs">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
@@ -351,25 +611,41 @@ export default function Expenses() {
                                         </td>
                                         <td className="px-5 py-4 text-gray-200 font-medium max-w-[280px]">
                                             <p className="truncate">{e.description}</p>
+                                            {e.member && (
+                                                <p className="text-[10px] text-orange-400 font-bold uppercase mt-1">
+                                                    Member: {e.member.name}
+                                                    {e.status === 'PENDING' && <span className="ml-2 text-red-500 font-black italic">[BELUM LUNAS]</span>}
+                                                </p>
+                                            )}
                                         </td>
                                         <td className="px-5 py-4 text-right font-black font-mono text-red-400 text-sm">
                                             Rp {Math.round(e.amount || 0).toLocaleString('id-ID')}
                                         </td>
                                         <td className="px-5 py-4 text-center">
-                                            <button
-                                                onClick={() => handleDelete(e.id)}
-                                                className="p-1.5 rounded-lg text-gray-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Hapus"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                {e.isDebt && e.status === 'PENDING' && (
+                                                    <button
+                                                        onClick={() => handlePayDebt(e.id)}
+                                                        className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+                                                    >
+                                                        Bayar
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleDelete(e.id)}
+                                                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Hapus"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
                             })}
                             {filteredExpenses.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-5 py-16 text-center">
+                                    <td colSpan={6} className="px-5 py-16 text-center">
                                         <Wallet className="w-10 h-10 text-gray-700 mx-auto mb-3" />
                                         <p className="text-gray-600 text-sm">
                                             {filterCategory !== 'ALL' ? `Tidak ada data untuk kategori ini.` : 'Belum ada pengeluaran tercatat.'}
@@ -383,8 +659,8 @@ export default function Expenses() {
                         {filteredExpenses.length > 0 && (
                             <tfoot style={{ background: '#0f0f0f' }}>
                                 <tr className="border-t border-[#222]">
-                                    <td colSpan={3} className="px-5 py-3.5 text-xs text-gray-500 font-bold uppercase tracking-widest">
-                                        Total {filterCategory !== 'ALL' ? CATEGORIES[filterCategory]?.label : 'Semua Kategori'}
+                                    <td colSpan={4} className="px-5 py-3.5 text-xs text-gray-500 font-bold uppercase tracking-widest">
+                                        Total {memberSearch.trim() ? `untuk "${memberSearch}"` : (filterCategory !== 'ALL' ? CATEGORIES[filterCategory]?.label : 'Semua Kategori')}
                                     </td>
                                     <td className="px-5 py-3.5 text-right font-black font-mono text-red-500 text-base">
                                         Rp {filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0).toLocaleString('id-ID')}
@@ -439,6 +715,23 @@ export default function Expenses() {
                                     ))}
                                 </div>
                             </div>
+                            {/* Member Selection for Debt */}
+                            {category === 'DEBT' && (
+                                <div className="fade-in">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Pilih Member (Owner/Customer)</label>
+                                    <select
+                                        value={selectedMemberId}
+                                        onChange={(e) => setSelectedMemberId(e.target.value)}
+                                        required
+                                        className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors text-white text-sm"
+                                    >
+                                        <option value="">-- Cari Member --</option>
+                                        {members.map(m => (
+                                            <option key={m.id} value={m.id}>{m.name} - HC: {m.handicap || '-'} ({m.phone})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {/* Description */}
                             <div>

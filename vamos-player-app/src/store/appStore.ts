@@ -9,8 +9,11 @@ interface AppState {
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'home' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard';
-    setActiveTab: (tab: 'home' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard') => void;
+    activeTab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table';
+    setActiveTab: (tab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table') => void;
+
+    rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
+    setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;
 
     // --- Session Tracking ---
     activeSession: any | null;
@@ -36,6 +39,9 @@ export const useAppStore = create<AppState>()(
 
             activeTab: 'home',
             setActiveTab: (tab) => set({ activeTab: tab }),
+
+            rewardsTab: 'catalog',
+            setRewardsTab: (tab) => set({ rewardsTab: tab }),
 
             activeSession: null,
             setActiveSession: (session) => set({ activeSession: session }),

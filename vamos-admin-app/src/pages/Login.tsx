@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Swords, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff, Shield } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff, Shield } from 'lucide-react';
 import { authApi } from '../services/api';
+import { VamosLogo } from '../components/VamosLogo';
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
@@ -48,13 +49,13 @@ const Login: React.FC = () => {
                 <div className="text-center space-y-6">
                     <div className="relative inline-block group">
                         <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150 opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
-                        <div className="relative w-24 h-24 mx-auto rounded-[32px] bg-[#1a1f35] border-2 border-primary/20 flex items-center justify-center shadow-2xl skew-x-[-4deg] group-hover:skew-x-0 transition-transform duration-500">
-                            <Swords size={44} className="text-primary" fill="currentColor" />
+                        <div className="relative w-24 h-24 mx-auto rounded-[32px] bg-[#1a1f35] border-2 border-primary/20 flex items-center justify-center shadow-2xl transition-transform duration-500">
+                            <VamosLogo className="w-14 h-14" color="#3b82f6" glowing />
                         </div>
                     </div>
                     <div>
                         <h1 className="text-5xl font-black tracking-tighter italic uppercase leading-none text-white">
-                            VAMOS<span className="text-primary">.GG</span>
+                            VAMOS<span className="text-primary"> POOL</span>
                         </h1>
                         <div className="flex items-center justify-center gap-3 mt-4">
                             <div className="h-[1px] w-8 bg-white/10" />
@@ -87,7 +88,7 @@ const Login: React.FC = () => {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="DESIGNATE IDENTIFIER..."
-                                    className="fiery-input w-full !pl-16 !py-5 uppercase text-xs tracking-widest placeholder:text-slate-800"
+                                    className="fiery-input w-full !pl-16 !py-5 text-xs placeholder:text-slate-800 placeholder:uppercase placeholder:tracking-widest"
                                     autoComplete="email"
                                 />
                             </div>
@@ -103,7 +104,7 @@ const Login: React.FC = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="DECRYPT PASS-KEY..."
-                                    className="fiery-input w-full !pl-16 !py-5 uppercase text-xs tracking-widest placeholder:text-slate-800"
+                                    className="fiery-input w-full !pl-16 !py-5 text-xs placeholder:text-slate-800 placeholder:uppercase placeholder:tracking-widest"
                                     autoComplete="current-password"
                                 />
                                 <button

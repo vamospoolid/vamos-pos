@@ -40,11 +40,11 @@ async function main() {
     if (!venue) {
         venue = await prisma.venue.create({
             data: {
-                name: 'VAMOS ELITE ARENA',
-                address: 'Jl. M.H. Thamrin Kav 5, Serpong, Tangerang',
+                name: 'VAMOS POOL AND CAFE',
+                address: 'Kompleks Perumahan Balanipa Residence Wonomulyo',
                 openTime: '09:00',
-                closeTime: '02:00',
-                relayComPort: 'COM3',
+                closeTime: '07:00',
+                relayComPort: 'COM4',
                 printerPath: 'USB001',
             }
         });
@@ -63,10 +63,10 @@ async function main() {
             { name: 'Table 04', type: 'REGULAR', relayChannel: 4 },
             { name: 'Table 05', type: 'REGULAR', relayChannel: 5 },
             { name: 'Table 06', type: 'REGULAR', relayChannel: 6 },
-            { name: 'Table 07', type: 'VIP', relayChannel: 7 },
-            { name: 'Table 08', type: 'VIP', relayChannel: 8 },
-            { name: 'Table 09', type: 'VVIP', relayChannel: 9 },
-            { name: 'Table 10', type: 'VVIP', relayChannel: 10 },
+            { name: 'Table 07', type: 'REGULAR', relayChannel: 7 },
+            { name: 'Table 08', type: 'REGULAR', relayChannel: 8 },
+            { name: 'Table 09', type: 'REGULAR', relayChannel: 9 },
+            { name: 'Table 10', type: 'REGULAR', relayChannel: 10 },
         ];
         await prisma.table.createMany({
             data: tablesData.map(t => ({ ...t, venueId: venue!.id, status: 'AVAILABLE' }))
@@ -81,12 +81,10 @@ async function main() {
     if (existingRules === 0) {
         await prisma.pricingRule.createMany({
             data: [
-                { name: 'Regular Siang', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '18:00', ratePerHour: 25000, memberRatePerHour: 20000, isActive: true },
-                { name: 'Regular Malam', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '18:00', endTime: '02:00', ratePerHour: 35000, memberRatePerHour: 30000, isActive: true },
-                { name: 'VIP Siang', tableType: 'VIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '18:00', ratePerHour: 50000, memberRatePerHour: 45000, isActive: true },
-                { name: 'VIP Malam', tableType: 'VIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '18:00', endTime: '02:00', ratePerHour: 70000, memberRatePerHour: 60000, isActive: true },
-                { name: 'VVIP Siang', tableType: 'VVIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '18:00', ratePerHour: 100000, memberRatePerHour: 85000, isActive: true },
-                { name: 'VVIP Malam', tableType: 'VVIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '18:00', endTime: '02:00', ratePerHour: 130000, memberRatePerHour: 110000, isActive: true },
+                { name: 'Dini Hari Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '02:00', endTime: '07:00', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
+                { name: 'Malam Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:00', endTime: '02:00', ratePerHour: 35000, memberRatePerHour: 35000, isActive: true },
+                { name: 'Siang Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00', ratePerHour: 25000, memberRatePerHour: 22000, isActive: true },
+                { name: 'EXEBITION', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:00', endTime: '04:59', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
             ]
         });
     }
@@ -99,11 +97,10 @@ async function main() {
     if (existingPkg === 0) {
         await prisma.package.createMany({
             data: [
-                { name: 'Paket 2 Jam Siang', tableType: 'REGULAR', duration: 120, price: 50000, memberPrice: 40000, startTime: '09:00', endTime: '17:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'Paket 3 Jam Malam', tableType: 'REGULAR', duration: 180, price: 100000, memberPrice: 85000, startTime: '18:00', endTime: '23:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'VIP Special 2 Jam', tableType: 'VIP', duration: 120, price: 120000, memberPrice: 100000, isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'Ngebul Package 3 Jam', tableType: 'REGULAR', duration: 180, price: 90000, memberPrice: 75000, isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'Sultan Package 5 Jam VVIP', tableType: 'VVIP', duration: 300, price: 500000, memberPrice: 420000, isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+                { name: 'Paket Malam 2 Jam', tableType: 'REGULAR', duration: 120, price: 50000, memberPrice: 50000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [1, 2, 3, 4, 5] },
+                { name: 'Paket Malam 3 Jam', tableType: 'REGULAR', duration: 180, price: 75000, memberPrice: 75000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+                { name: 'MIDNIGHT PACKAGE', tableType: 'REGULAR', duration: 60, price: 25000, memberPrice: 25000, startTime: '02:00', endTime: '07:59', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+                { name: 'EXEBITION', tableType: 'REGULAR', duration: 60, price: 30000, memberPrice: 30000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
             ]
         });
     }
@@ -116,10 +113,10 @@ async function main() {
     if (existingProducts === 0) {
         await prisma.product.createMany({
             data: [
-                { name: 'AIR MINERAL', price: 5000, stock: 24, category: 'Beverage (Minuman)' },
-                { name: 'BUTTERSCOOT ICE', price: 18000, stock: 24, category: 'Beverage (Minuman)' },
-                { name: 'ICE COFFEE GULA ARENT', price: 18000, stock: 24, category: 'Beverage (Minuman)' },
-                { name: 'ICE COFFEE VAMOS', price: 15000, stock: 20, category: 'Beverage (Minuman)' },
+                { name: 'AIR MINERAL', price: 5000, stock: 59, category: 'Beverage (Minuman)' },
+                { name: 'BUTTERSCOOT ICE', price: 18000, stock: 48, category: 'Beverage (Minuman)' },
+                { name: 'ICE COFFEE GULA ARENT', price: 18000, stock: 11, category: 'Beverage (Minuman)' },
+                { name: 'ICE COFFEE VAMOS', price: 15000, stock: 44, category: 'Beverage (Minuman)' },
             ]
         });
     }
@@ -138,6 +135,10 @@ async function main() {
                 { name: 'Rina Wijaya', phone: '08134567890', loyaltyPoints: 50, tier: 'BRONZE', totalWins: 0, totalMatches: 5, totalPlayHours: 8 },
                 { name: 'Dewi Lestari', phone: '087811223344', loyaltyPoints: 300, tier: 'SILVER', totalWins: 8, totalMatches: 30, totalPlayHours: 55 },
                 { name: 'Hendra Setiawan', phone: '082233445566', loyaltyPoints: 2500, tier: 'PLATINUM', totalWins: 40, totalMatches: 100, totalPlayHours: 200 },
+                { name: 'Fani Fitriani', phone: '081299887766', loyaltyPoints: 100, tier: 'BRONZE', totalWins: 1, totalMatches: 4, totalPlayHours: 6 },
+                { name: 'Eko Wahyudi', phone: '085711223344', loyaltyPoints: 450, tier: 'SILVER', totalWins: 12, totalMatches: 40, totalPlayHours: 80 },
+                { name: 'Gita Permata', phone: '089900112233', loyaltyPoints: 800, tier: 'GOLD', totalWins: 18, totalMatches: 50, totalPlayHours: 95 },
+                { name: 'Irfan Hakim', phone: '081566778899', loyaltyPoints: 200, tier: 'BRONZE', totalWins: 4, totalMatches: 15, totalPlayHours: 25 },
             ]
         });
     }

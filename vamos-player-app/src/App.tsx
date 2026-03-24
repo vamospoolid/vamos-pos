@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, ArrowLeft, CheckCircle2, ShieldCheck, X, RefreshCw, LayoutGrid, Medal, Flame, Target, QrCode, ScanLine, Gift, Trophy, Swords, Calendar, Camera, Zap, Star, Users, Crown, Plus, ArrowRight } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { User, ChevronRight, Loader2, ArrowLeft, CheckCircle2, ShieldCheck, X, RefreshCw, LayoutGrid, Medal, Flame, Target, Gift, Trophy, Swords, Calendar, Camera, Zap, Star, Users, Crown, Plus, ArrowRight } from 'lucide-react';
 import { api } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -8,15 +7,14 @@ import { ActiveSessionScreen } from './ActiveSessionScreen';
 import { MenuScreen } from './MenuScreen';
 import { VictoryNotification } from './components/VictoryNotification';
 import { LeaderboardScreen } from './LeaderboardScreen';
+import { PlayScreen } from './PlayScreen';
+import { Gamepad2, Signal } from 'lucide-react';
+import { LiveTableScreen } from './LiveTableScreen';
 
 // ═══════════════════════════════════════════════
 // FALLBACK MOCK DATA (if DB is empty)
 // ═══════════════════════════════════════════════
-const MOCK_PLAYERS = [
-  ...Array.from({ length: 32 }).map((_, i) => ({
-    id: `P${i}`, name: `Player ${i}`, phone: `08${i}`, wins: i, losses: 2, points: i * 10, prize: i * 1000
-  }))
-];
+
 
 const MOCK_TOURNAMENT = {
   id: 'T001',
@@ -39,6 +37,7 @@ const MOCK_MATCHES = [
 // ═══════════════════════════════════════════════
 
 import { useAppStore } from './store/appStore';
+import { VamosLogo } from './components/VamosLogo';
 
 function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
   const [phone, setPhone] = useState('');
@@ -50,8 +49,9 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
     e.preventDefault();
     setLoading(true);
     try {
+      const deviceId = localStorage.getItem('playerDeviceId');
       const endpoint = isRegister ? '/player/register' : '/player/login';
-      const payload = isRegister ? { phone, name } : { phone };
+      const payload = isRegister ? { phone, name, deviceId } : { phone, deviceId };
       const res = await api.post(endpoint, payload);
 
       if (res.data.success) {
@@ -74,10 +74,10 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
 
       <div className="glass-card p-10 rounded-[2.5rem] w-full max-w-sm relative z-10 fade-in border border-white/5 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(31,34,255,0.4)]" style={{ transform: 'rotate(5deg)' }}>
-            <User className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-primary/20 shadow-[0_0_50px_rgba(59,130,246,0.3)]">
+            <VamosLogo className="w-12 h-12" color="white" glowing />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white uppercase italic">VAMOS<span className="text-accent underline decoration-primary decoration-4 underline-offset-4 ml-1">ELITE</span></h1>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white uppercase italic">VAMOS<span className="text-accent underline decoration-primary decoration-4 underline-offset-4 ml-1">POOL</span></h1>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-3">{isRegister ? 'Join the champion league' : 'Welcome back, legend'}</p>
         </div>
 
@@ -136,7 +136,7 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
         </form>
 
         <p className="text-center text-[9px] text-slate-600 font-bold uppercase mt-8 tracking-widest">
-          {isRegister ? 'By joining you agree to our elite rules' : 'Trouble accessing? Contact HQ.'}
+          {isRegister ? 'By joining you agree to our pool rules' : 'Trouble accessing? Contact HQ.'}
         </p>
       </div>
     </div>
@@ -146,9 +146,69 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
 
 function DashboardScreen({ member }: { member: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
+  const [showMasteryInfo, setShowMasteryInfo] = useState(false);
 
   return (
     <div className="fade-in space-y-8 pb-32">
+      {/* ─── MASTERY INTEL MODAL ────────────────────────────────────────────── */}
+      {showMasteryInfo && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-[#0a0f1d]/95 backdrop-blur-xl" onClick={() => setShowMasteryInfo(false)} />
+          <div className="relative w-full max-w-sm fiery-card p-10 text-left scale-in border-2 border-primary/20">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Protokol Keahlian</h3>
+              <button onClick={() => setShowMasteryInfo(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                  <Trophy className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white uppercase italic">Hall of Fame</p>
+                  <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight leading-relaxed">Pemain papan atas mendominasi papan peringkat global dan mendapatkan pengakuan sosial maksimal.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20">
+                  <Zap className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white uppercase italic">Akses Elit</p>
+                  <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight leading-relaxed">Turnamen tingkat pro dan acara VIP seringkali mensyaratkan Tingkat Keahlian minimum untuk dapat diikuti.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center shrink-0 border border-yellow-500/20">
+                  <Target className="w-5 h-5 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white uppercase italic">Handicap Pro</p>
+                  <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight leading-relaxed">Peringkat Anda membantu menetapkan standar Handicap resmi demi memastikan pertandingan yang adil dan seimbang.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                  <Gift className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white uppercase italic">Keistimewaan Member</p>
+                  <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight leading-relaxed">Capai Peringkat 10+ guna membuka diskon eksklusif untuk biaya pendaftaran turnamen profesional.</p>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setShowMasteryInfo(false)} className="w-full mt-10 py-4 fiery-btn-primary text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-4 h-4" /> Mengerti
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── IDENTITY BLOCK ─────────────────────────────────────────────────── */}
       <div className="fiery-card p-8 mt-4 relative overflow-hidden">
         <div className="absolute top-[-10%] right-[-10%] w-32 h-32 bg-primary/10 rounded-full blur-[40px]" />
@@ -173,11 +233,16 @@ function DashboardScreen({ member }: { member: any }) {
             </h1>
             <div className="flex items-center gap-2 mt-2">
               <div className="px-3 py-1 bg-[#252b45] rounded-full border border-white/5 flex items-center gap-1.5">
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest">{member.tier || 'Elite'}</span>
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">{member.tier || 'Pool'}</span>
               </div>
               <div className="px-3 py-1 bg-yellow-500/10 rounded-full border border-yellow-500/10 flex items-center gap-1.5">
                 <Zap className="w-3 h-3 text-yellow-500" fill="currentColor" />
                 <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">HC {member.handicap || '4'}</span>
+              </div>
+              <div className="px-3 py-1 bg-primary/10 rounded-full border border-primary/20 flex items-center gap-1.5 shadow-[0_0_10px_rgba(var(--primary-rgb),0.1)]">
+                <Trophy className="w-3 h-3 text-primary" />
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">{member.skillRating || 200} <span className="opacity-50 text-[8px]">PRO</span></span>
+                <div className="px-1 bg-primary text-[6px] font-bold rounded-sm text-white">BETA</div>
               </div>
             </div>
           </div>
@@ -185,8 +250,17 @@ function DashboardScreen({ member }: { member: any }) {
 
         <div className="mt-8">
           <div className="flex justify-between items-center mb-2.5 px-1">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Level {member.level || 1} Progress</p>
-            <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">{member.experience || 0} / {(member.level || 1) * 1000} XP</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Progres Keahlian Tingkat {member.level || 1}</p>
+              <button
+                onClick={() => setShowMasteryInfo(true)}
+                className="w-4 h-4 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 transition-colors"
+                title="Info Protokol"
+              >
+                <div className="text-[8px] font-black text-primary">i</div>
+              </button>
+            </div>
+            <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">{member.experience || 0} / {(member.level || 1) * 1000} Reputasi</p>
           </div>
           <div className="h-3 w-full bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/5">
             <div
@@ -207,8 +281,8 @@ function DashboardScreen({ member }: { member: any }) {
             <Calendar className="w-6 h-6 text-[#a855f7]" />
           </div>
           <div className="text-left">
-            <p className="text-lg font-black text-white uppercase italic truncate">Book Table</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Reserve Arena</p>
+            <p className="text-lg font-black text-white uppercase italic truncate">Pesan Meja</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Reservasi Arena</p>
           </div>
         </button>
 
@@ -220,8 +294,8 @@ function DashboardScreen({ member }: { member: any }) {
             <Trophy className="w-6 h-6 text-[#00d084]" />
           </div>
           <div className="text-left">
-            <p className="text-lg font-black text-white uppercase italic truncate">Ranks</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Global Hall</p>
+            <p className="text-lg font-black text-white uppercase italic truncate">Peringkat</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Klasemen Global</p>
           </div>
         </button>
       </div>
@@ -241,10 +315,10 @@ function DashboardScreen({ member }: { member: any }) {
             </div>
             <div className="text-left">
               <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1 italic">
-                {activeSession ? 'LIVE SESSION' : 'ORDER STATUS'}
+                {activeSession ? 'SESI AKTIF' : 'STATUS PESANAN'}
               </p>
               <h4 className="text-lg font-black text-white uppercase italic truncate leading-tight">
-                {activeSession?.table?.name || 'Voucher Protocol'}
+                {activeSession?.table?.name || 'Protokol Voucher'}
               </h4>
             </div>
           </div>
@@ -260,7 +334,7 @@ function DashboardScreen({ member }: { member: any }) {
 
         <div className="flex justify-between items-start mb-6 px-1">
           <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 italic">Loyalty Vault</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2 italic">Tabungan Poin</p>
             <div className="flex items-baseline gap-2">
               <h2 className="text-5xl font-black text-white tracking-tighter italic">
                 {(member.loyaltyPoints ?? 0).toLocaleString('id-ID')}
@@ -269,299 +343,66 @@ function DashboardScreen({ member }: { member: any }) {
             </div>
           </div>
           <div className="px-3 py-1 rounded-lg bg-primary/10 border border-primary/20">
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Rate: 1.2x</span>
+            <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+              Dapat: {member.tier === 'GOLD' ? '10%' : member.tier === 'SILVER' ? '7%' : '5%'}
+            </span>
           </div>
         </div>
+
+        {member.nextTier && (
+          <div className="mb-6 px-1">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Progres ke {member.nextTier}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{member.progress}%</p>
+            </div>
+            <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-1000"
+                style={{ width: `${member.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           <button
             onClick={() => useAppStore.getState().setActiveTab('rewards')}
             className="fiery-btn-primary py-4 text-[10px] font-black flex items-center justify-center gap-2"
           >
-            Redeem Shop <ArrowRight className="w-4 h-4" />
+            Tukar Poin <ArrowRight className="w-4 h-4" />
           </button>
           <button
-            onClick={() => alert("Exchange Protocol coming soon.")}
+            onClick={() => {
+              useAppStore.getState().setRewardsTab('history');
+              useAppStore.getState().setActiveTab('rewards');
+            }}
             className="fiery-btn-secondary py-4 text-[10px] font-black uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2"
           >
-            <RefreshCw className="w-4 h-4 text-slate-500" /> History
+            <RefreshCw className="w-4 h-4 text-slate-500" /> Riwayat
           </button>
         </div>
       </div>
 
-      <ChallengeSection member={member} />
-    </div>
-  );
-}
-
-function ChallengeSection({ member }: { member: any }) {
-  const [showMyQR, setShowMyQR] = useState(false);
-  const [challenges, setChallenges] = useState<any[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [pendingOpponentId, setPendingOpponentId] = useState<string | null>(null);
-  const [showStakeSelector, setShowStakeSelector] = useState(false);
-
-  useEffect(() => {
-    const fetchChallenges = async () => {
-      try {
-        const res = await api.get(`/player/${member.id}/challenges`);
-        if (res.data.success) setChallenges(res.data.data);
-      } catch (err) { }
-    };
-    fetchChallenges();
-    const interval = setInterval(fetchChallenges, 5000);
-    return () => clearInterval(interval);
-  }, [member.id]);
-
-  const handleChallenge = async (opponentId: string, stake: number, isFightForTable: boolean = false) => {
-    if (!opponentId) return;
-    const activeSession = member?.sessions?.find((s: any) => s.status === 'ACTIVE');
-
-    try {
-      const res = await api.post('/player/challenge', {
-        challengerId: member.id,
-        opponentId,
-        pointsStake: stake,
-        isFightForTable,
-        sessionId: isFightForTable ? activeSession?.id : null
-      });
-      if (res.data.success) {
-        alert("ARENA CHALENGE DEPLOYED.");
-        setShowStakeSelector(false);
-        setPendingOpponentId(null);
-      }
-    } catch (err: any) { alert(err.response?.data?.message || "DEPLOIMENT FAILED."); }
-  };
-
-  return (
-    <div className="space-y-6 mt-8">
-      <div className="flex justify-between items-center px-1">
-        <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Arena Protocol</h3>
-        <button
-          onClick={() => alert("CHALLENGE PROTOCOL:\n1. Show QR to Target\n2. Target scans & deploys match\n3. Points staked are locked\n4. Winner claims the harvest.")}
-          className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-primary transition-colors"
-        >
-          Protocol Rules
-        </button>
+      <div className="fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between">
+         <div>
+            <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] mb-2 italic">Official Handicap</p>
+            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">ELITE FRAGGER</h3>
+         </div>
+         <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+            <Star className="w-7 h-7 text-amber-500 fill-amber-500" />
+         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => setShowMyQR(true)}
-          className="fiery-card p-6 flex flex-col items-center gap-4 transition-all hover:bg-white/5 active:scale-95"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
-            <QrCode className="w-7 h-7 text-primary" />
-          </div>
-          <p className="text-xs font-black text-white uppercase tracking-widest">My ID</p>
-        </button>
-
-        <button
-          onClick={() => setIsScanning(true)}
-          className="fiery-card p-6 flex flex-col items-center gap-4 transition-all hover:bg-white/5 active:scale-95"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center fiery-glow shadow-primary/20">
-            <ScanLine className="w-7 h-7 text-secondary" />
-          </div>
-          <p className="text-xs font-black text-white uppercase tracking-widest">Scan Target</p>
-        </button>
-      </div>
-
-      {challenges.length > 0 && (
-        <div className="space-y-4 mt-8">
-          {challenges.map(chal => (
-            <div key={chal.id} className="fiery-card p-6 flex items-center justify-between border-l-4 border-l-primary relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <Swords className="w-12 h-12 text-white" />
-              </div>
-              <div className="relative z-10">
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">Match Transmission</p>
-                <p className="text-sm font-black text-white uppercase italic truncate max-w-[140px]">
-                  {chal.challengerId === member.id ? `TARGET: ${chal.opponent.name?.split(' ')[0]}` : `VS: ${chal.challenger.name?.split(' ')[0]}`}
-                </p>
-                <div className="flex gap-3 items-center mt-2">
-                  <p className="text-xs text-slate-400 font-bold tracking-widest">{chal.pointsStake.toLocaleString('id-ID')} PTS</p>
-                  {chal.isFightForTable && (
-                    <span className="text-[9px] px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-500 font-black uppercase border border-rose-500/20">Duel</span>
-                  )}
-                </div>
-              </div>
-              <div className="relative z-10 flex gap-2">
-                {chal.opponentId === member.id && chal.status === 'PENDING' && (
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await api.put(`/player/challenge/${chal.id}/respond`, { status: 'ACCEPTED' });
-                    }}
-                    className="fiery-btn-primary px-5 py-2.5 text-[10px]"
-                  >
-                    Accept
-                  </button>
-                )}
-                {chal.status === 'ACCEPTED' && (
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest animate-pulse">Engaging</span>
-                    <button
-                      onClick={() => alert("REPORT OUTCOME\nPlease inform the operator to finalize this outcome.")}
-                      className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-[10px] font-black text-emerald-500 uppercase tracking-widest"
-                    >
-                      Report
-                    </button>
-                  </div>
-                )}
-                {chal.status === 'COMPLETED' && (
-                  <div className="px-4 py-2 bg-white/5 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Finalized
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isScanning && <QRScannerModal onScan={(id) => {
-        setPendingOpponentId(id);
-        setIsScanning(false);
-        setShowStakeSelector(true);
-      }} onClose={() => setIsScanning(false)} />}
-
-      {showStakeSelector && pendingOpponentId && (
-        <StakeSelectorModal
-          currentBalance={member.loyaltyPoints || 0}
-          hasActiveSession={!!member?.sessions?.find((s: any) => s.status === 'ACTIVE')}
-          onConfirm={(stake, isFight) => handleChallenge(pendingOpponentId, stake, isFight)}
-          onClose={() => {
-            setShowStakeSelector(false);
-            setPendingOpponentId(null);
-          }}
-        />
-      )}
-
-      {showMyQR && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#0a0f1d]/95 backdrop-blur-xl" onClick={() => setShowMyQR(false)} />
-          <div className="relative w-full max-w-sm fiery-card p-10 text-center scale-in">
-            <h3 className="text-xl font-black text-white mb-8 italic uppercase tracking-tighter">Identity Protocol</h3>
-            <div className="bg-white p-6 rounded-[32px] inline-block mb-8 shadow-[0_0_30px_rgba(255,255,255,0.1)] border-4 border-primary/20 overflow-hidden">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${member.id}&bgcolor=ffffff&color=101423`}
-                alt="QR"
-                className="w-48 h-48"
-              />
-            </div>
-            <h3 className="text-2xl font-black text-white italic truncate uppercase">{member.name}</h3>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-2 mb-10">Deploy to Initiate Protocol</p>
-            <button onClick={() => setShowMyQR(false)} className="w-full py-4 fiery-btn-secondary font-black uppercase text-xs tracking-widest">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QRScannerModal({ onScan, onClose }: { onScan: (id: string) => void, onClose: () => void }) {
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner("reader", {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      rememberLastUsedCamera: true,
-      supportedScanTypes: [0]
-    }, false);
-
-    scanner.render((result) => {
-      onScan(result);
-      scanner.clear();
-    }, () => { });
-
-    return () => { try { scanner.clear(); } catch (e) { } };
-  }, [onScan]);
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-[#101423]/95 backdrop-blur-3xl" onClick={onClose} />
-      <div className="w-full max-w-sm fiery-card p-8 border border-white/10 text-center relative z-10 scale-in shadow-2xl">
-        <button onClick={onClose} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X className="w-6 h-6" /></button>
-        <h3 className="text-xl font-black text-white mb-8 italic uppercase tracking-tighter">Scan Protocol</h3>
-        <div id="reader" className="overflow-hidden rounded-[32px] bg-black/40 border border-white/5 shadow-inner"></div>
-        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-8 italic">Find & Frame Valid Target</p>
-      </div>
-    </div>
-  );
-}
-
-function StakeSelectorModal({ onConfirm, onClose, currentBalance, hasActiveSession }: { onConfirm: (stake: number, fight: boolean) => void, onClose: () => void, currentBalance: number, hasActiveSession: boolean }) {
-  const [stake, setStake] = useState(50);
-  const [isFightForTable, setIsFightForTable] = useState(false);
-  const presets = [50, 100, 250, 500];
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-[#101423]/95 backdrop-blur-3xl" onClick={onClose} />
-      <div className="relative w-full max-w-sm fiery-card p-10 text-center scale-in">
-        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2 italic">Engagement Protocol</p>
-        <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Commit Stake</h3>
-
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {presets.map(p => (
-            <button
-              key={p}
-              onClick={() => setStake(p)}
-              className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${stake === p ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-[#1a1f35] text-slate-500 border-white/5'}`}
-              disabled={currentBalance < p}
-            >
-              {p.toLocaleString('id-ID')} PTS
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-black/20 rounded-2xl p-6 mb-8 text-left border border-white/5">
-          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 pl-1">Harvest Amount</p>
-          <div className="flex items-center gap-4">
-            <input
-              type="number"
-              value={stake}
-              onChange={e => setStake(Number(e.target.value))}
-              className="bg-transparent border-none text-left p-0 text-3xl font-black text-white w-full focus:outline-none italic tracking-tighter"
-            />
-          </div>
-        </div>
-
-        {hasActiveSession && (
-          <button
-            onClick={() => setIsFightForTable(!isFightForTable)}
-            className={`w-full p-5 rounded-2xl mb-8 flex items-center justify-between transition-all border ${isFightForTable ? 'bg-rose-500/10 border-rose-500/40 fiery-glow' : 'bg-[#1a1f35] border-white/5'}`}
-          >
-            <div className="text-left">
-              <p className={`text-xs font-black uppercase italic ${isFightForTable ? 'text-rose-500' : 'text-white'}`}>Duel for Table</p>
-              <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isFightForTable ? 'text-rose-500/70' : 'text-slate-600'}`}>Loser Clears Session Bill</p>
-            </div>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isFightForTable ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/40' : 'bg-white/5 text-slate-700'}`}>
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </button>
-        )}
-
-        <div className="flex gap-4">
-          <button onClick={onClose} className="flex-1 py-4 fiery-btn-secondary text-[10px] font-black uppercase tracking-widest">Abort</button>
-          <button
-            onClick={() => onConfirm(stake, isFightForTable)}
-            disabled={stake <= 0 || stake > currentBalance}
-            className="flex-1 fiery-btn-primary py-4 text-[10px]"
-          >
-            Deploy
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
 
 
-function TournamentScreen({ member, activeTournaments, leaderboard }: { member: any, activeTournaments: any[], leaderboard: any[] }) {
+
+
+function TournamentScreen({ member, activeTournaments, leaderboard }: { member: any, activeTournaments: any[], leaderboard: {allTime: any[], monthly: any[], activeKings: any[], hallOfFame: any[]} }) {
   const [activeView, setActiveView] = useState<'overview' | 'leaderboard' | 'bracket'>('overview');
+  const [lbSubView, setLbSubView] = useState<'legends' | 'kings' | 'hall'>('legends');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTournamentIndex, setSelectedTournamentIndex] = useState(0);
   const [loadingReg, setLoadingReg] = useState(false);
@@ -601,7 +442,14 @@ function TournamentScreen({ member, activeTournaments, leaderboard }: { member: 
 
   const myParticipantId = tournament?.participants?.find((p: any) => p.memberId === member?.id)?.id;
 
-  const filteredLeaderboard = (leaderboard || MOCK_PLAYERS).filter((p: any) =>
+  const getLbData = () => {
+    if (lbSubView === 'legends') return leaderboard.allTime;
+    if (lbSubView === 'kings') return leaderboard.activeKings;
+    if (lbSubView === 'hall') return leaderboard.hallOfFame;
+    return [];
+  };
+
+  const filteredLeaderboard = getLbData().filter((p: any) =>
     (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -611,7 +459,7 @@ function TournamentScreen({ member, activeTournaments, leaderboard }: { member: 
         <div className="absolute top-0 left-0 w-32 h-16 bg-primary/10 blur-[40px] rounded-full pointer-events-none" />
         <div className="relative z-10">
           <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white flex items-center gap-3">
-            ELITE <span className="text-primary">EVENTS</span>
+            POOL <span className="text-primary">EVENTS</span>
           </h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic opacity-60">Official Arena Bracket & Logistics</p>
         </div>
@@ -760,31 +608,71 @@ function TournamentScreen({ member, activeTournaments, leaderboard }: { member: 
 
         {activeView === 'leaderboard' && (
           <div className="space-y-4">
+            <div className="flex gap-2 mb-6">
+              {[
+                { id: 'legends', label: 'LEGENDS' },
+                { id: 'kings', label: 'ACTIVE KINGS' },
+                { id: 'hall', label: 'HALL OF FAME' }
+              ].map(sub => (
+                <button
+                  key={sub.id}
+                  onClick={() => setLbSubView(sub.id as any)}
+                  className={`flex-1 py-3 text-[8px] font-black uppercase tracking-widest rounded-xl transition-all border ${lbSubView === sub.id ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(31,34,255,0.2)]' : 'bg-white/5 border-white/5 text-slate-500'}`}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+            
             <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl mb-6 border border-white/5">
               <input
-                className="bg-transparent border-none focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white"
-                placeholder="SEARCH PLAYER..."
+                className="bg-transparent border-none focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic"
+                placeholder={`Search ${lbSubView === 'hall' ? 'Hall of Famers' : 'Players'}...`}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            {filteredLeaderboard.map((p: any, i: number) => (
-              <div key={p.id} className="fiery-card p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition-colors bg-[#1a1f35]/30">
+            
+            {filteredLeaderboard.length > 0 ? filteredLeaderboard.map((p: any, i: number) => (
+              <div key={p.id} className="fiery-card p-6 rounded-3xl flex items-center justify-between border border-white/5 hover:border-primary/20 transition-all bg-[#1a1f35]/30 group">
                 <div className="flex items-center gap-5">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white shadow-lg shadow-primary/20' : 'border-slate-800 bg-slate-900 text-slate-500'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all ${i < 3 ? 'border-primary bg-primary/20 text-white shadow-lg shadow-primary/20' : 'border-slate-800 bg-slate-900 text-slate-500'}`}>
                     {i + 1}
                   </div>
                   <div>
-                    <p className="font-black text-white text-base uppercase italic tracking-tight">{p.name}</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{p.tier || 'MEMBER'}</p>
+                    <div className="flex items-center gap-2">
+                       <p className="font-black text-white text-base uppercase italic tracking-tighter">{p.name}</p>
+                       {lbSubView === 'hall' && i === 0 && <Crown className="w-4 h-4 text-primary animate-bounce" />}
+                    </div>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{p.tier || 'ELITE OPERATIVE'}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black text-white font-mono">{p.totalWins || 0}W</p>
-                  <p className="text-[9px] text-accent font-extrabold tracking-widest uppercase">ACTIVE</p>
+                  {lbSubView === 'legends' && (
+                    <>
+                      <p className="text-xl font-black text-white italic tracking-tighter leading-none">{p.totalWins || 0}W</p>
+                      <p className="text-[8px] text-primary font-black tracking-[0.2em] uppercase mt-1">VICTORIES</p>
+                    </>
+                  )}
+                  {lbSubView === 'kings' && (
+                    <>
+                      <p className="text-xl font-black text-amber-400 italic tracking-tighter leading-none">{p.streakCount || 0} 🔥</p>
+                      <p className="text-[8px] text-amber-500/60 font-black tracking-[0.2em] uppercase mt-1">CURRENT STREAK</p>
+                    </>
+                  )}
+                  {lbSubView === 'hall' && (
+                    <>
+                      <p className="text-xl font-black text-primary italic tracking-tighter leading-none">{p.highestKingStreak || 0} 🏆</p>
+                      <p className="text-[8px] text-primary/60 font-black tracking-[0.2em] uppercase mt-1">PEAK STREAK</p>
+                    </>
+                  )}
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="py-20 text-center opacity-40">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] italic">No operatives detected in this sector</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -938,7 +826,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
 
   useEffect(() => {
     if (view === 'history') {
-      api.get(`/player/${member.id}/match-history`).then(res => setHistory(res.data.data)).catch(() => { });
+      api.get(`/player/${member.id}/history`).then(res => setHistory(res.data.data)).catch(() => { });
     }
     if (view === 'h2h') {
       api.get(`/player/${member.id}/h2h`).then(res => setH2h(res.data.data)).catch(() => { });
@@ -975,8 +863,8 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1">
-            <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">COMBAT <span className="text-primary italic">LOGS</span></h1>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 italic opacity-60">Historical Mission Records</p>
+            <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">RIWAYAT <span className="text-primary italic">LAGA</span></h1>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 italic opacity-60">Catatan Pertandingan Anda</p>
           </div>
         </div>
 
@@ -989,7 +877,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
                   <div className="flex items-center gap-3">
                     <div className={`w-1.5 h-1.5 rounded-full ${match.winnerId === member.id ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                     <span className={`text-[9px] font-black uppercase tracking-[0.3em] pt-0.5 italic ${match.winnerId === member.id ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {match.winnerId === member.id ? 'VICTORY LOGGED' : 'DEFEAT RECORDED'}
+                      {match.winnerId === member.id ? 'MENANG' : 'KALAH'}
                     </span>
                   </div>
                   <span className="text-[9px] font-black text-slate-700 uppercase italic tracking-widest">
@@ -1000,14 +888,14 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
                 <div className="flex items-center gap-6 relative px-2">
                   <div className="flex-1 text-center">
                     <p className={`text-lg font-black truncate uppercase italic tracking-tighter ${match.player1Id === member.id ? 'text-primary' : 'text-white'}`}>{match.player1Name.split(' ')[0]}</p>
-                    <p className="text-[9px] font-black text-slate-700 uppercase italic tracking-[0.2em] mt-1 shrink-0">{match.player1Id === member.id ? 'YOU' : 'OPP'}</p>
+                    <p className="text-[9px] font-black text-slate-700 uppercase italic tracking-[0.2em] mt-1 shrink-0">{match.player1Id === member.id ? 'ANDA' : 'LAWAN'}</p>
                   </div>
                   <div className="bg-[#101423] py-4 px-6 rounded-[24px] min-w-[90px] text-center font-black text-xl italic tracking-tighter border-2 border-white/5 shadow-inner">
                     {match.score1} : {match.score2}
                   </div>
                   <div className="flex-1 text-center">
                     <p className={`text-lg font-black truncate uppercase italic tracking-tighter ${match.player2Id === member.id ? 'text-primary' : 'text-white'}`}>{match.player2Name.split(' ')[0]}</p>
-                    <p className="text-[9px] font-black text-slate-700 uppercase italic tracking-[0.2em] mt-1 shrink-0">{match.player2Id === member.id ? 'YOU' : 'OPP'}</p>
+                    <p className="text-[9px] font-black text-slate-700 uppercase italic tracking-[0.2em] mt-1 shrink-0">{match.player2Id === member.id ? 'ANDA' : 'LAWAN'}</p>
                   </div>
                 </div>
               </div>
@@ -1140,13 +1028,13 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
             style={{ width: `${Math.min(((member.experience || 0) / ((member.level || 1) * 1000)) * 100, 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-slate-600 font-black uppercase mt-2 text-center tracking-[0.3em] italic relative z-10">Deploy {((member.level || 1) * 1000) - (member.experience || 0)} more XP to override Rank {(member.level || 1) + 1}</p>
+        <p className="text-[10px] text-slate-600 font-black uppercase mt-2 text-center tracking-[0.3em] italic relative z-10">Kumpulkan {((member.level || 1) * 1000) - (member.experience || 0)} XP lagi untuk Tingkat {(member.level || 1) + 1}</p>
       </div>
 
       <div className="space-y-6">
         <div className="flex justify-between items-center px-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Honorary Badges</p>
-          <span className="text-[10px] font-black text-primary uppercase italic">{(member.badges || []).length} OBTAINED</span>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Lencana Kehormatan</p>
+          <span className="text-[10px] font-black text-primary uppercase italic">{(member.badges || []).length} DIDAPATKAN</span>
         </div>
         <div className="flex gap-4">
           {[
@@ -1177,8 +1065,8 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
               <Swords className="w-6 h-6 text-primary" strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Arena History</p>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Global match logs</p>
+              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Riwayat Arena</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Catatan pertandingan global</p>
             </div>
           </div>
           <ChevronRight className="w-6 h-6 text-slate-700 group-hover:text-primary transition-colors" strokeWidth={3} />
@@ -1193,8 +1081,8 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
               <Users className="w-6 h-6 text-primary" strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Combat Analytics</p>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Head to Head rivals</p>
+              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Analitik Tanding</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Statistik Head to Head lawan</p>
             </div>
           </div>
           <ChevronRight className="w-6 h-6 text-slate-700 group-hover:text-primary transition-colors" strokeWidth={3} />
@@ -1209,8 +1097,8 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
               <Calendar className="w-6 h-6 text-primary" strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Tactical Booking</p>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Reserve combat territory</p>
+              <p className="font-black text-white text-lg uppercase italic tracking-tighter">Pemesanan Meja</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 italic opacity-60">Reservasi arena bertanding</p>
             </div>
           </div>
           <ChevronRight className="w-6 h-6 text-slate-700 group-hover:text-primary transition-colors" strokeWidth={3} />
@@ -1246,7 +1134,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
 function MainApp() {
   const { member, setMember, activeTab, setActiveTab, refreshMemberData, logout } = useAppStore();
   const [tournaments, setTournaments] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboard, setLeaderboard] = useState<{allTime: any[], monthly: any[], activeKings: any[], hallOfFame: any[]}>({allTime: [], monthly: [], activeKings: [], hallOfFame: []});
   const [activeNotification, setActiveNotification] = useState<any>(null);
 
   useEffect(() => {
@@ -1287,8 +1175,9 @@ function MainApp() {
 
   const navItems = [
     { id: 'home', icon: LayoutGrid, label: 'ARENA' },
+    ...(member.tier !== 'BRONZE' ? [{ id: 'live-table', icon: Signal, label: 'LIVE' }] : []),
+    { id: 'play', icon: Gamepad2, label: 'PLAY' },
     { id: 'leaderboard', icon: Trophy, label: 'HALL' },
-    { id: 'rewards', icon: Gift, label: 'REWARDS' },
     { id: 'tournaments', icon: Medal, label: 'EVENTS' },
     { id: 'profile', icon: User, label: 'PROFILE' },
   ];
@@ -1309,11 +1198,9 @@ function MainApp() {
       {/* Unified Header */}
       <div className="flex justify-between items-center px-6 pt-12 pb-6 relative z-30 bg-[#101423]/40 backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Swords className="w-5 h-5 text-primary" fill="currentColor" />
-          </div>
-          <h1 className="text-xl font-black tracking-tighter italic uppercase">
-            VAMOS<span className="text-primary">.GG</span>
+          <VamosLogo className="w-8 h-8" color="#3b82f6" glowing />
+          <h1 onClick={() => setActiveTab('home')} className="text-xl font-black tracking-tighter italic uppercase cursor-pointer">
+            VAMOS<span className="text-primary"> POOL</span>
           </h1>
         </div>
 
@@ -1323,7 +1210,10 @@ function MainApp() {
               <Star className="w-3 h-3 text-yellow-500" fill="currentColor" />
             </div>
             <span className="text-sm font-black text-white px-1">{member.loyaltyPoints ?? 0}</span>
-            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all">
+            <div 
+              onClick={() => setActiveTab('rewards')}
+              className="w-6 h-6 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all"
+            >
               <Plus className="w-4 h-4 text-white font-bold" />
             </div>
           </div>
@@ -1343,6 +1233,8 @@ function MainApp() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-6 scrollbar-hide relative z-10">
         {activeTab === 'home' && <DashboardScreen member={member} />}
+        {activeTab === 'live-table' && <LiveTableScreen member={member} />}
+        {activeTab === 'play' && <PlayScreen member={member} />}
         {activeTab === 'booking' && <BookingScreen />}
         {activeTab === 'rewards' && <RewardsScreen />}
         {activeTab === 'active-session' && <ActiveSessionScreen />}

@@ -11,7 +11,7 @@ export default function Members() {
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<any>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', photo: '' });
+    const [formData, setFormData] = useState({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     const [pointsModal, setPointsModal] = useState<{ id: string, name: string, points: number } | null>(null);
@@ -148,7 +148,7 @@ export default function Members() {
                     )}
                 </div>
                 <button
-                    onClick={() => { setEditingMember(null); setFormData({ name: '', phone: '', photo: '' }); setIsModalOpen(true); }}
+                    onClick={() => { setEditingMember(null); setFormData({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' }); setIsModalOpen(true); }}
                     className="bg-[#00ff66] text-[#0a0a0a] px-5 py-3 rounded-xl font-bold flex items-center hover:bg-[#00e65c] shadow-[0_0_15px_rgba(0,255,102,0.2)] transition-all"
                 >
                     <Plus className="w-5 h-5 mr-2" /> Register Member
@@ -268,7 +268,7 @@ export default function Members() {
                                         </td>
                                         <td className="py-4 px-4 text-right">
                                             <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setEditingMember(m); setFormData({ name: m.name, phone: m.phone, photo: m.photo || '' }); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors" title="Edit">
+                                                <button onClick={() => { setEditingMember(m); setFormData({ name: m.name, phone: m.phone, photo: m.photo || '', handicap: m.handicap || 4, handicapLabel: m.handicapLabel || 'Entry Fragger' }); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors" title="Edit">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button onClick={() => handleDelete(m.id)} className="p-2 hover:bg-[#ff3333]/20 rounded-lg text-gray-400 hover:text-[#ff3333] transition-colors" title="Delete">
@@ -322,7 +322,18 @@ export default function Members() {
                             </div>
 
                             {editingMember && (
-                                <div className="pt-2">
+                                <>
+                                    <div className="flex gap-4">
+                                        <div className="w-1/3">
+                                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">HC</label>
+                                            <input type="text" value={formData.handicap} onChange={e => setFormData({ ...formData, handicap: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-[#00ff66] font-mono text-center tracking-widest" placeholder="e.g. 4 or 3A" />
+                                        </div>
+                                        <div className="w-2/3">
+                                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">HC Title</label>
+                                            <input type="text" value={formData.handicapLabel} onChange={e => setFormData({ ...formData, handicapLabel: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-[#00ff66]" placeholder="e.g. Entry Fragger" />
+                                        </div>
+                                    </div>
+                                    <div className="pt-2">
                                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Verification Controls</label>
                                     <div className="flex gap-2">
                                         <button
@@ -339,6 +350,7 @@ export default function Members() {
                                         </button>
                                     </div>
                                 </div>
+                                </>
                             )}
                         </div>
                         <div className="p-6 border-t border-[#222222] flex space-x-3">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
+import { io } from 'socket.io-client';
 import { Users, Clock, Trash2, Phone, Plus, Loader2, LayoutGrid, Hash, Star, Search, CalendarPlus } from 'lucide-react';
 
 interface WaitlistProps {
@@ -47,8 +48,16 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
 
     useEffect(() => {
         fetchWaitlist();
-        const inter = setInterval(fetchWaitlist, 30000);
-        return () => clearInterval(inter);
+        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+        const socket = io(socketUrl);
+
+        socket.on('waitlist:updated', () => {
+            fetchWaitlist();
+        });
+
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     // Close suggestions on click outside
@@ -373,7 +382,7 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                                                     className="p-4 hover:bg-[#222] cursor-pointer border-b border-[#333] last:border-0 flex justify-between items-center transition-colors"
                                                 >
                                                     <div>
-                                                        <p className="font-bold text-white text-sm">{m.name}</p>
+                                                        <p className="font-bold text-white text-sm">{m.name} {m.handicap ? `- HC: ${m.handicap}` : ''}</p>
                                                         {m.phone && <p className="text-xs text-gray-500 font-mono mt-1">{m.phone}</p>}
                                                     </div>
                                                     <div className="px-2 py-1 bg-[#00ff66]/10 text-[#00ff66] text-[10px] font-black rounded uppercase tracking-widest border border-[#00ff66]/20">

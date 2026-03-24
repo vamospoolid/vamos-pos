@@ -286,6 +286,7 @@ export default function Pricing() {
                                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 pl-1">Table Category</label>
                                     <select value={ruleForm.tableType} onChange={e => setRuleForm({ ...ruleForm, tableType: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#bb00ff] font-bold text-sm">
                                         <option value="REGULAR">Regular Table</option>
+                                        <option value="EXEBITION">Exhibition Table</option>
                                         <option value="VIP">VIP Table</option>
                                         <option value="VVIP">VVIP Room</option>
                                         <option value="CAROM">Carom</option>
@@ -390,6 +391,7 @@ export default function Pricing() {
                                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 pl-1">Applicable Zone</label>
                                     <select value={packageForm.tableType} onChange={e => setPackageForm({ ...packageForm, tableType: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00aaff] font-bold text-sm">
                                         <option value="REGULAR">Regular Area</option>
+                                        <option value="EXEBITION">Exhibition Area</option>
                                         <option value="VIP">VIP Room</option>
                                         <option value="VVIP">VVIP Exclusive</option>
                                         <option value="CAROM">Carom Area</option>

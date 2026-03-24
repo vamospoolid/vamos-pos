@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs — folder ada (tracked via .gitkeep), tapi isi file log tidak di-commit
+logs/*.log
+logs/*.log.*
+
+# Backups — folder ada (tracked via .gitkeep), isi .sql tidak di-commit
+backups/*.sql
+
+# WhatsApp session
+.wwebjs_auth/
+.wwebjs_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

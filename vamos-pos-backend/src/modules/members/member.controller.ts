@@ -1,10 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { MemberService } from './member.service';
+import { getIO } from '../../socket';
 
 export class MemberController {
     static async createMember(req: Request, res: Response, next: NextFunction) {
         try {
             const member = await MemberService.createMember(req.body);
+            console.log('[Socket] Emitting members:updated');
+            getIO().emit('members:updated');
             res.status(201).json({ success: true, data: member });
         } catch (error) { next(error); }
     }
@@ -33,6 +36,7 @@ export class MemberController {
     static async updateMember(req: Request, res: Response, next: NextFunction) {
         try {
             const member = await MemberService.updateMember(req.params.id, req.body);
+            getIO().emit('members:updated');
             res.json({ success: true, data: member });
         } catch (error) { next(error); }
     }
@@ -51,6 +55,7 @@ export class MemberController {
     static async deleteMember(req: Request, res: Response, next: NextFunction) {
         try {
             await MemberService.deleteMember(req.params.id);
+            getIO().emit('members:updated');
             res.json({ success: true, message: 'Member deleted successfully' });
         } catch (error) { next(error); }
     }

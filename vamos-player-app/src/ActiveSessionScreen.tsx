@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, Info, CheckCircle2, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Clock, Info, CheckCircle2, UtensilsCrossed, X } from 'lucide-react';
 import { useAppStore } from './store/appStore';
 
 export function ActiveSessionScreen() {
@@ -11,6 +11,10 @@ export function ActiveSessionScreen() {
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
     const [estimatedCost, setEstimatedCost] = useState(0);
 
+    // Track when session completes
+    const [showMissionAccomplished, setShowMissionAccomplished] = useState(false);
+    const [wasActive, setWasActive] = useState(false);
+
     // Periodic Data Refresh
     useEffect(() => {
         refreshMemberData();
@@ -19,6 +23,21 @@ export function ActiveSessionScreen() {
         }, 8000); // 8 seconds refresh
         return () => clearInterval(refreshInterval);
     }, [refreshMemberData]);
+
+    // Check for session completion
+    useEffect(() => {
+        if (activeSession) {
+            setWasActive(true);
+        } else if (wasActive && !activeSession) {
+            // Session was active, but is no longer (assuming it was paid/completed)
+            setShowMissionAccomplished(true);
+            setWasActive(false); // Reset so it doesn't trigger repeatedly
+            setTimeout(() => {
+                setShowMissionAccomplished(false);
+                setActiveTab('home');
+            }, 6000); // Show for 6 seconds
+        }
+    }, [activeSession, wasActive, setActiveTab]);
 
     // Timer Logic
     useEffect(() => {
@@ -73,6 +92,32 @@ export function ActiveSessionScreen() {
 
         return () => clearInterval(interval);
     }, [activeSession]);
+
+    if (showMissionAccomplished) {
+        return (
+            <div className="fade-in pb-40 text-white flex flex-col items-center justify-center h-[90vh] px-10 text-center animate-in zoom-in duration-500">
+                <div className="w-32 h-32 rounded-full bg-blue-500/10 flex items-center justify-center mb-8 border-2 border-blue-500 shadow-[0_0_80px_rgba(59,130,246,0.3)] animate-pulse relative">
+                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping opacity-30" />
+                    <CheckCircle2 className="w-16 h-16 text-blue-500" />
+                </div>
+                <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">
+                    TRANSAKSI<br/><span className="text-blue-500">BERHASIL</span>
+                </h2>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-relaxed mb-12 italic opacity-80 max-w-[250px]">
+                    Pembayaran telah diverifikasi oleh Kasir. Terima kasih atas kunjungan Anda.
+                </p>
+                <button
+                    onClick={() => {
+                        setShowMissionAccomplished(false);
+                        setActiveTab('home');
+                    }}
+                    className="flex items-center gap-2 px-10 py-4 border border-blue-500/30 text-blue-500 hover:bg-blue-500/10 transition-colors rounded-2xl text-xs font-black uppercase tracking-widest"
+                >
+                    <X className="w-4 h-4" /> TUTUP
+                </button>
+            </div>
+        );
+    }
 
     if (!hasAnySession) {
         return (

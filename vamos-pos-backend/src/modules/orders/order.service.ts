@@ -1,6 +1,7 @@
 import { prisma } from '../../database/db';
 import { AppError } from '../../utils/errors';
 import { AuditService } from '../audit/audit.service';
+import { ProductService } from '../products/product.service';
 
 export class OrderService {
     static async addOrder(sessionId: string, productId: string, quantity: number, userId: string) {
@@ -38,22 +39,18 @@ export class OrderService {
             });
         }
 
-        await prisma.product.update({
-            where: { id: productId },
-            data: { stock: product.stock - quantity },
-        });
+        await ProductService.updateStock(productId, -quantity, 'SALE', `Sale for session ${session.customerName || sessionId}`);
 
         const fnbTotal = await prisma.order.aggregate({
             where: { sessionId },
             _sum: { total: true }
         });
 
-        const currentSession = await prisma.session.findUnique({ where: { id: sessionId } });
         await prisma.session.update({
             where: { id: sessionId },
             data: {
                 fnbAmount: fnbTotal._sum.total || 0,
-                totalAmount: (fnbTotal._sum.total || 0) + (currentSession?.tableAmount || 0)
+                totalAmount: (fnbTotal._sum.total || 0) + (session.tableAmount || 0)
             }
         });
 
@@ -70,10 +67,7 @@ export class OrderService {
 
         await prisma.order.delete({ where: { id: orderId } });
 
-        await prisma.product.update({
-            where: { id: order.productId },
-            data: { stock: { increment: order.quantity } }
-        });
+        await ProductService.updateStock(order.productId, order.quantity, 'RETURN', `Order removed from session ${order.session.customerName || order.sessionId}`);
 
         const fnbTotal = await prisma.order.aggregate({
             where: { sessionId: order.sessionId },

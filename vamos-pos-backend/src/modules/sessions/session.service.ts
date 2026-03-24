@@ -4,64 +4,114 @@ import { RelayService } from '../relay/relay.service';
 import { PricingService } from '../pricing/pricing.service';
 import { AuditService } from '../audit/audit.service';
 import { MemberService } from '../members/member.service';
+import { getIO } from '../../socket';
+import { logger } from '../../utils/logger';
+
+/** Emit socket event secara fire-and-forget — tidak pernah crash main flow */
+function emitSocket(event: string, data: object) {
+    try {
+        const io = getIO();
+        if (io) io.emit(event, data);
+    } catch (e) {
+        logger.warn(`[Socket] Gagal emit '${event}': ${e}`);
+    }
+}
 
 export class SessionService {
-    static async startSession(tableId: string, userId: string, packageId?: string, memberId?: string, customDurationOpts?: number, overrideAmount?: number) {
-        const table = await prisma.table.findUnique({ where: { id: tableId } });
-        if (!table || table.status !== 'AVAILABLE') {
-            throw new AppError('Table is not available', 400);
-        }
+    static async updateSession(sessionId: string, data: any, userId: string) {
+        const session = await prisma.session.findUnique({ where: { id: sessionId } });
+        if (!session) throw new AppError('Session not found', 404);
 
-        let durationOpts = null;
-        let tableAmount = 0;
+        const updatedSession = await prisma.session.update({
+            where: { id: sessionId },
+            data: {
+                memberId: data.memberId === undefined ? session.memberId : data.memberId,
+                customerName: data.customerName === undefined ? session.customerName : data.customerName,
+            } as any,
+            include: { member: true, table: true }
+        });
 
-        let fnbIncluded = null;
+        AuditService.log(userId, 'SESSION_UPDATE', 'Session', { sessionId, ...data }).catch(() => { });
+        emitSocket('session:updated', { sessionId });
+        return updatedSession;
+    }
 
-        if (packageId) {
-            const pkg = await prisma.package.findUnique({ where: { id: packageId } });
-            if (!pkg) throw new AppError('Package not found', 404);
-            durationOpts = pkg.duration;
-            tableAmount = (memberId && pkg.memberPrice) ? pkg.memberPrice : pkg.price;
-            fnbIncluded = pkg.fnbItems;
-        } else if (customDurationOpts) {
-            durationOpts = customDurationOpts;
-            const now = new Date();
-            const mockEndTime = new Date(now.getTime() + durationOpts * 60000);
-            const isMember = !!memberId;
-            tableAmount = await PricingService.calculateTableAmount(table.type, now, mockEndTime, isMember);
-        }
+    static async startSession(tableId: string, userId: string, packageId?: string, memberId?: string, customDurationOpts?: number, overrideAmount?: number, billingType?: string) {
+        // --- TRANSAKSI UNTUK CEGAH RACE CONDITION ---
+        const session = await prisma.$transaction(async (tx) => {
+            // 1. Cek status meja terbaru (serializable update)
+            const table = await tx.table.findUnique({
+                where: { id: tableId },
+                select: { id: true, status: true, relayChannel: true, type: true }
+            });
 
-        // Apply authorized points cost from booking if provided
-        if (overrideAmount !== undefined) {
-            tableAmount = overrideAmount;
-        }
+            if (!table || table.status !== 'AVAILABLE') {
+                throw new AppError('Meja sudah terisi atau tidak tersedia!', 400);
+            }
 
-        // Run session create + table update in parallel for speed
-        const [session] = await Promise.all([
-            prisma.session.create({
+            // 2. Hitung durasi & harga
+            let durationOpts = null;
+            let tableAmount = 0;
+            let fnbIncluded = null;
+
+            if (packageId) {
+                const pkg = await tx.package.findUnique({ where: { id: packageId } });
+                if (!pkg) throw new AppError('Paket tidak ditemukan!', 404);
+                durationOpts = pkg.duration;
+                tableAmount = (memberId && pkg.memberPrice) ? pkg.memberPrice : pkg.price;
+                fnbIncluded = pkg.fnbItems;
+            } else if (customDurationOpts) {
+                durationOpts = customDurationOpts;
+                const now = new Date();
+                const mockEndTime = new Date(now.getTime() + durationOpts * 60000);
+                const isMember = !!memberId;
+                // Use provided billingType or fallback to table's default type
+                const calculationType = billingType || table.type;
+                tableAmount = await PricingService.calculateTableAmount(calculationType, now, mockEndTime, isMember);
+            }
+
+            if (overrideAmount !== undefined) {
+                tableAmount = overrideAmount;
+            }
+
+            // 3. Buat Sesi & Update Meja serentak
+            const newSession = await tx.session.create({
                 data: {
                     tableId,
                     packageId,
                     memberId,
-                    durationOpts,
+                    durationOpts: Number(durationOpts),
                     tableAmount,
                     fnbIncluded,
                     status: 'ACTIVE',
-                    cashierId: userId, // Catat siapa kasir yang membuka meja
-                }
-            }),
-            prisma.table.update({
+                    cashierId: userId,
+                    billingType: billingType || null,
+                },
+                include: { table: true }
+            });
+
+            await tx.table.update({
                 where: { id: tableId },
                 data: { status: 'PLAYING' }
-            })
-        ]);
+            });
 
-        // Fire-and-forget: jangan await relay & audit agar response cepat
-        RelayService.sendCommand(table.relayChannel, 'on').catch(e => console.error('Relay error:', e));
+            return newSession;
+        });
+
+        // 4. FIRE-AND-FORGET (Diluar transaksi agar tidak membebani DB)
+        if (session.table) {
+            RelayService.sendCommand(session.table.relayChannel, 'on').catch(e => logger.error(`[RELAY] Error start: ${e.message}`));
+        }
+        
         AuditService.log(userId, 'SESSION_START', 'Session', { sessionId: session.id, tableId }).catch(() => { });
+        
+        // Broadcast ke semua kasir & admin
+        emitSocket('session:start', { sessionId: session.id, tableId, status: 'ACTIVE' });
+        emitSocket('table:update', { tableId, status: 'PLAYING' });
 
         return session;
     }
+
 
     static async moveSession(sessionId: string, newTableId: string, userId: string) {
         const session = await prisma.session.findUnique({ where: { id: sessionId }, include: { table: true } });
@@ -82,6 +132,9 @@ export class SessionService {
         await RelayService.sendCommand(newTable.relayChannel, 'on');
 
         await AuditService.log(userId, 'SESSION_MOVE', 'Session', { sessionId, fromTable: session.tableId, toTable: newTableId });
+        emitSocket('session:move', { sessionId, fromTable: session.tableId, toTable: newTableId });
+        if (session.tableId) emitSocket('table:update', { tableId: session.tableId, status: 'AVAILABLE' });
+        emitSocket('table:update', { tableId: newTableId, status: 'PLAYING' });
         return { success: true };
     }
 
@@ -119,6 +172,7 @@ export class SessionService {
         });
 
         await AuditService.log(userId, 'SESSION_ADD_DURATION', 'Session', { sessionId, extraDuration, extraAmount });
+        emitSocket('session:update', { sessionId, type: 'ADD_DURATION', extraDuration });
         return updatedSession;
     }
 
@@ -133,10 +187,10 @@ export class SessionService {
 
         // Calculate Open Time billing ONLY if no package and no custom duration was pre-selected
         if (!session.packageId && !session.durationOpts && session.table) {
-            tableAmount = await PricingService.calculateTableAmount(session.table.type, session.startTime, endTime, isMember);
+            const calculationType = session.billingType || session.table.type;
+            tableAmount = await PricingService.calculateTableAmount(calculationType, session.startTime, endTime, isMember);
         }
 
-        // Update session with final tableAmount, status, and endTime
         const updatedSession = await prisma.session.update({
             where: { id: sessionId },
             data: {
@@ -145,7 +199,7 @@ export class SessionService {
                 tableAmount,
                 totalAmount: tableAmount + session.fnbAmount,
                 taxAmount: 0,
-                serviceAmount: 0
+                serviceAmount: 0,
             } as any
         });
 
@@ -157,11 +211,13 @@ export class SessionService {
             });
         }
 
-        // Fire-and-forget relay & audit
-        if (session.tableId && session.table) {
+        // Fire-and-forget relay, audit & socket agar response cepat
+        if (session.table) {
             RelayService.sendCommand(session.table.relayChannel, 'off').catch(e => console.error('Relay error:', e));
         }
         AuditService.log(userId, 'SESSION_END', 'Session', { sessionId, tableAmount }).catch(() => { });
+        emitSocket('session:end', { sessionId, tableId: session.tableId, status: 'FINISHED' });
+        if (session.tableId) emitSocket('table:update', { tableId: session.tableId, status: 'AVAILABLE' });
 
         if (session.memberId) {
             const playedMs = endTime.getTime() - session.startTime.getTime();
@@ -245,6 +301,9 @@ export class SessionService {
                         await LoyaltyService.awardFnbPoints(session.memberId, session.fnbAmount, sessionId);
                     }
 
+                    // Update Total Spend for Tiering
+                    await MemberService.updateSpend(memberId, finalAmount);
+
                     // Update Streak
                     if (session.memberId) {
                         await LoyaltyService.checkAndUpdateStreak(session.memberId);
@@ -259,6 +318,7 @@ export class SessionService {
         });
 
         await AuditService.log(userId, 'SESSION_PAYMENT', 'Payment', { sessionId, paymentId: result.id });
+        emitSocket('session:paid', { sessionId, paymentId: result.id, amount: result.amount });
 
         // WA NOTIFICATION RECEIPT
         if (memberId) {
@@ -290,6 +350,87 @@ export class SessionService {
         return result;
     }
 
+    static async payAsDebt(sessionId: string, userId: string, discount: number = 0, taxAmount: number = 0, serviceAmount: number = 0) {
+        const session = await prisma.session.findUnique({
+            where: { id: sessionId },
+            include: { table: true, orders: { include: { product: true } }, member: true }
+        });
+
+        if (!session || !['FINISHED', 'PENDING'].includes(session.status)) {
+            throw new AppError('Invalid session for debt payment', 400);
+        }
+
+        if (!session.memberId) {
+            throw new AppError('Hanya member yang bisa melakukan pembayaran piutang (BON)!', 400);
+        }
+
+        const subtotal = session.tableAmount + session.fnbAmount;
+        const totalWithCharges = subtotal + (taxAmount || 0) + (serviceAmount || 0);
+        const finalAmount = Math.max(0, totalWithCharges - discount);
+
+        // Record the debt in Expense table
+        const fnbDetails = (session.orders && session.orders.length > 0) 
+            ? session.orders.map(o => `${o.product.name} x${o.quantity}`).join(', ') 
+            : 'No FnB';
+        const description = `Piutang (BON) - ${session.member?.name}. Sesi: ${session.table?.name || 'FNB Only'}. Detail: ${fnbDetails}`;
+
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.session.update({
+                where: { id: sessionId },
+                data: {
+                    status: 'PAID',
+                    taxAmount: taxAmount || 0,
+                    serviceAmount: serviceAmount || 0,
+                    totalAmount: totalWithCharges,
+                    paymentMethod: 'BON'
+                } as any
+            });
+
+            const expense = await tx.expense.create({
+                data: {
+                    category: 'DEBT',
+                    amount: finalAmount,
+                    description,
+                    isDebt: true,
+                    status: 'PENDING',
+                    memberId: session.memberId,
+                    sessionId: session.id,
+                    date: new Date()
+                }
+            });
+
+            // AWARD LOYALTY POINTS FOR DEBT PAYMENT
+            if (session.memberId && finalAmount > 0) {
+                try {
+                    const { LoyaltyService } = await import('../loyalty/loyalty.service');
+
+                    // Award points for Table & FNB (1 per 1000)
+                    if (session.tableAmount > 0) {
+                        await LoyaltyService.awardGamePoints(sessionId, session.memberId, session.tableAmount);
+                    }
+                    if (session.fnbAmount > 0) {
+                        await LoyaltyService.awardFnbPoints(session.memberId, session.fnbAmount, sessionId);
+                    }
+
+                    // Update Total Spend for Tiering
+                    await MemberService.updateSpend(session.memberId, finalAmount);
+
+                    // Update Streak
+                    await LoyaltyService.checkAndUpdateStreak(session.memberId);
+                } catch (e) {
+                    console.error('Loyalty award error (Debt):', e);
+                }
+            }
+
+            return expense;
+        });
+
+        AuditService.log(userId, 'SESSION_DEBT_PAYMENT', 'Expense', { sessionId, expenseId: result.id });
+        emitSocket('session:paid', { sessionId, amount: finalAmount, method: 'BON' });
+        
+        return result;
+    }
+
     static remapSession(s: any) {
         if (!s) return null;
         return {
@@ -309,8 +450,6 @@ export class SessionService {
             deletedAt: s.deletedAt || s.deletedat,
             paymentMethod: s.paymentMethod || s.paymentmethod,
             fnbIncluded: s.fnbIncluded || s.fnbincluded,
-            pausedAt: s.pausedAt || s.pausedat,
-            totalPausedMs: s.totalPausedMs !== undefined ? Number(s.totalPausedMs) : (s.totalpausedms !== undefined ? Number(s.totalpausedms) : 0),
             cashierId: s.cashierId || s.cashierid,
             tableId: s.tableId || s.tableid,
         };
@@ -321,10 +460,12 @@ export class SessionService {
         const sessions: any[] = await (prisma as any).$queryRawUnsafe(`
             SELECT s.*, 
             t.name as "tableName", t.type as "tableType", t."relayChannel", t."venueId",
-            v."taxPercent", v."servicePercent"
+            v."taxPercent", v."servicePercent",
+            m.name as "memberName"
             FROM "Session" s
             LEFT JOIN "Table" t ON s."tableId" = t.id
             LEFT JOIN "Venue" v ON t."venueId" = v.id
+            LEFT JOIN "Member" m ON s."memberId" = m.id
             WHERE s.status = 'ACTIVE'
         `);
 
@@ -337,6 +478,7 @@ export class SessionService {
             const session = this.remapSession(s);
             return {
                 ...session,
+                memberName: s.memberName || null,
                 table: session.tableId ? {
                     id: session.tableId,
                     name: s.tableName,
@@ -375,44 +517,36 @@ export class SessionService {
     }
 
     /**
-     * Pause timer only — relay/lamp stays ON.
-     * Records the moment pause started.
+     * Otomatis mematikan sesi yang sudah habis durasinya (prepaid/package).
+     * Dijalankan berkala dari server.ts.
      */
-    static async pauseSession(sessionId: string, userId: string) {
-        const sessionArr: any[] = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Session" WHERE id = $1`, sessionId);
-        const session = this.remapSession(sessionArr[0]);
-        if (!session || session.status !== 'ACTIVE') throw new AppError('Session not active', 400);
-        if (session.pausedAt) throw new AppError('Session already paused', 400);
+    static async checkExpiredSessions() {
+        const activeSessions = await prisma.session.findMany({
+            where: { status: 'ACTIVE', durationOpts: { not: null, gt: 0 } },
+            include: { table: true }
+        });
 
-        // Using raw SQL to bypass Prisma generation (EPERM issue)
-        await (prisma as any).$executeRawUnsafe(`UPDATE "Session" SET "pausedAt" = $1 WHERE id = $2`, new Date(), sessionId);
-        const updatedArr: any[] = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Session" WHERE id = $1`, sessionId);
-        const updated = this.remapSession(updatedArr[0]);
+        const expired: string[] = [];
+        const now = new Date();
 
-        AuditService.log(userId, 'SESSION_PAUSE', 'Session', { sessionId }).catch(() => { });
-        return updated;
-    }
+        for (const s of activeSessions) {
+            const durationMs = (s.durationOpts || 0) * 60000;
+            const limitTime = new Date(s.startTime.getTime() + durationMs);
 
-    /**
-     * Resume timer — accumulates elapsed pause duration into totalPausedMs.
-     * Relay/lamp is untouched.
-     */
-    static async resumeSession(sessionId: string, userId: string) {
-        const sessionArr: any[] = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Session" WHERE id = $1`, sessionId);
-        const session = this.remapSession(sessionArr[0]);
-        if (!session || session.status !== 'ACTIVE') throw new AppError('Session not active', 400);
-        if (!session.pausedAt) throw new AppError('Session is not paused', 400);
+            if (now >= limitTime) {
+                try {
+                    // System-id (null atau dedicated id) mengakhiri sesi
+                    await this.endSession(s.id, 'SYSTEM');
+                    expired.push(s.table?.name || s.id);
+                } catch (err: any) {
+                    logger.error(`[Auto-Expire] Gagal mengakhiri sesi ${s.id}: ${err.message}`);
+                }
+            }
+        }
 
-        const pausedAt = new Date(session.pausedAt);
-        const additionalPausedMs = Date.now() - pausedAt.getTime();
-        const newTotalPausedMs = (Number(session.totalPausedMs) || 0) + additionalPausedMs;
-
-        // Using raw SQL to bypass Prisma generation (EPERM issue)
-        await (prisma as any).$executeRawUnsafe(`UPDATE "Session" SET "pausedAt" = NULL, "totalPausedMs" = $1 WHERE id = $2`, newTotalPausedMs, sessionId);
-        const updatedArr: any[] = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Session" WHERE id = $1`, sessionId);
-        const updated = this.remapSession(updatedArr[0]);
-
-        AuditService.log(userId, 'SESSION_RESUME', 'Session', { sessionId, pausedMs: additionalPausedMs }).catch(() => { });
-        return updated;
+        if (expired.length > 0) {
+            logger.info(`[Auto-Expire] ${expired.length} sesi berakhir otomatis: [${expired.join(', ')}]`);
+        }
+        return expired.length;
     }
 }

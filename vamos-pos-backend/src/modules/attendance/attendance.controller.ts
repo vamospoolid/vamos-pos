@@ -22,7 +22,16 @@ export class AttendanceController {
             const attendances = await AttendanceService.getDailyAttendance(date);
 
             // Wrap in consistent DTO format
-            const formatted = attendances.map((a: any) => ({
+            const formatted = attendances.map((a: {
+                id: string;
+                employeeId: string;
+                employee: { name: string; position: string };
+                date: Date;
+                checkIn: Date | null;
+                checkOut: Date | null;
+                status: string;
+                notes: string | null;
+            }) => ({
                 id: a.id,
                 employeeId: a.employeeId,
                 employeeName: a.employee.name,

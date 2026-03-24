@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SystemService } from './system.service';
+import { BackupService } from '../../utils/backup.service';
 
 export class SystemController {
 
@@ -40,4 +41,39 @@ export class SystemController {
             return res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    /**
+     * POST /api/system/backup
+     * Trigger backup pg_dump manual — simpan ke folder backups/
+     */
+    static async runBackup(req: Request, res: Response) {
+        try {
+            const result = await BackupService.runBackup();
+            return res.status(result.success ? 200 : 500).json({
+                success: result.success,
+                file: result.file,
+                message: result.message,
+            });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    /**
+     * GET /api/system/backup/list
+     * Daftar semua file backup yang tersimpan di server
+     */
+    static async listBackups(req: Request, res: Response) {
+        try {
+            const backups = BackupService.listBackups();
+            return res.json({
+                success: true,
+                count: backups.length,
+                backups,
+            });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
 }
+

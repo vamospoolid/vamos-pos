@@ -60,4 +60,14 @@ export class ProductController {
             next(error);
         }
     }
+
+    static async getStockLogs(req: Request, res: Response, next: NextFunction) {
+        try {
+            const productId = req.query.productId as string;
+            const logs = await ProductService.getStockLogs(productId);
+            res.json({ success: true, data: logs });
+        } catch (error) {
+            next(error);
+        }
+    }
 }

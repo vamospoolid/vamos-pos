@@ -232,7 +232,7 @@ const Players: React.FC = () => {
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 italic">DIGITAL SIGNATURE (EMAIL)</label>
                                     <input
                                         type="email"
-                                        placeholder="OP@SECTOR.GG"
+                                        placeholder="OP@SECTOR.POOL"
                                         value={form.email}
                                         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                                         className="fiery-input w-full lowercase font-mono placeholder:uppercase"

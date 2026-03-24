@@ -43,7 +43,8 @@ export function BookingScreen() {
     useEffect(() => {
         const fetchAvailability = async () => {
             try {
-                const res = await api.get('/player/availability');
+                const dateStr = selectedDate.toISOString().split('T')[0];
+                const res = await api.get('/player/availability', { params: { date: dateStr } });
                 setAvailability(res.data.data || []);
             } catch (err) {
                 console.error('Failed to fetch availability', err);
@@ -52,7 +53,7 @@ export function BookingScreen() {
         fetchAvailability();
         const interval = setInterval(fetchAvailability, 15000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedDate]);
 
     // Fetch Packages
     useEffect(() => {
@@ -98,14 +99,10 @@ export function BookingScreen() {
             // 1. Time filter (Never show past slots for today)
             if (isToday && slotTime <= now) return false;
 
-            // 2. Real-time Occupancy filter (Only for today)
-            if (isToday && typeAvailability) {
-                // If all tables of this type are occupied, slot must be after the soonest free table (+ buffer)
-                if (typeAvailability.available === 0) {
-                    const freeAt = new Date(typeAvailability.nextFreeAt);
-                    // Give 10-15 mins buffer for operator to clear/cleanup
-                    return slotTime.getTime() > (freeAt.getTime() + 10 * 60000);
-                }
+            // 2. Granular Slot Occupancy filter
+            if (typeAvailability?.slots?.[slot]) {
+                const slotData = typeAvailability.slots[slot];
+                if (slotData.isFull) return false;
             }
 
             return true;

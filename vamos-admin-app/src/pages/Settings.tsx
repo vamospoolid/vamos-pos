@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     RefreshCw, Database, Download, Wrench, Shield,
-    AlertTriangle, CheckCircle2, Loader2, ChevronRight, Zap, Clock, MessageSquare
+    AlertTriangle, CheckCircle2, Loader2, ChevronRight, Zap, Clock, MessageSquare,
+    Cpu, Wifi, WifiOff, Search, RotateCcw, CircleDot
 } from 'lucide-react';
-import { systemApi } from '../services/api';
+import { systemApi, relayApi } from '../services/api';
+import type { RelayStatus, RelayPort } from '../services/api';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
@@ -21,6 +23,68 @@ const Settings: React.FC = () => {
     const [exportStatus, setExportStatus] = useState<Status>('idle');
     const [result, setResult] = useState<ActionResult | null>(null);
     const [confirmReset, setConfirmReset] = useState(false);
+
+    // ── Relay Hardware State ───────────────────────────────────────────
+    const [relayStatus, setRelayStatus] = useState<RelayStatus | null>(null);
+    const [relayLoading, setRelayLoading] = useState(false);
+    const [scanLoading, setScanLoading] = useState(false);
+    const [reconnectLoading, setReconnectLoading] = useState(false);
+    const [scannedPorts, setScannedPorts] = useState<RelayPort[]>([]);
+    const [showPort, setShowPort] = useState(false);
+    const [relayMsg, setRelayMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const fetchRelayStatus = useCallback(async () => {
+        try {
+            setRelayLoading(true);
+            const res = await relayApi.getStatus();
+            setRelayStatus(res.data.data);
+        } catch (_) {
+            // gagal ambil status, mungkin backend off
+        } finally {
+            setRelayLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchRelayStatus();
+        const interval = setInterval(fetchRelayStatus, 10000);
+        return () => clearInterval(interval);
+    }, [fetchRelayStatus]);
+
+    const handleScanPorts = async () => {
+        setScanLoading(true);
+        setRelayMsg(null);
+        try {
+            const res = await relayApi.scanPorts();
+            setScannedPorts(res.data.ports);
+            setShowPort(true);
+            setRelayMsg({
+                type: 'success',
+                text: `Ditemukan ${res.data.count} COM port di sistem.`,
+            });
+        } catch (e: any) {
+            setRelayMsg({ type: 'error', text: e.response?.data?.message || 'Scan gagal.' });
+        } finally {
+            setScanLoading(false);
+        }
+    };
+
+    const handleReconnect = async () => {
+        setReconnectLoading(true);
+        setRelayMsg(null);
+        try {
+            const res = await relayApi.reconnect();
+            setRelayMsg({
+                type: res.data.success ? 'success' : 'error',
+                text: res.data.message,
+            });
+            if (res.data.success) fetchRelayStatus();
+        } catch (e: any) {
+            setRelayMsg({ type: 'error', text: e.response?.data?.message || 'Reconnect gagal.' });
+        } finally {
+            setReconnectLoading(false);
+        }
+    };
 
     // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -183,6 +247,118 @@ const Settings: React.FC = () => {
                         <p className="text-sm font-black text-white">{p.price}</p>
                     </div>
                 ))}
+            </div>
+
+            {/* ── RELAY HARDWARE ────────────────────────────────── */}
+            <div className="fiery-card p-5 space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Cpu size={16} className="text-primary" />
+                        <p className="text-base font-black text-white">Hardware Relay</p>
+                    </div>
+                    <button
+                        onClick={fetchRelayStatus}
+                        disabled={relayLoading}
+                        className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
+                        title="Refresh status"
+                    >
+                        {relayLoading
+                            ? <Loader2 size={13} className="animate-spin text-slate-400" />
+                            : <RotateCcw size={13} className="text-slate-400" />}
+                    </button>
+                </div>
+
+                {/* Status Badge */}
+                {relayStatus ? (
+                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e111a] border border-white/5">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            relayStatus.isConnected
+                                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse'
+                                : 'bg-rose-500'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-white">
+                                {relayStatus.isConnected ? '🟢 Terhubung' : relayStatus.isScanning ? '🔍 Scanning...' : '🔴 Tidak Terhubung'}
+                            </p>
+                            <p className="text-xs font-bold text-slate-500 truncate">
+                                Port: <span className="text-slate-300">{relayStatus.port ?? relayStatus.lastKnownPort ?? '—'}</span>
+                                {relayStatus.isScanning && <span className="ml-2 text-yellow-400">Auto-detecting...</span>}
+                            </p>
+                        </div>
+                        {relayStatus.isConnected
+                            ? <Wifi size={18} className="text-emerald-400 flex-shrink-0" />
+                            : <WifiOff size={18} className="text-rose-400 flex-shrink-0" />}
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e111a] border border-white/5">
+                        <CircleDot size={14} className="text-slate-600" />
+                        <p className="text-xs font-bold text-slate-600">Memuat status relay...</p>
+                    </div>
+                )}
+
+                {/* Relay Message */}
+                {relayMsg && (
+                    <div className={`p-3 rounded-2xl text-xs font-bold ${
+                        relayMsg.type === 'success'
+                            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+                            : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
+                    }`}>
+                        {relayMsg.text}
+                    </div>
+                )}
+
+                {/* Scanned Ports List */}
+                {showPort && scannedPorts.length > 0 && (
+                    <div className="space-y-2">
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-wider">COM Ports Ditemukan</p>
+                        {scannedPorts.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#0e111a] border border-white/5">
+                                <div>
+                                    <p className="text-sm font-black text-white">{p.path}</p>
+                                    {p.manufacturer && (
+                                        <p className="text-xs font-bold text-slate-500">{p.manufacturer}</p>
+                                    )}
+                                </div>
+                                {relayStatus?.port === p.path && (
+                                    <span className="text-xs font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-lg">ACTIVE</span>
+                                )}
+                            </div>
+                        ))}
+                        {scannedPorts.length === 0 && (
+                            <p className="text-xs font-bold text-slate-600 text-center py-2">Tidak ada COM port ditemukan.</p>
+                        )}
+                    </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                    <button
+                        id="relay-scan-btn"
+                        onClick={handleScanPorts}
+                        disabled={scanLoading}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-sm transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
+                    >
+                        {scanLoading
+                            ? <Loader2 size={15} className="animate-spin" />
+                            : <Search size={15} />}
+                        Scan Port
+                    </button>
+                    <button
+                        id="relay-reconnect-btn"
+                        onClick={handleReconnect}
+                        disabled={reconnectLoading || relayStatus?.isScanning}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary/20 border border-primary/30 text-primary font-black text-sm transition-all hover:bg-primary/30 active:scale-95 disabled:opacity-50"
+                    >
+                        {reconnectLoading
+                            ? <Loader2 size={15} className="animate-spin" />
+                            : <RefreshCw size={15} />}
+                        Auto-Detect
+                    </button>
+                </div>
+                <p className="text-xs font-bold text-slate-600 text-center">
+                    Auto-Detect akan scan semua COM port &amp; simpan port yang berhasil ke database.
+                </p>
             </div>
 
             {/* ── ACTIONS ───────────────────────────────────────── */}

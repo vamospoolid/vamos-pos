@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { io } from 'socket.io-client';
 import { api } from './api';
 import {
     TrendingUp, Activity, Loader2, Utensils,
     Download, DollarSign, FileText, Calendar, ArrowUpRight, ArrowDownRight,
-    Clock, Receipt, BarChart3
+    Clock, Receipt, BarChart3, ChevronDown, ChevronUp, Package, User
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -16,13 +17,14 @@ interface ReportsProps {
     user?: any;
     todayRevenue?: number;
     todayQrisRevenue?: number;
+    todayCashRevenue?: number;
     pendingBillsAmount?: number;
     pendingBillsCount?: number;
     todayExpenses?: number;
     utilizationSplit?: { dayHours: string; nightHours: string };
 }
 
-export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayExpenses = 0, pendingBillsAmount = 0, pendingBillsCount = 0, utilizationSplit = { dayHours: '0.0', nightHours: '0.0' } }: ReportsProps) {
+export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayCashRevenue = 0, todayExpenses = 0, pendingBillsAmount = 0, pendingBillsCount = 0, utilizationSplit = { dayHours: '0.0', nightHours: '0.0' } }: ReportsProps) {
     const [revenue30, setRevenue30] = useState<any[]>([]);
     const [utilization, setUtilization] = useState<any[]>([]);
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
@@ -32,8 +34,15 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
     const [txFilter, setTxFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
     const [txStartDate, setTxStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [txEndDate, setTxEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [txPaymentMethod, setTxPaymentMethod] = useState<'ALL' | 'CASH' | 'QRIS'>('ALL');
     const [loading, setLoading] = useState(true);
-    const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('monthly');
+    const [expandedTx, setExpandedTx] = useState<string | null>(null);
+
+    const filteredTransactions = useMemo(() => {
+        if (txPaymentMethod === 'ALL') return transactions;
+        return transactions.filter(t => (t.paymentMethod || 'CASH').toUpperCase().includes(txPaymentMethod));
+    }, [transactions, txPaymentMethod]);
+    const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
     const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const reportRef = useRef<HTMLDivElement>(null);
@@ -99,6 +108,27 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
         fetchReports();
     };
 
+    useEffect(() => {
+        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+        const socket = io(socketUrl);
+
+        const handleUpdate = () => {
+            fetchReports();
+            fetchTransactions();
+        };
+
+        socket.on('sessions:updated', handleUpdate);
+        socket.on('orders:updated', handleUpdate);
+        socket.on('expenses:updated', handleUpdate);
+        socket.on('waitlist:updated', handleUpdate);
+        socket.on('tables:updated', handleUpdate);
+        socket.on('members:updated', handleUpdate);
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [timeFilter, startDate, endDate, txFilter, txStartDate, txEndDate]);
+
     // ─── Transaction List Fetch ─────────────────────────────────────────────
     const fetchTransactions = async (filter = txFilter, sd = txStartDate, ed = txEndDate) => {
         setTxLoading(true);
@@ -150,19 +180,19 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
         doc.text(`Dicetak: ${dateStr} ${timeStr}  |  Periode: ${periodText}`, 15, 35);
 
         // Summary
-        const totalRevenue = transactions.reduce((s, t) => s + (t.totalAmount || 0), 0);
-        const totalTableRev = transactions.reduce((s, t) => s + (t.tableAmount || 0), 0);
-        const totalFnbRev = transactions.reduce((s, t) => s + (t.fnbAmount || 0), 0);
-        const totalHours = transactions.reduce((s, t) => s + (t.durationMinutes || 0), 0);
+        const totalRevenue = filteredTransactions.reduce((s, t) => s + (t.totalAmount || 0), 0);
+        const totalTableRev = filteredTransactions.reduce((s, t) => s + (t.tableAmount || 0), 0);
+        const totalFnbRev = filteredTransactions.reduce((s, t) => s + (t.fnbAmount || 0), 0);
+        const totalHours = filteredTransactions.reduce((s, t) => s + (t.durationMinutes || 0), 0);
         doc.setTextColor(0, 255, 102);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Total ${transactions.length} transaksi | Revenue: Rp ${Math.round(totalRevenue).toLocaleString('id-ID')} | Meja: Rp ${Math.round(totalTableRev).toLocaleString('id-ID')} | F&B: Rp ${Math.round(totalFnbRev).toLocaleString('id-ID')} | Total Jam: ${(totalHours / 60).toFixed(1)} Jam`, 15, 46);
+        doc.text(`Total ${filteredTransactions.length} transaksi | Revenue: Rp ${Math.round(totalRevenue).toLocaleString('id-ID')} | Meja: Rp ${Math.round(totalTableRev).toLocaleString('id-ID')} | F&B: Rp ${Math.round(totalFnbRev).toLocaleString('id-ID')} | Total Jam: ${(totalHours / 60).toFixed(1)} Jam`, 15, 46);
 
         autoTable(doc, {
             startY: 52,
             head: [['#', 'Waktu', 'Member / Tamu', 'Meja', 'Lama', 'Bill Meja', 'Bill F&B', 'Detail Items (F&B)', 'Total', 'Metode']],
-            body: transactions.map((t, i) => {
+            body: filteredTransactions.map((t, i) => {
                 const orderedItems = Object.entries(t.orderSummary || {})
                     .map(([name, qty]) => `${qty}x ${name}`)
                     .join(', ');
@@ -224,14 +254,18 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
         const yesterdayData = revenue30.length > 1 ? revenue30[revenue30.length - 2] : null;
 
         let monthTable = 0, monthFnb = 0, monthNet = 0, monthExpenses = 0, monthQrisCount = 0, monthQrisRevenue = 0;
-        revenue30.forEach(r => {
+        
+        const periodStartIdx = timeFilter === 'daily' && revenue30.length > 1 ? revenue30.length - 1 : 0;
+        
+        for (let i = periodStartIdx; i < revenue30.length; i++) {
+            const r = revenue30[i];
             monthTable += Number(r.tableRevenue || 0);
             monthFnb += Number(r.fnbRevenue || 0);
             monthNet += Number(r.totalRevenue || 0);
             monthExpenses += Number(r.totalExpenses || 0);
             monthQrisCount += Number(r.qrisCount || 0);
             monthQrisRevenue += Number(r.qrisRevenue || 0);
-        });
+        }
 
         const todayNet = todayData?.totalRevenue || 0;
         const todayExpenses = todayData?.totalExpenses || 0;
@@ -255,7 +289,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             monthQrisRevenue,
             growth,
         };
-    }, [revenue30]);
+    }, [revenue30, timeFilter]);
 
     const chartData = revenue30.map(r => {
         const d = new Date(r.date);
@@ -305,7 +339,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                 ['F&B Revenue', `Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')}`],
                 ["Today's Revenue", `Rp ${Math.round(kpis.todayNet).toLocaleString('id-ID')}`],
                 ["Today's Expenses", `Rp ${Math.round(kpis.todayExpenses).toLocaleString('id-ID')}`],
-                ["Today's Net Income", `Rp ${Math.round(kpis.todayProfit).toLocaleString('id-ID')}`],
+                ["Today's Physical Cash (Laci)", `Rp ${Math.round(todayCashRevenue).toLocaleString('id-ID')}`],
                 ['Daily Growth', `${kpis.growth >= 0 ? '+' : ''}${kpis.growth.toFixed(1)}%`],
             ],
             styles: { fontSize: 10, cellPadding: 4 },
@@ -519,6 +553,9 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
         <div ref={reportRef} className="fade-in">
 
             {/* ─── Private Live Stats (moved from dashboard for privacy) ──── */}
+            <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
+                INFO: Rekap Harian dihitung per Siklus Operasional (10:00 Pagi s/d 09:59 Pagi berikutnya)
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                 {[
                     {
@@ -543,18 +580,18 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         accent: '#ff3333',
                     },
                     {
-                        label: 'Jam Main Siang',
-                        value: `${utilizationSplit.dayHours} Hrs`,
-                        sub: '06:00 – 17:59',
-                        icon: <Clock className="w-5 h-5" />,
+                        label: 'Total Cash Hari Ini',
+                        value: `Rp ${Math.round(todayCashRevenue).toLocaleString('id-ID')}`,
+                        sub: 'Revenue – QRIS (Uang Fisik)',
+                        icon: <DollarSign className="w-5 h-5" />,
                         accent: '#ff9900',
                     },
                     {
-                        label: 'Jam Main Malam',
-                        value: `${utilizationSplit.nightHours} Hrs`,
-                        sub: '18:00 – 05:59',
+                        label: 'Total Jam Bermain',
+                        value: `${(parseFloat(utilizationSplit.dayHours) + parseFloat(utilizationSplit.nightHours)).toFixed(1)} Hrs`,
+                        sub: `Siang: ${utilizationSplit.dayHours}j | Malam: ${utilizationSplit.nightHours}j`,
                         icon: <Clock className="w-5 h-5" />,
-                        accent: '#7c3aed',
+                        accent: '#00aaff',
                     },
                     {
                         label: 'Transaksi QRIS',
@@ -648,6 +685,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         sub: `Rev: Rp ${Math.round(kpis.todayNet).toLocaleString('id-ID')} - Exp: Rp ${Math.round(kpis.todayExpenses).toLocaleString('id-ID')}`,
                         icon: <Activity className="w-7 h-7 text-[#00ff66]" />,
                         accent: '#00ff66',
+                        targetId: 'revenue-log-section'
                     },
                     {
                         label: `${getPeriodLabel()} Total Revenue`,
@@ -655,6 +693,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         sub: `Table: Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')} · F&B: Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')}`,
                         icon: <DollarSign className="w-7 h-7 text-[#00ff66]" />,
                         accent: '#00ff66',
+                        targetId: 'revenue-trend-section'
                     },
                     {
                         label: "Today's Revenue",
@@ -669,6 +708,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         ),
                         icon: <TrendingUp className="w-7 h-7 text-[#00ff66]" />,
                         accent: '#00ff66',
+                        targetId: 'revenue-log-section'
                     },
                     {
                         label: `${getPeriodLabel()} Table Bill`,
@@ -676,6 +716,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         sub: "Billiard sessions only",
                         icon: <Activity className="w-7 h-7 text-[#00aaff]" />,
                         accent: '#00aaff',
+                        targetId: 'table-performance-section'
                     },
                     {
                         label: `${getPeriodLabel()} F&B Bill`,
@@ -683,6 +724,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         sub: "Food & Beverage sales",
                         icon: <Utensils className="w-7 h-7 text-[#ff9900]" />,
                         accent: '#ff9900',
+                        targetId: 'fnb-performance-section'
                     },
                     {
                         label: `${getPeriodLabel()} Trx QRIS`,
@@ -690,10 +732,12 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                         sub: `Total dari ${kpis.monthQrisCount} transaksi QRIS`,
                         icon: <Activity className="w-7 h-7 text-[#ff33ff]" />,
                         accent: '#ff33ff',
+                        targetId: 'transaction-list-section'
                     }
                 ].map((card, i) => (
                     <div key={i}
-                        className="bg-[#141414] border border-[#222] rounded-2xl p-5 relative overflow-hidden group transition-all hover:border-opacity-60"
+                        onClick={() => document.getElementById(card.targetId)?.scrollIntoView({ behavior: 'smooth' })}
+                        className="bg-[#141414] border border-[#222] rounded-2xl p-5 relative overflow-hidden group transition-all hover:border-opacity-60 cursor-pointer active:scale-95"
                         style={{ '--accent': card.accent } as any}
                     >
                         <div className="absolute -right-3 -top-3 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -710,7 +754,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             </div>
 
             {/* ─── Revenue Chart ────────────────────────────── */}
-            <div className="bg-[#141414] border border-[#222] rounded-2xl p-6 mb-6">
+            <div id="revenue-trend-section" className="bg-[#141414] border border-[#222] rounded-2xl p-6 mb-6">
                 <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="w-5 h-5 text-[#00ff66]" />
                     <h2 className="text-lg font-bold">Revenue Trend
@@ -753,7 +797,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             </div>
 
             {/* ─── Revenue Detail Table ─────────────────────── */}
-            <div className="bg-[#141414] border border-[#222] rounded-2xl mb-6 overflow-hidden">
+            <div id="revenue-log-section" className="bg-[#141414] border border-[#222] rounded-2xl mb-6 overflow-hidden">
                 <div className="flex items-center gap-2 px-6 py-4 border-b border-[#222]">
                     <FileText className="w-5 h-5 text-[#00aaff]" />
                     <h2 className="font-bold text-base">Detailed Revenue Log</h2>
@@ -815,7 +859,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             {/* ─── Bottom Grid: Utilization + Top Spenders ──── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Table Utilization Chart */}
-                <div className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden flex flex-col">
+                <div id="table-performance-section" className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden flex flex-col">
                     <div className="flex items-center gap-2 px-6 py-4 border-b border-[#222]">
                         <Activity className="w-5 h-5 text-[#00aaff]" />
                         <div>
@@ -863,7 +907,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                 </div>
 
                 {/* Top Spenders Table */}
-                <div className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden flex flex-col">
+                <div id="expense-breakdown-section" className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden flex flex-col">
                     <div className="flex items-center gap-2 px-6 py-4 border-b border-[#222]">
                         <DollarSign className="w-5 h-5 text-red-500" />
                         <div>
@@ -927,7 +971,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             </div>
 
             {/* ─── F&B Products Table ───────────────────────── */}
-            <div className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden mb-6">
+            <div id="fnb-performance-section" className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden mb-6">
                 <div className="flex items-center gap-2 px-6 py-4 border-b border-[#222]">
                     <Utensils className="w-5 h-5 text-[#ff9900]" />
                     <div>
@@ -980,7 +1024,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
             </div>
 
             {/* ─── Transaction List ───────────────────────────────────────── */}
-            <div className="mt-10 bg-[#141414] border border-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl">
+            <div id="transaction-list-section" className="mt-10 bg-[#141414] border border-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl">
                 {/* Header */}
                 <div className="px-8 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#1e1e1e] bg-white/[0.02]">
                     <div>
@@ -988,7 +1032,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                             <FileText className="w-6 h-6 text-[#00ff66]" /> Daftar Transaksi
                         </h3>
                         <p className="text-gray-500 text-xs mt-1 font-mono">
-                            {transactions.length} transaksi · Total Rp {Math.round(transactions.reduce((s, t) => s + t.totalAmount, 0)).toLocaleString('id-ID')}
+                            {filteredTransactions.length} transaksi · Total Rp {Math.round(filteredTransactions.reduce((s, t) => s + (t.totalAmount || 0), 0)).toLocaleString('id-ID')}
                         </p>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -998,6 +1042,15 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all"
                                     style={{ background: txFilter === f ? '#00ff66' : 'transparent', color: txFilter === f ? '#0a0a0a' : '#6b7280' }}>
                                     {f === 'daily' ? 'Harian' : f === 'weekly' ? 'Mingguan' : 'Bulanan'}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="bg-[#0a0a0a] border border-[#333] rounded-xl p-1 flex items-center">
+                            {(['ALL', 'CASH', 'QRIS'] as const).map(m => (
+                                <button key={m} onClick={() => setTxPaymentMethod(m)}
+                                    className="px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
+                                    style={{ background: txPaymentMethod === m ? '#00aaff' : 'transparent', color: txPaymentMethod === m ? '#0a0a0a' : '#6b7280' }}>
+                                    {m}
                                 </button>
                             ))}
                         </div>
@@ -1017,14 +1070,14 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                 </div>
 
                 {/* Summary bar */}
-                {transactions.length > 0 && (
+                {filteredTransactions.length > 0 && (
                     <div className="px-8 py-4 flex gap-8 flex-wrap border-b border-[#1a1a1a] bg-[#111]">
                         {[
-                            { label: 'Total Transaksi', value: transactions.length, color: '#00aaff', mono: false },
-                            { label: 'Revenue Meja', value: `Rp ${Math.round(transactions.reduce((s, t) => s + t.tableAmount, 0)).toLocaleString('id-ID')}`, color: '#7c3aed', mono: true },
-                            { label: 'Revenue F&B', value: `Rp ${Math.round(transactions.reduce((s, t) => s + t.fnbAmount, 0)).toLocaleString('id-ID')}`, color: '#ff9900', mono: true },
-                            { label: 'Total Revenue', value: `Rp ${Math.round(transactions.reduce((s, t) => s + t.totalAmount, 0)).toLocaleString('id-ID')}`, color: '#00ff66', mono: true },
-                            { label: 'Total Jam Main', value: `${(transactions.reduce((s, t) => s + (t.durationMinutes || 0), 0) / 60).toFixed(1)} Jam`, color: '#ff3333', mono: true },
+                            { label: 'Total Transaksi', value: filteredTransactions.length, color: '#00aaff', mono: false },
+                            { label: 'Revenue Meja', value: `Rp ${Math.round(filteredTransactions.reduce((s, t) => s + (t.tableAmount || 0), 0)).toLocaleString('id-ID')}`, color: '#7c3aed', mono: true },
+                            { label: 'Revenue F&B', value: `Rp ${Math.round(filteredTransactions.reduce((s, t) => s + (t.fnbAmount || 0), 0)).toLocaleString('id-ID')}`, color: '#ff9900', mono: true },
+                            { label: 'Total Revenue', value: `Rp ${Math.round(filteredTransactions.reduce((s, t) => s + (t.totalAmount || 0), 0)).toLocaleString('id-ID')}`, color: '#00ff66', mono: true },
+                            { label: 'Total Jam Main', value: `${(filteredTransactions.reduce((s, t) => s + (t.durationMinutes || 0), 0) / 60).toFixed(1)} Jam`, color: '#ff3333', mono: true },
                         ].map(item => (
                             <div key={item.label}>
                                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{item.label}</p>
@@ -1039,7 +1092,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                     <table className="w-full text-left text-sm">
                         <thead>
                             <tr className="border-b border-[#1a1a1a]">
-                                {['#', 'Waktu', 'Member / Tamu', 'Meja', 'Lama Main', 'Paket', 'Bill Meja', 'F&B', 'Total', 'Pembayaran'].map(h => (
+                                {['#', 'Waktu', 'Member / Tamu', 'Meja', 'Lama Main', 'Paket', 'Bill Meja', 'F&B', 'Total', 'Pembayaran', ''].map(h => (
                                     <th key={h} className="px-5 py-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.15em] whitespace-nowrap">{h}</th>
                                 ))}
                             </tr>
@@ -1050,83 +1103,146 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayE
                                     <Loader2 className="w-8 h-8 animate-spin text-[#00ff66] mx-auto mb-3" />
                                     <p className="text-gray-600 text-xs font-mono uppercase tracking-widest">Memuat transaksi...</p>
                                 </td></tr>
-                            ) : transactions.length === 0 ? (
+                            ) : filteredTransactions.length === 0 ? (
                                 <tr><td colSpan={10} className="px-5 py-20 text-center">
                                     <FileText className="w-14 h-14 opacity-10 mx-auto mb-4" />
                                     <p className="text-gray-500 font-bold">Tidak ada transaksi untuk periode ini</p>
-                                    <p className="text-gray-600 text-xs mt-1">Coba ubah filter waktu</p>
+                                    <p className="text-gray-600 text-xs mt-1">Coba ubah filter waktu atau metode pembayaran</p>
                                 </td></tr>
                             ) : (
-                                transactions.map((tx, i) => {
+                                filteredTransactions.map((tx, i) => {
                                     const hours = Math.floor((tx.durationMinutes || 0) / 60);
                                     const mins = (tx.durationMinutes || 0) % 60;
                                     const isWalkIn = tx.memberName === 'Walk-in Guest';
+                                    const isExpanded = expandedTx === tx.id;
                                     return (
-                                        <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="px-5 py-4">
-                                                <span className="w-7 h-7 rounded-lg bg-[#222] text-gray-500 text-xs font-black flex items-center justify-center border border-white/5">{i + 1}</span>
-                                            </td>
-                                            <td className="px-5 py-4 whitespace-nowrap">
-                                                <p className="text-white font-bold text-xs">
-                                                    {tx.endTime ? new Date(tx.endTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                                                </p>
-                                                <p className="text-gray-500 font-mono text-[10px] mt-0.5">
-                                                    {tx.startTime ? new Date(tx.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '?'}
-                                                    {' → '}
-                                                    {tx.endTime ? new Date(tx.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '?'}
-                                                </p>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${isWalkIn ? 'bg-gray-800 text-gray-500' : 'bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/20'}`}>
-                                                        {isWalkIn ? '?' : tx.memberName.charAt(0).toUpperCase()}
+                                        <React.Fragment key={tx.id}>
+                                            <tr 
+                                                onClick={() => setExpandedTx(isExpanded ? null : tx.id)}
+                                                className={`cursor-pointer transition-colors ${isExpanded ? 'bg-[#00ff66]/5' : 'hover:bg-white/[0.02]'}`}
+                                            >
+                                                <td className="px-5 py-4">
+                                                    <span className="w-7 h-7 rounded-lg bg-[#222] text-gray-500 text-xs font-black flex items-center justify-center border border-white/5">{i + 1}</span>
+                                                </td>
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <p className="text-white font-bold text-xs">
+                                                        {tx.endTime ? new Date(tx.endTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                                    </p>
+                                                    <p className="text-gray-500 font-mono text-[10px] mt-0.5">
+                                                        {tx.startTime ? new Date(tx.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '?'}
+                                                        {' → '}
+                                                        {tx.endTime ? new Date(tx.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '?'}
+                                                    </p>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${isWalkIn ? 'bg-gray-800 text-gray-500' : 'bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/20'}`}>
+                                                            {isWalkIn ? '?' : tx.memberName.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className={`font-bold text-xs ${isWalkIn ? 'text-gray-500' : 'text-white'}`}>{tx.memberName}</p>
+                                                            {tx.memberPhone && tx.memberPhone !== '-' && (
+                                                                <p className="text-[10px] text-gray-600 font-mono">{tx.memberPhone}</p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className={`font-bold text-xs ${isWalkIn ? 'text-gray-500' : 'text-white'}`}>{tx.memberName}</p>
-                                                        {tx.memberPhone && tx.memberPhone !== '-' && (
-                                                            <p className="text-[10px] text-gray-600 font-mono">{tx.memberPhone}</p>
-                                                        )}
+                                                </td>
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <p className="text-white font-bold text-xs">{tx.tableName}</p>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${tx.tableType === 'VVIP' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                                        tx.tableType === 'VIP' ? 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/20' :
+                                                            'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                                                        }`}>{tx.tableType}</span>
+                                                </td>
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Clock className="w-3.5 h-3.5 text-[#00aaff]" />
+                                                        <span className="font-black text-[#00aaff] font-mono text-sm">
+                                                            {hours}<span className="text-[10px] font-bold text-gray-500 ml-0.5">j</span> {mins}<span className="text-[10px] font-bold text-gray-500 ml-0.5">m</span>
+                                                        </span>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4 whitespace-nowrap">
-                                                <p className="text-white font-bold text-xs">{tx.tableName}</p>
-                                                <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${tx.tableType === 'VVIP' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                    tx.tableType === 'VIP' ? 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/20' :
-                                                        'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                                                    }`}>{tx.tableType}</span>
-                                            </td>
-                                            <td className="px-5 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Clock className="w-3.5 h-3.5 text-[#00aaff]" />
-                                                    <span className="font-black text-[#00aaff] font-mono text-sm">
-                                                        {hours}<span className="text-[10px] font-bold text-gray-500 ml-0.5">j</span> {mins}<span className="text-[10px] font-bold text-gray-500 ml-0.5">m</span>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${tx.packageName ? 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' : 'bg-gray-700/20 text-gray-500 border-gray-700/20'}`}>
+                                                        {tx.packageName || 'Open Bill'}
                                                     </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${tx.packageName ? 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/20' : 'bg-gray-700/20 text-gray-500 border-gray-700/20'}`}>
-                                                    {tx.packageName || 'Open Bill'}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 font-mono font-black text-white text-right whitespace-nowrap">
-                                                Rp {Math.round(tx.tableAmount || 0).toLocaleString('id-ID')}
-                                            </td>
-                                            <td className="px-5 py-4 font-mono font-bold text-[#ff9900] text-right whitespace-nowrap">
-                                                {tx.fnbAmount > 0 ? `Rp ${Math.round(tx.fnbAmount).toLocaleString('id-ID')}` : <span className="text-gray-700">–</span>}
-                                            </td>
-                                            <td className="px-5 py-4 font-mono font-black text-[#00ff66] text-right whitespace-nowrap">
-                                                Rp {Math.round(tx.totalAmount || 0).toLocaleString('id-ID')}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-black uppercase tracking-widest border ${(tx.paymentMethod || '').includes('TRANSFER') || (tx.paymentMethod || '').includes('QRIS')
-                                                    ? 'bg-[#00aaff]/10 text-[#00aaff] border-[#00aaff]/20'
-                                                    : 'bg-[#00ff66]/10 text-[#00ff66] border-[#00ff66]/20'
-                                                    }`}>
-                                                    {tx.paymentMethod || 'CASH'}
-                                                </span>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td className="px-5 py-4 font-mono font-black text-white text-right whitespace-nowrap">
+                                                    Rp {Math.round(tx.tableAmount || 0).toLocaleString('id-ID')}
+                                                </td>
+                                                <td className="px-5 py-4 font-mono font-bold text-[#ff9900] text-right whitespace-nowrap">
+                                                    {tx.fnbAmount > 0 ? `Rp ${Math.round(tx.fnbAmount).toLocaleString('id-ID')}` : <span className="text-gray-700">–</span>}
+                                                </td>
+                                                <td className="px-5 py-4 font-mono font-black text-[#00ff66] text-right whitespace-nowrap">
+                                                    Rp {Math.round(tx.totalAmount || 0).toLocaleString('id-ID')}
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <span className={`text-[10px] px-2 py-1 rounded-full font-black uppercase tracking-widest border ${(tx.paymentMethod || '').includes('TRANSFER') || (tx.paymentMethod || '').includes('QRIS')
+                                                        ? 'bg-[#00aaff]/10 text-[#00aaff] border-[#00aaff]/20'
+                                                        : 'bg-[#00ff66]/10 text-[#00ff66] border-[#00ff66]/20'
+                                                        }`}>
+                                                        {tx.paymentMethod || 'CASH'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-[#00ff66]" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
+                                                </td>
+                                            </tr>
+                                            {isExpanded && (
+                                                <tr className="bg-[#111]/80 border-l-2 border-[#00ff66]">
+                                                    <td colSpan={11} className="px-12 py-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                            {/* F&B Details */}
+                                                            <div>
+                                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                                    <Package className="w-3 h-3 text-[#ff9900]" /> Detail Order F&B
+                                                                </h4>
+                                                                {Object.keys(tx.orderSummary || {}).length > 0 ? (
+                                                                    <div className="space-y-2">
+                                                                        {Object.entries(tx.orderSummary).map(([name, qty]: any) => (
+                                                                            <div key={name} className="flex justify-between items-center py-2 px-3 bg-[#1a1a1a] rounded-lg border border-white/5">
+                                                                                <span className="text-xs text-gray-200 font-bold">{name}</span>
+                                                                                <span className="text-xs font-black text-[#ff9900] font-mono">x{qty}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-xs text-gray-600 italic">Tidak ada order F&B pada sesi ini</p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Session Details */}
+                                                            <div>
+                                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                                    <Activity className="w-3 h-3 text-[#00aaff]" /> Informasi Sesi
+                                                                </h4>
+                                                                <div className="bg-[#1a1a1a] rounded-xl border border-white/5 overflow-hidden">
+                                                                    <div className="px-4 py-3 border-b border-white/5 flex justify-between">
+                                                                        <span className="text-[10px] text-gray-500">ID Sesi</span>
+                                                                        <span className="text-[10px] font-mono text-gray-400">{tx.sessionId || '-'}</span>
+                                                                    </div>
+                                                                    <div className="px-4 py-3 border-b border-white/5 flex justify-between">
+                                                                        <span className="text-[10px] text-gray-500">Total Durasi</span>
+                                                                        <span className="text-xs font-bold text-white">{hours} Jam {mins} Menit</span>
+                                                                    </div>
+                                                                    <div className="px-4 py-3 border-b border-white/5 flex justify-between">
+                                                                        <span className="text-[10px] text-gray-500">Tarif Meja</span>
+                                                                        <span className="text-xs font-bold text-white">Rp {Math.round(tx.tableAmount).toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="px-4 py-3 flex justify-between bg-[#00ff66]/5">
+                                                                        <span className="text-[10px] text-gray-500">Petugas Kasir</span>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <User className="w-3 h-3 text-[#00ff66]" />
+                                                                            <span className="text-xs font-bold text-[#00ff66]">{tx.cashierName || 'Sistem'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })
                             )}

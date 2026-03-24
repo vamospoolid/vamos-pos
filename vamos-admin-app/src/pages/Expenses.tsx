@@ -3,7 +3,7 @@ import { RefreshCw, Plus, TrendingDown, Trash2, Calendar, ArrowRight, Shield } f
 import api from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
 
-const EXPENSE_CATS = ['Gaji', 'Operasional', 'Bahan Baku', 'Maintenance', 'Lainnya'];
+const EXPENSE_CATS = ['Gaji', 'Operasional', 'Bahan Baku', 'Maintenance', 'DEBT', 'Lainnya'];
 
 const Expenses: React.FC = () => {
     const [list, setList] = useState<any[]>([]);
@@ -46,6 +46,17 @@ const Expenses: React.FC = () => {
         load();
     };
 
+    const payDebt = async (id: string) => {
+        if (!(await vamosConfirm('Selesaikan piutang ini? Saldo kasir akan bertambah.'))) return;
+        try {
+            await api.post(`/expenses/${id}/pay-debt`);
+            vamosAlert('Piutang berhasil dilunasi!');
+            load();
+        } catch (e: any) {
+            vamosAlert(e?.response?.data?.message || 'Gagal melunasi piutang.');
+        }
+    };
+
     const totalMonth = list.filter(e => {
         const d = new Date(e.date);
         const now = new Date();
@@ -57,6 +68,7 @@ const Expenses: React.FC = () => {
         'Operasional': { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
         'Bahan Baku': { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
         'Maintenance': { color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.1)' },
+        'DEBT': { color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' },
         'Lainnya': { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)' },
     };
 
@@ -129,7 +141,16 @@ const Expenses: React.FC = () => {
                                     {(e.category ?? 'L').slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="text-xl font-black text-white uppercase italic tracking-tighter group-hover:text-primary transition-colors truncate">{e.description || e.category}</h4>
+                                    <h4 className="text-xl font-black text-white uppercase italic tracking-tighter group-hover:text-primary transition-colors truncate">
+                                        {e.description || e.category}
+                                    </h4>
+                                    {e.member && (
+                                        <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest italic mt-1 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                                            Member Impact: {e.member.name}
+                                            {e.status === 'PENDING' && <span className="text-rose-500 ml-2 animate-pulse">[OUTSTANDING]</span>}
+                                        </p>
+                                    )}
                                     <div className="flex items-center gap-4 mt-2">
                                         <span className="text-[9px] font-black px-3 py-1 rounded-full bg-[#101423] text-slate-400 border border-white/5 uppercase tracking-widest italic">{e.category}</span>
                                         <span className="flex items-center gap-2 text-[10px] font-bold text-slate-500 italic uppercase tracking-widest">
@@ -139,10 +160,22 @@ const Expenses: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="text-right flex flex-col items-end gap-2">
-                                    <p className="text-2xl font-black text-rose-500 italic tracking-tighter">-{fmtK(e.amount)}</p>
-                                    <button onClick={() => del(e.id)} className="p-3.5 rounded-2xl bg-[#101423] border border-white/5 text-slate-600 hover:text-rose-500 hover:border-rose-500/50 transition-all opacity-0 group-hover:opacity-100 active:scale-90">
-                                        <Trash2 size={18} />
-                                    </button>
+                                    <p className="text-2xl font-black text-rose-500 italic tracking-tighter">
+                                        {e.id.startsWith('temp') ? '...' : `-${fmtK(e.amount)}`}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {e.isDebt && e.status === 'PENDING' && (
+                                            <button
+                                                onClick={() => payDebt(e.id)}
+                                                className="px-4 py-2 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-[#0a0d18] transition-all font-black text-[10px] uppercase tracking-widest italic"
+                                            >
+                                                Selesaikan
+                                            </button>
+                                        )}
+                                        <button onClick={() => del(e.id)} className="p-3.5 rounded-2xl bg-[#101423] border border-white/5 text-slate-600 hover:text-rose-500 hover:border-rose-500/50 transition-all opacity-0 group-hover:opacity-100 active:scale-90">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -172,7 +205,11 @@ const Expenses: React.FC = () => {
                                     onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                                     className="fiery-input w-full uppercase appearance-none"
                                 >
-                                    {EXPENSE_CATS.map(c => <option key={c} value={c} className="bg-[#101423]">{c.toUpperCase()}</option>)}
+                                    {EXPENSE_CATS.map(c => (
+                                        <option key={c} value={c} className="bg-[#101423]">
+                                            {c === 'DEBT' ? 'PIUTANG' : c.toUpperCase()}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 

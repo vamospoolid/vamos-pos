@@ -71,11 +71,17 @@ export interface Tournament {
     name: string;
     status: 'PENDING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
     format?: string;
+    maxPlayers: number;
     startDate?: string;
     venue?: string;
     participants?: Participant[];
     matches?: Match[];
     _count?: { participants: number };
+    prizeChampion: number;
+    prizeRunnerUp: number;
+    prizeSemiFinal: number;
+    eliminationType?: 'SINGLE' | 'DOUBLE';
+    transitionSize?: number;
 }
 
 export interface Participant {
@@ -84,6 +90,7 @@ export interface Participant {
     seed?: number;
     memberId?: string;
     paymentStatus?: string;
+    handicap?: string | number;
 }
 
 export interface Match {
@@ -95,13 +102,24 @@ export interface Match {
     score1?: number | null;
     score2?: number | null;
     winner?: Participant;
+    status?: string;
 }
 
 export const tournamentsApi = {
     getAll: () => api.get<{ success: boolean; data: Tournament[] }>('/tournaments'),
     getById: (id: string) => api.get<{ success: boolean; data: Tournament }>(`/tournaments/${id}`),
-    create: (body: { name: string; format?: string; startDate?: string; venue?: string; participants?: string[] }) =>
+    create: (body: { 
+        name: string; 
+        format?: string; 
+        startDate?: string; 
+        venue?: string; 
+        participants?: string[];
+        eliminationType?: 'SINGLE' | 'DOUBLE';
+        transitionSize?: number;
+    }) =>
         api.post<{ success: boolean; data: Tournament }>('/tournaments', body),
+    update: (id: string, body: Partial<Tournament>) =>
+        api.put<{ success: boolean; data: Tournament }>(`/tournaments/${id}`, body),
     delete: (id: string) => api.delete(`/tournaments/${id}`),
     registerParticipant: (id: string, body: { memberId?: string; name: string; handicap?: number }) =>
         api.post(`/tournaments/${id}/register`, body),
@@ -109,12 +127,18 @@ export const tournamentsApi = {
         api.put(`/tournaments/${id}/participants/${participantId}/status`, { paymentStatus }),
     generateBracket: (id: string) =>
         api.post(`/tournaments/${id}/generate-bracket`),
+    resetBracket: (id: string) =>
+        api.post(`/tournaments/${id}/reset-bracket`),
     updateMatchResult: (matchId: string, body: { score1: number; score2: number; winnerId?: string }) =>
         api.put(`/tournaments/matches/${matchId}`, body),
     updateMatchPlayers: (matchId: string, body: { player1Id?: string; player2Id?: string }) =>
         api.put(`/tournaments/matches/${matchId}/players`, body),
     finish: (id: string, body?: object) =>
         api.post(`/tournaments/${id}/finish`, body ?? {}),
+    removeParticipant: (id: string, participantId: string) =>
+        api.delete(`/tournaments/${id}/participants/${participantId}`),
+    purgeParticipants: (id: string) =>
+        api.delete(`/tournaments/${id}/participants`),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -240,6 +264,30 @@ export const systemApi = {
     seed: () => api.post('/system/seed'),
     fixTables: () => api.post('/system/fix-tables'),
     export: () => api.get('/system/export', { responseType: 'blob' }),
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// RELAY HARDWARE
+// GET  /api/relay/status   → { isConnected, port, isOpen, lastKnownPort, isScanning }
+// GET  /api/relay/scan     → { count, ports: [{ path, manufacturer, serialNumber }] }
+// POST /api/relay/reconnect → { success, port, message }
+// ═══════════════════════════════════════════════════════════════════════
+export interface RelayStatus {
+    isConnected: boolean;
+    port: string | null;
+    isOpen: boolean;
+    lastKnownPort: string | null;
+    isScanning: boolean;
+}
+export interface RelayPort {
+    path: string;
+    manufacturer?: string;
+    serialNumber?: string;
+}
+export const relayApi = {
+    getStatus: () => api.get<{ success: boolean; data: RelayStatus }>('/relay/status'),
+    scanPorts: () => api.get<{ success: boolean; count: number; ports: RelayPort[] }>('/relay/scan'),
+    reconnect: () => api.post<{ success: boolean; port: string | null; message: string }>('/relay/reconnect'),
 };
 
 export default api;

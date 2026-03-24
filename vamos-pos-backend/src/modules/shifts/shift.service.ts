@@ -58,7 +58,14 @@ export class ShiftService {
             .filter((p: any) => p.method === 'CARD' && p.status === 'SUCCESS')
             .reduce((sum: number, p: any) => sum + p.amount, 0);
 
-        const expectedCash = shift.startingCash + expectedCashPayments;
+        // Hitung total pengeluaran tunai (Expense) selama shift ini
+        const totalExpenses = await prisma.expense.aggregate({
+            where: { shiftId: shift.id, deletedAt: null },
+            _sum: { amount: true }
+        });
+
+        const totalExpenseAmount = totalExpenses?._sum?.amount || 0;
+        const expectedCash = shift.startingCash + expectedCashPayments - totalExpenseAmount;
 
         const updatedShift = await prisma.cashierShift.update({
             where: { id: shift.id },

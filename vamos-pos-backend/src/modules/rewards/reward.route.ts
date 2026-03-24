@@ -16,9 +16,9 @@ router.get('/redemptions/member/:memberId', getMemberRedemptions);              
 
 // Admin/Owner/Manager only
 router.post('/', authorizeRoles('ADMIN', 'OWNER', 'MANAGER'), createReward);          // POST /rewards
-router.put('/:id', authorizeRoles('ADMIN', 'OWNER', 'MANAGER'), updateReward);        // PUT  /rewards/:id
-router.delete('/:id', authorizeRoles('ADMIN', 'OWNER', 'MANAGER'), deleteReward);     // DEL  /rewards/:id
 router.get('/redemptions', authorizeRoles('ADMIN', 'OWNER', 'MANAGER', 'KASIR'), getRedemptions);     // GET  /rewards/redemptions
 router.put('/redemptions/:id/fulfill', authorizeRoles('ADMIN', 'OWNER', 'MANAGER', 'KASIR'), fulfillRedemption); // PUT /rewards/redemptions/:id/fulfill
+router.put('/:id', authorizeRoles('ADMIN', 'OWNER', 'MANAGER'), updateReward);        // PUT  /rewards/:id
+router.delete('/:id', authorizeRoles('ADMIN', 'OWNER', 'MANAGER'), deleteReward);     // DEL  /rewards/:id
 
 export default router;

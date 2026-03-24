@@ -14,7 +14,8 @@ export default function Inventory() {
     const [formData, setFormData] = useState<any>({ name: '', category: '', price: '', stock: '' });
 
     const [stockModal, setStockModal] = useState<{ id: string, name: string, change: number | string } | null>(null);
-    const [filterType, setFilterType] = useState<'ALL' | 'FNB' | 'EQUIPMENT'>('ALL');
+    const [filterType, setFilterType] = useState<'ALL' | 'FNB' | 'EQUIPMENT' | 'HISTORY'>('ALL');
+    const [stockLogs, setStockLogs] = useState<any[]>([]);
 
     const fetchProducts = async () => {
         try {
@@ -30,6 +31,24 @@ export default function Inventory() {
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    const fetchStockLogs = async () => {
+        try {
+            setLoading(true);
+            const res = await api.get('/products/stock-logs');
+            setStockLogs(res.data.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (filterType === 'HISTORY') {
+            fetchStockLogs();
+        }
+    }, [filterType]);
 
     const handleSave = async () => {
         try {
@@ -107,6 +126,12 @@ export default function Inventory() {
                     >
                         Billiard & Equipment
                     </button>
+                    <button
+                        onClick={() => setFilterType('HISTORY')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'HISTORY' ? 'bg-[#ff9900] text-[#0a0a0a]' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Riwayat Stok
+                    </button>
                 </div>
                 <button
                     onClick={() => { setEditingProduct(null); setFormData({ name: '', category: '', price: '', stock: '' }); setIsModalOpen(true); }}
@@ -131,7 +156,58 @@ export default function Inventory() {
                 </div>
 
                 {loading ? (
-                    <div className="text-center text-gray-500 py-10">Loading inventory...</div>
+                    <div className="text-center text-gray-500 py-10">Loading...</div>
+                ) : filterType === 'HISTORY' ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-[#222222] text-xs uppercase tracking-wider text-gray-500">
+                                    <th className="pb-4 font-semibold">Waktu</th>
+                                    <th className="pb-4 font-semibold">Item</th>
+                                    <th className="pb-4 font-semibold text-center">Tipe</th>
+                                    <th className="pb-4 font-semibold text-center">Jumlah</th>
+                                    <th className="pb-4 font-semibold text-center">Stok Sblm</th>
+                                    <th className="pb-4 font-semibold text-center">Stok Akhir</th>
+                                    <th className="pb-4 font-semibold">Catatan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stockLogs.filter(log => 
+                                    log.product?.name?.toLowerCase().includes(search.toLowerCase())
+                                ).map(log => (
+                                    <tr key={log.id} className="border-b border-[#222222] hover:bg-white/5 transition-colors">
+                                        <td className="py-4 text-xs font-mono text-gray-400">
+                                            {new Date(log.createdAt).toLocaleString('id-ID')}
+                                        </td>
+                                        <td className="py-4">
+                                            <p className="font-bold text-sm text-white">{log.product?.name}</p>
+                                        </td>
+                                        <td className="py-4 text-center">
+                                            <span className={`text-[9px] px-2 py-1 rounded font-black uppercase tracking-widest border ${
+                                                log.type === 'INITIAL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                                                log.type === 'SALE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                log.type === 'RETURN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                                'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                                            }`}>
+                                                {log.type}
+                                            </span>
+                                        </td>
+                                        <td className={`py-4 text-center font-bold font-mono ${log.quantity > 0 ? 'text-[#00ff66]' : 'text-[#ff3333]'}`}>
+                                            {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
+                                        </td>
+                                        <td className="py-4 text-center font-mono text-gray-500">{log.previousStock}</td>
+                                        <td className="py-4 text-center font-mono font-bold text-white">{log.newStock}</td>
+                                        <td className="py-4 text-xs text-gray-500 italic max-w-xs truncate">{log.notes || '-'}</td>
+                                    </tr>
+                                ))}
+                                {stockLogs.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="text-center py-10 text-gray-500 italic">Belum ada riwayat stok.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">

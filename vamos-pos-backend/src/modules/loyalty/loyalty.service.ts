@@ -1,25 +1,28 @@
 import { prisma } from '../../database/db';
 import { AppError } from '../../utils/errors';
 import { PointTxType } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
-// ── Tier thresholds ─────────────────────────────────────────────
-// ── Tier thresholds ─────────────────────────────────────────────
-const TIER_THRESHOLDS = {
-    BRONZE: { min: 0, bonus: 0.00 },
-    SILVER: { min: 1000, bonus: 0.05 }, // +5% points
-    GOLD: { min: 2000, bonus: 0.10 },   // +10% points
-    PLATINUM: { min: 3000, bonus: 0.15 }, // +15% points
+// ── Tier thresholds (Based on Experience/XP) ───────────────────────
+const TIER_CONFIG = {
+    BRONZE: { minExperience: 0, earnRate: 1 },
+    SILVER: { minExperience: 1000, earnRate: 1.1 },
+    GOLD: { minExperience: 2500, earnRate: 1.25 },
+    PLATINUM: { minExperience: 5000, earnRate: 1.5 } // Added Platinum for consistency with frontend
 };
 
-function getTier(points: number): string {
-    if (points >= 3000) return 'PLATINUM';
-    if (points >= 2000) return 'GOLD';
-    if (points >= 1000) return 'SILVER';
+const MAINTENANCE_GOLD_HOURS = 15; // Kept for hours check if still relevant
+
+function determineTier(experience: number): string {
+    if (experience >= TIER_CONFIG.PLATINUM.minExperience) return 'PLATINUM';
+    if (experience >= TIER_CONFIG.GOLD.minExperience) return 'GOLD';
+    if (experience >= TIER_CONFIG.SILVER.minExperience) return 'SILVER';
     return 'BRONZE';
 }
 
-function getTierBonus(tier: string): number {
-    return TIER_THRESHOLDS[tier as keyof typeof TIER_THRESHOLDS]?.bonus ?? 0;
+function getTierRate(tier: string): number {
+    const config = TIER_CONFIG[tier as keyof typeof TIER_CONFIG];
+    return config ? config.earnRate : 1;
 }
 
 // ── Config helpers ───────────────────────────────────────────────
@@ -27,7 +30,7 @@ async function getConfig() {
     let cfg = await prisma.loyaltyConfig.findUnique({ where: { id: 'global' } });
     if (!cfg) {
         cfg = await prisma.loyaltyConfig.create({
-            data: { id: 'global', pointPerRupiah: 0.001, streakThreshold: 5, streakWindowDays: 30, streakBonusPoints: 100, updatedAt: new Date() }
+            data: { id: 'global', pointPerRupiah: 1, streakThreshold: 5, streakWindowDays: 30, streakBonusPoints: 100, isPointsEnabled: true, updatedAt: new Date() }
         });
     }
     return cfg;
@@ -47,15 +50,19 @@ export class LoyaltyService {
         const member = await prisma.member.findUnique({ where: { id: memberId } });
         if (!member) throw new AppError('Member not found', 404);
 
-        const normalizedAmount = amount < 2000 ? amount * 1000 : amount;
-        const base = Math.floor(normalizedAmount * cfg.pointPerRupiah);          // 1 pt per 1000
-        const tierBonus = Math.floor(base * getTierBonus(member.tier));
+        // 1 point per 1000 Rupiah. 
+        // If amount 100.000, Base is 100 points.
+        const tierRate = getTierRate(member.tier);
+        const base = Math.floor((amount / 1000) * tierRate);
         const doubleMulti = isDoublePointActive(cfg) ? 2 : 1;
-        const earned = (base + tierBonus) * doubleMulti;
+        const earned = base * doubleMulti;
 
-        const desc = `Main biliar – Rp ${normalizedAmount.toLocaleString('id-ID')}` +
+        const desc = `Main biliar – Rp ${amount.toLocaleString('id-ID')}` +
             (isDoublePointActive(cfg) ? ' [2x Poin]' : '') +
-            (tierBonus > 0 ? ` [+${member.tier} bonus]` : '');
+            ` [${member.tier} tier: ${tierRate}x multiplier]`;
+
+        // Update Tier progression based on HOURS (this should be checked after endSession updates hours)
+        await LoyaltyService.syncTier(memberId);
 
         return LoyaltyService.addPoints(memberId, earned, 'EARN_GAME', desc, sessionId);
     }
@@ -66,30 +73,134 @@ export class LoyaltyService {
         const member = await prisma.member.findUnique({ where: { id: memberId } });
         if (!member) throw new AppError('Member not found', 404);
 
-        const normalizedAmount = fnbAmount < 2000 ? fnbAmount * 1000 : fnbAmount;
-        const base = Math.floor(normalizedAmount * cfg.pointPerRupiah);
-        const tierBonus = Math.floor(base * getTierBonus(member.tier));
+        const tierRate = getTierRate(member.tier);
+        const base = Math.floor((fnbAmount / 1000) * tierRate);
         const doubleMulti = isDoublePointActive(cfg) ? 2 : 1;
-        const earned = (base + tierBonus) * doubleMulti;
+        const earned = base * doubleMulti;
 
         return LoyaltyService.addPoints(memberId, earned, 'EARN_FNB',
-            `FNB – Rp ${normalizedAmount.toLocaleString('id-ID')}`, sessionId);
+            `FNB – Rp ${fnbAmount.toLocaleString('id-ID')} [${tierRate}x multiplier]`, sessionId);
     }
 
-    // ── Award tournament points ───────────────────────────────────
-    static async awardTournamentPoints(memberId: string, placement: 'PARTICIPATE' | 'CHAMPION' | 'RUNNER_UP') {
-        const POINTS: Record<string, number> = {
-            PARTICIPATE: 200,
-            CHAMPION: 500,
-            RUNNER_UP: 300,
-        };
-        const pts = POINTS[placement];
-        const desc: Record<string, string> = {
-            PARTICIPATE: 'Ikut Tournament (+200 poin)',
-            CHAMPION: '🏆 Juara 1 Tournament (+500 poin)',
-            RUNNER_UP: '🥈 Juara 2 Tournament (+300 poin)',
-        };
-        return LoyaltyService.addPoints(memberId, pts, 'EARN_TOURNAMENT', desc[placement]);
+    // ── Update Member Tier based on totalPlayHours ────────────────
+    static async syncTier(memberId: string) {
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        if (!member) return;
+
+        const m = member as any;
+        const now = new Date();
+        const lastSync = m.tierUpdatedAt ? new Date(m.tierUpdatedAt) : m.createdAt;
+        
+        // Cek apakah baru ganti bulan sejak update terakhir
+        const isNewMonth = now.getMonth() !== lastSync.getMonth() || now.getFullYear() !== lastSync.getFullYear();
+
+        // 1. Tentukan tier berdasarkan experience (Promotion)
+        const xpBasedTier = determineTier(m.experience || 0);
+        let finalTier = xpBasedTier;
+
+        // 2. Gold Maintenance Check (Demotion)
+        // Hanya cek demosi jika:
+        // - Sudah GOLD sebelumnya
+        // - Ganti bulan (Hanya demote 1x di awal bulan)
+        // - Dan tier xp-nya juga GOLD (kalau xp-nya aja udah turun ya biarkan xpBasedTier yg urus)
+        if (m.tier === 'GOLD' && xpBasedTier === 'GOLD' && isNewMonth) {
+            // Berikan grace period jika member baru naik GOLD di akhir bulan lalu?
+            // Biasanya dicek jam main bulan lalu.
+            const hoursLastMonth = m.lastMonthPlayHours || 0;
+            if (hoursLastMonth < MAINTENANCE_GOLD_HOURS) {
+                // Jangan demote jika baru saja dipromote bulan ini (tierUpdatedAt baru saja di-set hari ini)
+                // Tapi isNewMonth sudah menghandle itu karena lastSync adalah tgl terakhir di-update.
+                finalTier = 'SILVER';
+                logger.info(`[Loyalty] Member ${m.name} demoted to SILVER (Activity: ${hoursLastMonth}h < ${MAINTENANCE_GOLD_HOURS}h)`);
+            }
+        }
+
+        // Only update if tier changed or it's a new month (to refresh tierUpdatedAt)
+        if (finalTier !== m.tier || isNewMonth) {
+            await prisma.member.update({
+                where: { id: memberId },
+                data: {
+                    tier: finalTier,
+                    tierUpdatedAt: now
+                } as any
+            });
+
+            // If it's a new month, also process point expiry
+            if (isNewMonth) {
+                await LoyaltyService.processPointExpiry(memberId);
+            }
+        }
+    }
+
+    // ── Award tournament rewards (Dynamic XP & Points) ───────────
+    /**
+     * Awards XP and Loyalty Points based on tournament scale.
+     * Protects owner revenue by zeroing points for basic participation/wins.
+     */
+    static async awardTournamentRewards(
+        memberId: string, 
+        type: 'PARTICIPATE' | 'MATCH_WIN' | 'PLACEMENT', 
+        entryFee: number = 0, 
+        prizeAmount: number = 0
+    ) {
+        let xpEarned = 0;
+        let pointsEarned = 0;
+        let description = '';
+
+        switch (type) {
+            case 'PARTICIPATE':
+                // XP: 1 XP per 1000 IDR of entry fee (Max 100 XP)
+                xpEarned = Math.min(100, Math.floor(entryFee / 1000));
+                // Points: 0 (To prevent "boncos")
+                pointsEarned = 0;
+                description = `🎟️ Partisipasi Tournament (+${xpEarned} XP)`;
+                break;
+
+            case 'MATCH_WIN':
+                // XP: Flat prestige for winning a match
+                xpEarned = 20; 
+                // Points: 0
+                pointsEarned = 0;
+                description = `⚔️ Menang Match Tournament (+20 XP)`;
+                break;
+
+            case 'PLACEMENT':
+                // XP: 1 XP per 1000 IDR of prize won
+                xpEarned = Math.floor(prizeAmount / 1000);
+                // Points: 1 Point per 2000 IDR of prize won (Balanced bonus)
+                pointsEarned = Math.floor(prizeAmount / 2000);
+                description = `🏆 Placement Reward Tournament (+${xpEarned} XP, +${pointsEarned} Poin)`;
+                break;
+        }
+
+        // 1. Award XP and handle Level Up
+        if (xpEarned > 0) {
+            const member = await prisma.member.findUnique({ where: { id: memberId } });
+            if (member) {
+                let newExp = (member.experience || 0) + xpEarned;
+                let newLevel = member.level || 1;
+                
+                // Simple level up logic: Each level requires level * 1000 XP
+                while (newExp >= (newLevel * 1000)) {
+                    newExp -= (newLevel * 1000);
+                    newLevel++;
+                }
+
+                await prisma.member.update({
+                    where: { id: memberId },
+                    data: { 
+                        experience: newExp,
+                        level: newLevel
+                    }
+                });
+                
+                // Sync Tier after XP/Level change
+                await LoyaltyService.syncTier(memberId);
+            }
+        }
+
+        // 2. Award Points (if any) and Log
+        return LoyaltyService.addPoints(memberId, pointsEarned, 'EARN_TOURNAMENT', description);
     }
 
     // ── Streak tracking ───────────────────────────────────────────
@@ -130,26 +241,32 @@ export class LoyaltyService {
 
     // ── Redeem a reward ───────────────────────────────────────────
     static async redeem(memberId: string, rewardId: string) {
-        const [member, reward] = await Promise.all([
-            prisma.member.findUnique({ where: { id: memberId } }),
-            prisma.reward.findUnique({ where: { id: rewardId } }),
-        ]);
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        const reward = await prisma.reward.findUnique({ where: { id: rewardId } });
 
         if (!member) throw new AppError('Member tidak ditemukan', 404);
         if (!reward || !reward.isActive) throw new AppError('Reward tidak tersedia', 404);
+
+        // CHECK RESTRICTIONS
+        const now = new Date();
+        const day = now.getDay();
+        const restrictedDays = (reward as any).restrictedDays || [];
+        if (restrictedDays.length > 0 && restrictedDays.includes(day)) {
+            throw new AppError('Reward ini tidak dapat diklaim pada hari ini (Hari Sibuk)', 400);
+        }
+
         if (member.loyaltyPoints < reward.pointsRequired) {
             throw new AppError(`Poin tidak cukup. Butuh ${reward.pointsRequired}, kamu punya ${member.loyaltyPoints}`, 400);
         }
         if (reward.stock <= 0) throw new AppError('Stok reward habis', 400);
 
-        return prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             // Deduct points
             const newPoints = member.loyaltyPoints - reward.pointsRequired;
-            const newTier = getTier(newPoints);
 
             const updatedMember = await tx.member.update({
                 where: { id: memberId },
-                data: { loyaltyPoints: newPoints, tier: newTier }
+                data: { loyaltyPoints: newPoints }
             });
 
             // Reduce stock
@@ -171,7 +288,7 @@ export class LoyaltyService {
             // Log the point deduction
             await tx.pointLog.create({
                 data: {
-                    memberId,
+                    memberId: memberId,
                     type: 'REDEEM',
                     points: -reward.pointsRequired,
                     description: `Redeem: ${reward.title}`,
@@ -181,6 +298,20 @@ export class LoyaltyService {
 
             return { redemption, updatedMember, reward };
         });
+
+        const { getIO } = await import('../../socket');
+        const io = getIO();
+        if (io) {
+            io.emit('redemptions:updated');
+            io.emit('notification:new', {
+                type: 'REDEMPTION',
+                title: 'Request Penukaran Reward',
+                message: `${member.name} menukarkan ${reward.title}`,
+                memberId: member.id
+            });
+        }
+
+        return result;
     }
 
     // ── Get member profile with loyalty info ─────────────────────
@@ -194,10 +325,16 @@ export class LoyaltyService {
         });
         if (!member) throw new AppError('Member tidak ditemukan', 404);
 
-        const nextTier = member.tier === 'BRONZE' ? 'SILVER' : member.tier === 'SILVER' ? 'GOLD' : member.tier === 'GOLD' ? 'PLATINUM' : null;
-        const nextTarget = nextTier ? TIER_THRESHOLDS[nextTier as keyof typeof TIER_THRESHOLDS].min : null;
-        const currentMin = TIER_THRESHOLDS[member.tier as keyof typeof TIER_THRESHOLDS]?.min ?? 0;
-        const progress = nextTarget ? Math.min(100, Math.floor(((member.loyaltyPoints - currentMin) / (nextTarget - currentMin)) * 100)) : 100;
+        const nextTier = member.tier === 'BRONZE' ? 'SILVER' : member.tier === 'SILVER' ? 'GOLD' : null;
+        const currentConfig = TIER_CONFIG[member.tier as keyof typeof TIER_CONFIG];
+        const nextConfig = nextTier ? TIER_CONFIG[nextTier as keyof typeof TIER_CONFIG] : null;
+
+        const nextTarget = nextConfig ? nextConfig.minExperience : 0;
+        const currentMin = currentConfig ? currentConfig.minExperience : 0;
+
+        const progress = nextTarget > 0
+            ? Math.min(100, Math.floor((((member as any).experience || 0) - currentMin) / (nextTarget - currentMin) * 100))
+            : 100;
 
         return { member, nextTier, nextTarget, progress };
     }
@@ -250,6 +387,8 @@ export class LoyaltyService {
         streakThreshold: number;
         streakWindowDays: number;
         streakBonusPoints: number;
+        pointsExpiryDays: number;
+        isPointsEnabled: boolean;
     }>, adminId?: string) {
         return prisma.loyaltyConfig.update({
             where: { id: 'global' },
@@ -266,17 +405,21 @@ export class LoyaltyService {
         sessionId?: string,
         redemptionId?: string,
     ) {
+        const cfg = await getConfig();
+        if (!cfg.isPointsEnabled && points > 0) {
+            return { member: null, log: null, pointsEarned: 0 };
+        }
+
         return prisma.$transaction(async (tx) => {
             const member = await tx.member.findUnique({ where: { id: memberId } });
             if (!member) throw new AppError('Member tidak ditemukan', 404);
 
             const newPoints = Math.max(0, member.loyaltyPoints + points);
-            const newTier = getTier(newPoints);
 
             const [updatedMember, log] = await Promise.all([
                 tx.member.update({
                     where: { id: memberId },
-                    data: { loyaltyPoints: newPoints, tier: newTier },
+                    data: { loyaltyPoints: newPoints },
                 }),
                 tx.pointLog.create({
                     data: { memberId, type, points, description, sessionId, redemptionId }
@@ -285,5 +428,81 @@ export class LoyaltyService {
 
             return { member: updatedMember, log, pointsEarned: points };
         });
+    }
+
+    // ── Point Expiry Logic ───────────────────────────────────────
+    static async processPointExpiry(memberId: string) {
+        const config = await getConfig();
+        const expiryDays = config.pointsExpiryDays || 180;
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() - expiryDays);
+
+        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        if (!member || member.loyaltyPoints <= 0) return;
+
+        // 1. Calculate total earned before expiryDate
+        const earnedLogs = await prisma.pointLog.aggregate({
+            where: {
+                memberId,
+                points: { gt: 0 },
+                createdAt: { lt: expiryDate },
+                type: { not: 'EXPIRY' as any } // Avoid infinity loop if we added EXPIRY logs
+            },
+            _sum: { points: true }
+        });
+
+        // 2. Calculate total points EVER spent
+        const spentLogs = await prisma.pointLog.aggregate({
+            where: {
+                memberId,
+                points: { lt: 0 },
+                type: { not: 'EXPIRY' as any } // Don't count previous expiries as "spent" items that consume earns
+            },
+            _sum: { points: true }
+        });
+
+        const totalEarnedBefore = earnedLogs._sum.points || 0;
+        const totalSpentLifetime = Math.abs(spentLogs._sum.points || 0);
+
+        // Expired = Any points earned before expiry date that haven't been 'spent' by any negative transaction
+        const potentialExpiring = totalEarnedBefore - totalSpentLifetime;
+
+        if (potentialExpiring > 0) {
+            // Check how many we already deducted as EXPIRY
+            const alreadyExpired = await prisma.pointLog.aggregate({
+                where: {
+                    memberId,
+                    type: 'EXPIRY' as any
+                },
+                _sum: { points: true }
+            });
+            
+            const alreadyDeducted = Math.abs(alreadyExpired._sum.points || 0);
+            const toDeduct = potentialExpiring - alreadyDeducted;
+
+            if (toDeduct > 0) {
+                 const finalDeduction = Math.min(toDeduct, member.loyaltyPoints);
+                 if (finalDeduction > 0) {
+                    await LoyaltyService.addPoints(
+                        memberId, -finalDeduction, 'EXPIRY' as any,
+                        `Poin Hangus (Kadaluarsa > ${expiryDays} hari)`
+                    );
+                 }
+            }
+        }
+    }
+
+    static async processAllExpiry() {
+        const members = await prisma.member.findMany({
+            where: { loyaltyPoints: { gt: 0 }, deletedAt: null },
+            select: { id: true }
+        });
+        
+        let count = 0;
+        for (const m of members) {
+            await LoyaltyService.processPointExpiry(m.id);
+            count++;
+        }
+        return count;
     }
 }

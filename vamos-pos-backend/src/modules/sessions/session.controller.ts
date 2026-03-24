@@ -3,23 +3,27 @@ import { SessionService } from './session.service';
 import { catchAsync } from '../../utils/catchAsync';
 import { z } from 'zod';
 import { AuthRequest } from '../../middleware/auth';
+import { getIO } from '../../socket';
 
 const startSessionParams = z.object({
     tableId: z.string().min(1),
     packageId: z.string().min(1).optional(),
     memberId: z.string().min(1).optional(),
     durationOpts: z.number().int().positive().optional(),
+    billingType: z.string().min(1).optional(),
 });
 
 export const startSession = catchAsync(async (req: AuthRequest, res: Response) => {
-    const { tableId, packageId, memberId, durationOpts } = startSessionParams.parse(req.body);
-    const session = await SessionService.startSession(tableId, req.user!.id, packageId, memberId, durationOpts);
+    const { tableId, packageId, memberId, durationOpts, billingType } = startSessionParams.parse(req.body);
+    const session = await SessionService.startSession(tableId, req.user!.id, packageId, memberId, durationOpts, undefined, billingType);
+    getIO().emit('sessions:updated');
     res.status(201).json(session);
 });
 
 export const endSession = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const result = await SessionService.endSession(id, req.user!.id);
+    getIO().emit('sessions:updated');
     res.json(result);
 });
 
@@ -27,6 +31,7 @@ export const moveSession = catchAsync(async (req: AuthRequest, res: Response) =>
     const { id } = req.params;
     const { newTableId } = z.object({ newTableId: z.string().min(1) }).parse(req.body);
     const result = await SessionService.moveSession(id, newTableId, req.user!.id);
+    getIO().emit('sessions:updated');
     res.json(result);
 });
 
@@ -38,12 +43,14 @@ export const addDuration = catchAsync(async (req: AuthRequest, res: Response) =>
     });
     const { packageId, durationOpts } = schema.parse(req.body);
     const result = await SessionService.addDuration(id, req.user!.id, packageId, durationOpts);
+    getIO().emit('sessions:updated');
     res.json(result);
 });
 
 export const pendingSession = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.body;
     const result = await SessionService.setPending(id, req.user!.id);
+    getIO().emit('sessions:updated');
     res.json(result);
 });
 
@@ -51,6 +58,15 @@ export const paySession = catchAsync(async (req: AuthRequest, res: Response) => 
     const { id } = req.params;
     const { method, discount, receivedAmount, taxAmount, serviceAmount } = req.body;
     const result = await SessionService.paySession(id, method, req.user!.id, discount, receivedAmount, taxAmount, serviceAmount);
+    getIO().emit('sessions:updated');
+    res.json(result);
+});
+
+export const payAsDebt = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { discount, taxAmount, serviceAmount } = req.body;
+    const result = await SessionService.payAsDebt(id, req.user!.id, discount, taxAmount || 0, serviceAmount || 0);
+    getIO().emit('sessions:updated');
     res.json(result);
 });
 
@@ -67,17 +83,12 @@ export const getPending = catchAsync(async (req: Request, res: Response) => {
 export const createFnbOnly = catchAsync(async (req: AuthRequest, res: Response) => {
     const { memberId, customerName } = req.body;
     const session = await SessionService.createFnbSession(req.user!.id, memberId, customerName);
+    getIO().emit('sessions:updated');
     res.status(201).json(session);
 });
 
-export const pauseSession = catchAsync(async (req: AuthRequest, res: Response) => {
+export const updateSession = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const result = await SessionService.pauseSession(id, req.user!.id);
-    res.json(result);
-});
-
-export const resumeSession = catchAsync(async (req: AuthRequest, res: Response) => {
-    const { id } = req.params;
-    const result = await SessionService.resumeSession(id, req.user!.id);
+    const result = await SessionService.updateSession(id, req.body, req.user!.id);
     res.json(result);
 });
