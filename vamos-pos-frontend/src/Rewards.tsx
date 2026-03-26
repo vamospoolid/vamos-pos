@@ -4,15 +4,9 @@ import { vamosAlert, vamosConfirm } from './utils/dialog';
 import {
     Gift, Plus, Trash2, Loader2, Star, CheckCircle2, Clock,
     Package, Edit2, X, Users, Award, Zap,
-    ShoppingBag, RefreshCw, Info
+    ShoppingBag, RefreshCw
 } from 'lucide-react';
 
-const TIER_CONFIG: Record<string, { color: string; bg: string; label: string; min: number }> = {
-    BRONZE: { color: '#cd7f32', bg: 'rgba(205,127,50,0.12)', label: 'Bronze', min: 0 },
-    SILVER: { color: '#a8a9ad', bg: 'rgba(168,169,173,0.12)', label: 'Silver', min: 1000 },
-    GOLD: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Gold', min: 2000 },
-    PLATINUM: { color: '#00aaff', bg: 'rgba(0,170,255,0.12)', label: 'Platinum', min: 3000 },
-};
 
 export default function Rewards() {
     const [activeTab, setActiveTab] = useState<'catalog' | 'redemptions' | 'logs'>('catalog');
