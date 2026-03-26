@@ -12,7 +12,7 @@ if (!deviceId) {
 }
 
 export const api = axios.create({
-    baseURL: 'https://pos.vamospool.id/api', // Point to production domain for official HTTPS
+    baseURL: 'http://pos.vamospool.id/api', // Point to production domain for official HTTPS
 });
 
 api.interceptors.request.use((config) => {

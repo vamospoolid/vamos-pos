@@ -209,13 +209,13 @@ export function BookingScreen() {
                     <div className="absolute inset-0 bg-primary/20 rounded-[32px] animate-ping" />
                     <CheckCircle2 className="w-12 h-12 text-primary" strokeWidth={3} />
                 </div>
-                <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Protocol Accepted</h2>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-10">Prepare for deployment at Vamos Arena.</p>
+                <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Pemesanan Berhasil</h2>
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-10">Siapkan strategi terbaik Anda di Vamos Arena.</p>
 
                 {waSentStatus && (
                     <div className="bg-[#00ff66]/10 border border-[#00ff66]/20 text-[#00ff66] px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 fade-in flex items-center justify-center gap-2 mx-auto w-fit">
                         <CheckCircle2 className="w-4 h-4" />
-                        Comm link verified: WhatsApp Sent
+                        Konfirmasi Terkirim: WhatsApp Berhasil
                     </div>
                 )}
 
@@ -224,11 +224,11 @@ export function BookingScreen() {
 
                     <div className="flex justify-between items-center mb-8">
                         <div className="text-left">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Departure Time</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Waktu Main</p>
                             <p className="text-2xl font-black text-white italic">{selectedSlot}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Operation Date</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Tanggal Main</p>
                             <p className="text-2xl font-black text-white italic">{selectedDate.toLocaleDateString([], { day: '2-digit', month: 'short' })}</p>
                         </div>
                     </div>
@@ -236,7 +236,7 @@ export function BookingScreen() {
                     <div className="h-px bg-white/5 mb-8" />
 
                     <div className="text-left">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">Assigned Arena Sector</p>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">Area Bermain</p>
                         <p className="text-2xl font-black text-white italic uppercase italic truncate">
                             {TABLE_TYPES.find(t => t.id === selectedTableType)?.name}
                         </p>
@@ -247,20 +247,20 @@ export function BookingScreen() {
                     onClick={() => setActiveTab('home')}
                     className="mt-12 fiery-btn-secondary px-10 py-4 text-xs font-black uppercase tracking-widest"
                 >
-                    Return to HQ
+                    Kembali ke Beranda
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="pb-48 text-white min-h-screen fade-in relative px-1">
+        <div className="pb-[450px] text-white min-h-screen fade-in relative px-1">
             {/* Header Sticky */}
             <div className="pt-6 pb-6 flex justify-between items-center bg-[#101423]/90 backdrop-blur-xl sticky top-0 z-50 -mx-6 px-10 border-b border-white/5">
                 <button onClick={() => setActiveTab('home')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center active:scale-90 transition-all text-white border border-white/5">
                     <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-black text-white italic uppercase tracking-tighter">Reserve Arena</h1>
+                <h1 className="text-xl font-black text-white italic uppercase tracking-tighter">Booking Meja</h1>
                 <button className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center text-slate-500 hover:text-white border border-white/5">
                     <Info className="w-5 h-5" />
                 </button>
@@ -278,18 +278,18 @@ export function BookingScreen() {
                     <div className="absolute bottom-10 left-10 right-10">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="px-3 py-1 bg-primary rounded-full">
-                                <span className="text-[10px] font-black text-secondary uppercase tracking-widest italic">Live Mission</span>
+                                <span className="text-[10px] font-black text-secondary uppercase tracking-widest italic">Live Arena</span>
                             </div>
                         </div>
                         <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">Main Stage Arena</h2>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">VAMOS ELITE HQ PROTOCOL</p>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">PROTOKOL VAMOS ELITE</p>
                     </div>
                 </div>
 
                 {/* Date Selector */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-end px-1">
-                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Mission Date</h3>
+                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Pilih Tanggal</h3>
                         <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">
                             {selectedDate.toLocaleDateString([], { month: 'short', year: 'numeric' })}
                         </p>
@@ -320,7 +320,7 @@ export function BookingScreen() {
                 <div className="grid grid-cols-1 gap-8">
                     {/* Guest Count */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Fireteam Size</h3>
+                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Jumlah Pemain</h3>
                         <div className="flex items-center justify-between fiery-card px-8 py-4 border border-white/5">
                             <button
                                 onClick={() => setPartySize(Math.max(1, partySize - 1))}
@@ -329,7 +329,7 @@ export function BookingScreen() {
                                 -
                             </button>
                             <div className="text-center">
-                                <p className="text-3xl font-black text-white italic">{partySize} <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 not-italic">Players</span></p>
+                                <p className="text-3xl font-black text-white italic">{partySize} <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 not-italic">Orang</span></p>
                             </div>
                             <button
                                 onClick={() => setPartySize(Math.min(12, partySize + 1))}
@@ -342,7 +342,7 @@ export function BookingScreen() {
 
                     {/* Duration */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Mission Duration</h3>
+                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Durasi Sewa</h3>
                         <div className="flex items-center justify-between fiery-card px-8 py-4 border border-white/5">
                             <button
                                 onClick={() => setDuration(Math.max(1, duration - 1))}
@@ -351,7 +351,7 @@ export function BookingScreen() {
                                 -
                             </button>
                             <div className="text-center">
-                                <p className="text-3xl font-black text-white italic">{duration} <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 not-italic">Hours</span></p>
+                                <p className="text-3xl font-black text-white italic">{duration} <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 not-italic">Jam</span></p>
                             </div>
                             <button
                                 onClick={() => setDuration(Math.min(6, duration + 1))}
@@ -365,7 +365,7 @@ export function BookingScreen() {
 
                 {/* Sector Selection */}
                 <div className="space-y-4">
-                    <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Sector Selection</h3>
+                    <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Pilih Area</h3>
                     <div className="grid grid-cols-3 gap-4">
                         {TABLE_TYPES.map(type => {
                             const isSelected = selectedTableType === type.id && !selectedPackageId;
@@ -407,7 +407,7 @@ export function BookingScreen() {
                 {availablePackages.length > 0 && (
                     <div className="space-y-4">
                         <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1 flex items-center gap-3">
-                            <Box className="w-6 h-6 text-primary" /> Active Bundles
+                            <Box className="w-6 h-6 text-primary" /> Paket Spesial
                         </h3>
                         <div className="space-y-4">
                             {availablePackages.map(pkg => {
@@ -431,17 +431,17 @@ export function BookingScreen() {
                                         <div className="relative z-10">
                                             <h4 className="font-black text-lg text-white italic uppercase truncate">{pkg.name}</h4>
                                             <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 italic">
-                                                {pkg.duration / 60} Hour Operation • {pkg.tableType}
+                                                Durasi {pkg.duration / 60} Jam • {pkg.tableType}
                                             </p>
                                             {pkg.startTime && (
                                                 <div className="mt-3 px-3 py-1 bg-white/5 rounded-full inline-block">
-                                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest">Starts {pkg.startTime.substring(0, 5)}</span>
+                                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest">Mulai Jam {pkg.startTime.substring(0, 5)}</span>
                                                 </div>
                                             )}
                                         </div>
                                         <div className="text-right relative z-10">
                                             <p className="text-xl font-black text-primary italic">{(pkg.memberPrice || pkg.price).toLocaleString('id-ID')} Rp</p>
-                                            <p className="text-[9px] text-slate-600 uppercase font-black tracking-[0.2em] mt-1">Special Protocol</p>
+                                            <p className="text-[9px] text-slate-600 uppercase font-black tracking-[0.2em] mt-1">Paket Khusus</p>
                                         </div>
                                     </button>
                                 );
@@ -452,7 +452,7 @@ export function BookingScreen() {
 
                 {/* Deployment Windows */}
                 <div className="space-y-4">
-                    <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Deployment Slot</h3>
+                    <h3 className="text-lg font-black text-white italic uppercase tracking-tighter px-1">Pilih Waktu (Mulai)</h3>
                     <div className="grid grid-cols-4 gap-4">
                         {filteredSlots.map(slot => {
                             const isSelected = selectedSlot === slot;
@@ -472,7 +472,7 @@ export function BookingScreen() {
                     </div>
                     {filteredSlots.length === 0 && (
                         <div className="p-10 text-center fiery-card border-dashed border-white/10 opacity-50">
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest italic leading-relaxed">No deployment windows available for this cycle.</p>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest italic leading-relaxed">Tidak ada waktu tersedia untuk sesi ini.</p>
                         </div>
                     )}
                 </div>
@@ -483,7 +483,7 @@ export function BookingScreen() {
                 <div className="pointer-events-auto fiery-card p-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] border-primary/10">
                     <div className="flex justify-between items-end mb-10">
                         <div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Operation Cost</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Estimasi Biaya</p>
                             <p className="text-4xl font-black text-white italic">
                                 {isLoadingPrice ? (
                                     <span className="animate-pulse">...</span>
@@ -494,7 +494,7 @@ export function BookingScreen() {
                             </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2 italic">XP Harvest</p>
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2 italic">Bonus Poin</p>
                             <p className="text-xl font-black text-primary italic">+{Math.floor((dynamicPrice || 0) / 1000).toLocaleString()} <span className="text-[10px]">PTS</span></p>
                         </div>
                     </div>
@@ -511,7 +511,7 @@ export function BookingScreen() {
                             <Loader2 className="w-6 h-6 animate-spin" />
                         ) : (
                             <>
-                                <span className="uppercase tracking-widest">Authorize Mission</span>
+                                <span className="uppercase tracking-widest">Konfirmasi Booking</span>
                                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" strokeWidth={3} />
                             </>
                         )}
