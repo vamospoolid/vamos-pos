@@ -47,14 +47,14 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
 
     const filteredLeaderboard = useMemo(() => {
         if (!searchQuery) return currentListData;
-        return currentListData.filter(p =>
+        return currentListData.filter((p: any) =>
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (p.tier && p.tier.toLowerCase().includes(searchQuery.toLowerCase()))
         );
     }, [currentListData, searchQuery]);
 
     const top3 = currentListData.slice(0, 3);
-    const others = filteredLeaderboard.slice(3).filter(p => p.id !== top3[0]?.id && p.id !== top3[1]?.id && p.id !== top3[2]?.id);
+    const others = filteredLeaderboard.slice(3).filter((p: any) => p.id !== top3[0]?.id && p.id !== top3[1]?.id && p.id !== top3[2]?.id);
 
     const fetchH2H = async (rivalId: string) => {
         setLoadingH2H(true);

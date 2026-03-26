@@ -4,12 +4,15 @@ import { useAppStore } from './store/appStore';
 // Get or Generate a persistent Device ID for 1-Device-1-ID policy
 let deviceId = localStorage.getItem('playerDeviceId');
 if (!deviceId) {
-    deviceId = crypto.randomUUID();
+    // Fallback for older Android devices that don't support crypto.randomUUID()
+    deviceId = typeof crypto !== 'undefined' && crypto.randomUUID 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     localStorage.setItem('playerDeviceId', deviceId);
 }
 
 export const api = axios.create({
-    baseURL: 'http://localhost:3000/api', // Point to existing POS backend
+    baseURL: 'https://pos.vamospool.id/api', // Point to production domain for official HTTPS
 });
 
 api.interceptors.request.use((config) => {
