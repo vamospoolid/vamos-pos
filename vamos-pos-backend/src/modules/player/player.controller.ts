@@ -405,10 +405,14 @@ export class PlayerController {
 
     static async register(req: Request, res: Response, next: NextFunction) {
         try {
-            const { phone, name, email, deviceId } = req.body;
+            const { phone, name, email, deviceId, password } = req.body;
             if (!phone || !name) return res.status(400).json({ success: false, message: 'Phone and Name are required' });
+            if (!password) return res.status(400).json({ success: false, message: 'Password wajib diisi untuk keamanan' });
 
             const cleanedPhone = phone.replace(/[^0-9]/g, '');
+
+            const bcrypt = require('bcrypt');
+            const hashedPassword = await bcrypt.hash(password, 10);
 
             const existing = await prisma.member.findFirst({
                 where: { OR: [{ phone: cleanedPhone }, { email: email || undefined }] }
@@ -419,6 +423,7 @@ export class PlayerController {
                 data: {
                     phone: cleanedPhone,
                     name: name.toUpperCase(),
+                    password: hashedPassword,
                     tier: 'BRONZE',
                     handicap: "4",
                     handicapLabel: 'Entry Fragger',
@@ -445,8 +450,9 @@ export class PlayerController {
 
     static async login(req: Request, res: Response, next: NextFunction) {
         try {
-            const { phone, deviceId } = req.body;
-            if (!phone) return res.status(400).json({ success: false, message: 'Phone is required' });
+            const { phone, deviceId, password } = req.body;
+            if (!phone) return res.status(400).json({ success: false, message: 'No Handphone wajib diisi' });
+            if (!password) return res.status(400).json({ success: false, message: 'Password wajib diisi untuk keamanan' });
 
             const cleanedPhone = phone.replace(/[^0-9]/g, '');
 
@@ -467,7 +473,24 @@ export class PlayerController {
                 }
             });
 
-            if (!member) return res.status(404).json({ success: false, message: 'Member not found. Please register first.' });
+            if (!member) return res.status(404).json({ success: false, message: 'Member tidak ditemukan. Silakan registrasi terlebih dahulu.' });
+
+            const bcrypt = require('bcrypt');
+            
+            // Legacy / First-time password set
+            if (!member.password) {
+                const hashedPassword = await bcrypt.hash(password, 10);
+                await prisma.member.update({
+                    where: { id: member.id },
+                    data: { password: hashedPassword }
+                });
+            } else {
+                // Verify existing password
+                const isMatch = await bcrypt.compare(password, member.password);
+                if (!isMatch) {
+                    return res.status(401).json({ success: false, message: 'Password salah' });
+                }
+            }
 
             // 1-Device-1-ID Logic: Every login updates the deviceId (Kicks the former one)
             if (deviceId) {

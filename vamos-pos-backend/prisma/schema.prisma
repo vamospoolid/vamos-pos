@@ -105,6 +105,7 @@ model Member {
   name                        String
   phone                       String                  @unique
   email                       String?                 @unique
+  password                    String?
   photo                       String?
   loyaltyPoints               Int                     @default(0)
   tier                        String                  @default("BRONZE")
