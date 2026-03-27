@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X } from 'lucide-react';
 import { TableCard } from './components/TableCard';
 import { io } from 'socket.io-client';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { api } from './api';
 
 export function PlayScreen({ member }: { member: any }) {
@@ -15,7 +15,7 @@ export function PlayScreen({ member }: { member: any }) {
   const [stakeAmount, setStakeAmount] = useState<number>(100);
 
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
   const fetchKings = useCallback(async () => {
     try {
@@ -49,32 +49,58 @@ export function PlayScreen({ member }: { member: any }) {
     };
   }, [fetchKings, fetchChallenges, member.id]);
 
-  // Effect for Scanner
   useEffect(() => {
+    let html5QrCode: Html5Qrcode | null = null;
+    let isRunning = false;
+
     if (isScanning) {
       setTimeout(() => {
         try {
-          const scanner = new Html5QrcodeScanner("reader", { 
-            fps: 10, 
-            qrbox: { width: 250, height: 250 },
-            videoConstraints: {
-              facingMode: "environment"
-            }
-          }, false);
-          scanner.render((decodedText) => {
-            setPendingOpponentId(decodedText);
-            setIsScanning(false);
-            setShowStakeSelector(true);
-            scanner.clear().catch(console.error);
-          }, () => { });
-          scannerRef.current = scanner;
+          html5QrCode = new Html5Qrcode("reader");
+          html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              setPendingOpponentId(decodedText);
+              setIsScanning(false);
+              setShowStakeSelector(true);
+              if (isRunning) html5QrCode?.stop().catch(console.error);
+            },
+            () => { }
+          ).then(() => {
+            isRunning = true;
+          }).catch(err => {
+            console.error("Camera start failed", err);
+            // Fallback to any camera if environment fails
+            html5QrCode?.start(
+              { facingMode: "user" },
+              { fps: 10, qrbox: { width: 250, height: 250 } },
+              (decodedText) => {
+                setPendingOpponentId(decodedText);
+                setIsScanning(false);
+                setShowStakeSelector(true);
+                if (isRunning) html5QrCode?.stop().catch(console.error);
+              },
+              () => { }
+            ).then(() => {
+                isRunning = true;
+            }).catch(console.error);
+          });
+          
+          scannerRef.current = html5QrCode as any;
         } catch (e) {
           console.error("Scanner init error", e);
         }
       }, 300);
     } else {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
+        try {
+          const scanner = scannerRef.current as any;
+          if (scanner.getState && scanner.getState() === 2) { // 2 = SCANNING
+             scanner.stop().catch(() => {});
+          }
+          scanner.clear?.();
+        } catch (e) {}
         scannerRef.current = null;
       }
     }

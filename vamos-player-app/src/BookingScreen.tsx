@@ -105,6 +105,32 @@ export function BookingScreen() {
                 if (slotData.isFull) return false;
             }
 
+            // 3. Package Time Restriction (Siang / Malam lock)
+            if (selectedPackageId) {
+                const pkg = packages.find(p => p.id === selectedPackageId);
+                if (pkg && pkg.startTime && pkg.endTime) {
+                    const [startH, startM] = pkg.startTime.split(':').map(Number);
+                    const [endH, endM] = pkg.endTime.split(':').map(Number);
+                    
+                    const slotMins = h * 60 + m;
+                    const startMins = startH * 60 + startM;
+                    let endMins = endH * 60 + endM;
+                    
+                    // Handle overnight package (e.g. 18:00 to 02:00)
+                    if (endMins <= startMins) endMins += 24 * 60;
+                    
+                    let adjustedSlotMins = slotMins;
+                    // If slot is early morning and package crosses midnight
+                    if (slotMins < startMins && endMins > 24 * 60) {
+                        adjustedSlotMins += 24 * 60;
+                    }
+
+                    if (adjustedSlotMins < startMins || adjustedSlotMins >= endMins) {
+                        return false;
+                    }
+                }
+            }
+
             return true;
         });
     }, [selectedDate, now, availability, selectedTableType]);

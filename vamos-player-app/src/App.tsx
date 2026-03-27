@@ -41,6 +41,7 @@ import { VamosLogo } from './components/VamosLogo';
 
 function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
     try {
       const deviceId = localStorage.getItem('playerDeviceId');
       const endpoint = isRegister ? '/player/register' : '/player/login';
-      const payload = isRegister ? { phone, name, deviceId } : { phone, deviceId };
+      const payload = isRegister ? { phone, name, password, deviceId } : { phone, password, deviceId };
       const res = await api.post(endpoint, payload);
 
       if (res.data.success) {
@@ -124,6 +125,21 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
                 className="flex-1 w-full bg-surface-highlight/30 border border-white/10 rounded-xl px-5 py-4 focus:outline-none focus:border-primary text-white font-medium placeholder:text-slate-600 transition-colors"
               />
             </div>
+          </div>
+
+          <div className="fade-in mt-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Security PIN / Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-surface-highlight/30 border border-white/10 rounded-xl px-5 py-4 focus:outline-none focus:border-primary text-white font-medium placeholder:text-slate-600 transition-colors"
+            />
+            {!isRegister && (
+               <p className="text-[9px] text-slate-500 mt-2 px-2 italic font-bold">Jika ini Login pertama, ketik Sandi Baru yang akan langsung menjadi Sandi permanen Akun Anda.</p>
+            )}
           </div>
 
           <button
@@ -743,7 +759,7 @@ function VerificationCard({ member }: { member: any }) {
         const base64 = reader.result as string;
         await api.put(`/player/profile`, { memberId: member.id, photo: base64, identityStatus: 'PENDING' });
         refreshMemberData();
-        alert("Biometric Protocol Uploaded. Awaiting HQ authorization.");
+        alert("Foto Identitas / KTP berhasil diunggah. Menunggu verifikasi admin.");
       };
       reader.readAsDataURL(file);
     } catch (err) {
@@ -801,7 +817,7 @@ function VerificationCard({ member }: { member: any }) {
               <Camera className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-black text-white uppercase italic tracking-tighter mb-0.5">Biometric Identity</p>
+              <p className="text-sm font-black text-white uppercase italic tracking-tighter mb-0.5">Verifikasi Foto / KTP</p>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{member.identityStatus === 'VERIFIED' ? 'SIGNATURE SECURED' : member.identityStatus === 'PENDING' ? 'AWAITING AUTH' : 'UPLOAD REQUIRED'}</p>
             </div>
           </div>
@@ -849,7 +865,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
         refreshMemberData();
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Biometric sync failed.');
+      alert(err.response?.data?.message || 'Gagal mengunggah foto.');
     } finally {
       setUploading(false);
     }
