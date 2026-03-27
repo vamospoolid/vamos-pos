@@ -171,8 +171,8 @@ const initCloudBridge = () => {
 
     eventsToMirror.forEach(event => {
         cloudSocket.on(event, (data: any) => {
-            // Anti-Spam Global: Jeda 1 detik untuk tipe event yang sama
-            if (isSpam(`mirror-${event}`)) return;
+            // Anti-Spam Global: Jeda 5 detik untuk tipe event yang sama (Waitlist, Tournament, dll)
+            if (isSpam(`mirror-${event}`, 5000)) return;
 
             logger.info(`🔔 Cloud Event [${event}] → Teruskan ke UI Lokal...`);
             if (io) io.emit(event, data);

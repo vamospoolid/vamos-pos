@@ -105,8 +105,8 @@ server.keepAliveTimeout = 5000;
 server.headersTimeout = 6000;
 
 // ── AUTO FIX STUCK TABLES ────────────────────────────────────────────────
-// Jalankan sekali saat server start — bersihkan meja stuck dari restart sebelumnya
-// lalu jadwalkan setiap 5 menit secara otomatis.
+// Jalankan sekali saat server start — bersihkan meja stuck dari restart sebelumnya.
+// Jadwal ulang setiap 5 menit hanya di VPS.
 const runFixStuckTables = async () => {
     try {
         const { TableService } = await import('./modules/tables/table.service');
@@ -126,92 +126,76 @@ const runFixStuckTables = async () => {
 // Jalankan sekali saat start (delay 3 detik agar DB & relay siap)
 setTimeout(runFixStuckTables, 3000);
 
-// Jadwalkan setiap 5 menit
-setInterval(runFixStuckTables, 5 * 60 * 1000);
+// Jadwalkan setiap 5 menit (Hanya di VPS)
+if (!process.env.IS_LOCAL_ELECTRON) {
+    setInterval(runFixStuckTables, 5 * 60 * 1000);
+}
 // ─────────────────────────────────────────────────────────────────────────
 
-// ── AUTO END EXPIRED SESSIONS ─────────────────────────────────────────────
-// Sesi yang beli paket (prepaid) otomatis mati jika durasi habis.
-// Cek setiap 60 detik.
-const runAutoExpireSessions = async () => {
-    try {
-        const { SessionService } = await import('./modules/sessions/session.service');
-        await SessionService.checkExpiredSessions();
-    } catch (err: any) {
-        logger.error(`❌ runAutoExpireSessions gagal: ${err.message}`);
-    }
-};
-setTimeout(runAutoExpireSessions, 5000);  // 5 detik setelah start
-setInterval(runAutoExpireSessions, 60 * 1000); // Setiap 60 detik
-// ─────────────────────────────────────────────────────────────────────────
-
-// ── AUTO EXPIRE WAITLIST (PENALTY NO-SHOW) ──────────────────────────────
-// Cek antrian yang sudah lewat 30 menit dan berikan denda poin.
-const runWaitlistCheck = async () => {
-    try {
-        const { WaitlistService } = await import('./modules/waitlist/waitlist.service');
-        await WaitlistService.checkExpiredWaitlist();
-    } catch (err: any) {
-        logger.error(`❌ runWaitlistCheck gagal: ${err.message}`);
-    }
-};
-setTimeout(runWaitlistCheck, 15000); // 15 detik setelah start
-setInterval(runWaitlistCheck, 10 * 60 * 1000); // Setiap 10 menit
-// ─────────────────────────────────────────────────────────────────────────
-
-// ── AUDIT LOG CLEANUP ────────────────────────────────────────────────────
-// Hapus log lebih dari 90 hari agar tabel tidak terus membengkak.
-// Jalankan sekali saat start, lalu setiap 24 jam.
-const runAuditCleanup = async () => {
-    try {
-        const { AuditService } = await import('./modules/audit/audit.service');
-        await AuditService.cleanupOldLogs(90);
-    } catch (err: any) {
-        logger.error(`❌ AuditLog cleanup gagal: ${err.message}`);
-    }
-};
-
-setTimeout(runAuditCleanup, 10000);                   // 10 detik setelah start
-setInterval(runAuditCleanup, 24 * 60 * 60 * 1000);   // Setiap 24 jam
-// ─────────────────────────────────────────────────────────────────────────
-
-// ── MONTHLY DATABASE BACKUP ──────────────────────────────────────────────
-// Strategi: cek setiap jam apakah hari ini tanggal 1 dan belum ada backup
-// hari ini. Lebih reliable dari setInterval 30 hari karena tahan restart.
-const runMonthlyBackup = async () => {
-    try {
-        const now = new Date();
-        // Hanya jalankan di tanggal 1 setiap bulan, antara jam 02:00–03:00
-        if (now.getDate() !== 1 || now.getHours() !== 2) return;
-
-        const { BackupService } = await import('./utils/backup.service');
-
-        // Cek apakah backup hari ini sudah ada (hindari backup ganda)
-        const existing = BackupService.listBackups();
-        const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
-        const alreadyDone = existing.some(b => b.name.includes(todayStr));
-        if (alreadyDone) return;
-
-        logger.info('📅 Monthly backup terjadwal — menjalankan pg_dump...');
-        const result = await BackupService.runBackup();
-
-        if (result.success) {
-            logger.info(`✅ Monthly backup selesai: ${result.file}`);
-        } else {
-            logger.error(`❌ Monthly backup gagal: ${result.message}`);
+// ── PENJADWAL BACKGROUND (DI VPS SAJA) ───────────────────────────────────
+if (!process.env.IS_LOCAL_ELECTRON) {
+    // ── AUTO END EXPIRED SESSIONS ─────────────────────────────────────────────
+    const runAutoExpireSessions = async () => {
+        try {
+            const { SessionService } = await import('./modules/sessions/session.service');
+            await SessionService.checkExpiredSessions();
+        } catch (err: any) {
+            logger.error(`❌ runAutoExpireSessions gagal: ${err.message}`);
         }
-    } catch (err: any) {
-        logger.error(`❌ Monthly backup error: ${err.message}`);
-    }
-};
+    };
+    setTimeout(runAutoExpireSessions, 5000);
+    setInterval(runAutoExpireSessions, 60 * 1000);
 
-// Cek setiap jam (bukan setiap bulan) agar tahan restart server
-setInterval(runMonthlyBackup, 60 * 60 * 1000);   // setiap 1 jam
+    // ── AUTO EXPIRE WAITLIST (PENALTY NO-SHOW) ──────────────────────────────
+    const runWaitlistCheck = async () => {
+        try {
+            const { WaitlistService } = await import('./modules/waitlist/waitlist.service');
+            await WaitlistService.checkExpiredWaitlist();
+        } catch (err: any) {
+            logger.error(`❌ runWaitlistCheck gagal: ${err.message}`);
+        }
+    };
+    setTimeout(runWaitlistCheck, 15000);
+    setInterval(runWaitlistCheck, 10 * 60 * 1000);
+
+    // ── AUDIT LOG CLEANUP ────────────────────────────────────────────────────
+    const runAuditCleanup = async () => {
+        try {
+            const { AuditService } = await import('./modules/audit/audit.service');
+            await AuditService.cleanupOldLogs(90);
+        } catch (err: any) {
+            logger.error(`❌ AuditLog cleanup gagal: ${err.message}`);
+        }
+    };
+    setTimeout(runAuditCleanup, 10000);
+    setInterval(runAuditCleanup, 24 * 60 * 60 * 1000);
+
+    // ── MONTHLY DATABASE BACKUP ──────────────────────────────────────────────
+    const runMonthlyBackup = async () => {
+        try {
+            const now = new Date();
+            if (now.getDate() !== 1 || now.getHours() !== 2) return;
+            const { BackupService } = await import('./utils/backup.service');
+            const existing = BackupService.listBackups();
+            const todayStr = now.toISOString().slice(0, 10);
+            const alreadyDone = existing.some(b => b.name.includes(todayStr));
+            if (alreadyDone) return;
+            const result = await BackupService.runBackup();
+            if (result.success) logger.info(`✅ Monthly backup selesai: ${result.file}`);
+        } catch (err: any) {
+            logger.error(`❌ Monthly backup error: ${err.message}`);
+        }
+    };
+    setInterval(runMonthlyBackup, 60 * 60 * 1000);
+}
 // ─────────────────────────────────────────────────────────────────────────
 
 // ── LOCAL-FIRST BACKGROUND SYNC WORKER ───────────────────────────────────
-import { SyncService } from './modules/system/sync.service';
-SyncService.startBackgroundSync();
+if (!process.env.IS_LOCAL_ELECTRON) {
+    import('./modules/system/sync.service').then(({ SyncService }) => {
+        SyncService.startBackgroundSync();
+    });
+}
 // ─────────────────────────────────────────────────────────────────────────
 
 const shutdown = (signal: string) => {
