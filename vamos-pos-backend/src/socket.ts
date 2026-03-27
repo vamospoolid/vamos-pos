@@ -174,7 +174,18 @@ const initCloudBridge = () => {
     });
 
     // ── BRIDGE: Tangkap perintah Relay dari Cloud untuk dieksekusi di Hardware Lokal ──
+    const lastCommands = new Map<string, number>();
+
     cloudSocket.on('relay:command', async (data: any) => {
+        const commandKey = `${data.channel}-${data.status}`;
+        const now = Date.now();
+        
+        // Anti-Spam: Abaikan jika perintah yang sama datang dalam < 2 detik
+        if (lastCommands.has(commandKey) && (now - lastCommands.get(commandKey)! < 2000)) {
+            return; 
+        }
+        lastCommands.set(commandKey, now);
+
         logger.info(`🔌 [BRIDGE] relay:command diterima dari VPS: Meja ${data.channel} -> ${data.status}`);
         try {
             // Gunakan dynamic import agar tidak circular dependency
