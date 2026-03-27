@@ -19,6 +19,7 @@ model User {
   shifts          CashierShift[]
   paymentsHandled Payment[]      @relation("PaymentCashier")
   sessionsHandled Session[]      @relation("SessionCashier")
+  syncStatus      SyncState      @default(PENDING)
 }
 
 model Venue {
