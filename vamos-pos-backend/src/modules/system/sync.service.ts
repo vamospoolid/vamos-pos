@@ -107,19 +107,23 @@ export class SyncService {
             for (const item of items) {
                 const dataToSave = { ...item };
                 
-                // User model doesn't have syncStatus yet in some builds, avoid it
+                // User model: match by email. Other models: match by ID.
                 const isUser = dataToSave.email !== undefined;
                 if (isUser) {
                     delete dataToSave.syncStatus;
+                    await modelDelegate.upsert({
+                        where: { email: item.email },
+                        create: dataToSave,
+                        update: dataToSave
+                    });
                 } else {
                     dataToSave.syncStatus = 'SYNCED';
+                    await modelDelegate.upsert({
+                        where: { id: item.id },
+                        create: dataToSave,
+                        update: dataToSave
+                    });
                 }
-                
-                await modelDelegate.upsert({
-                    where: { id: item.id },
-                    create: dataToSave,
-                    update: dataToSave
-                });
                 upsertedCount++;
             }
         };
