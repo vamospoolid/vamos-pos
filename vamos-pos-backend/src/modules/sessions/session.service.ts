@@ -456,7 +456,8 @@ export class SessionService {
     }
 
     static async getActiveSessions() {
-        // Using raw SQL to bypass Prisma generation (EPERM issue)
+        // === FIX N+1 QUERY: Ambil semua data dalam 2 query, bukan 1+N ===
+        // Query 1: Ambil semua sesi aktif beserta tabel, venue, dan member
         const sessions: any[] = await (prisma as any).$queryRawUnsafe(`
             SELECT s.*, 
             t.name as "tableName", t.type as "tableType", t."relayChannel", t."venueId",
@@ -469,12 +470,25 @@ export class SessionService {
             WHERE s.status = 'ACTIVE'
         `);
 
-        // We need to re-structure the raw data to match Prisma's nested format that the frontend expects
-        const sessionsWithDetails = await Promise.all(sessions.map(async (s) => {
-            const orders = await prisma.order.findMany({
-                where: { sessionId: s.id },
-                include: { product: true }
-            });
+        if (sessions.length === 0) return [];
+
+        // Query 2: Ambil SEMUA orders sekaligus untuk semua sesi aktif (bukan per sesi)
+        const sessionIds = sessions.map(s => s.id);
+        const allOrders = await prisma.order.findMany({
+            where: { sessionId: { in: sessionIds } },
+            include: { product: true }
+        });
+
+        // Group orders by sessionId di memori — O(n) bukan O(n * queries)
+        const ordersBySession = new Map<string, typeof allOrders>();
+        for (const order of allOrders) {
+            if (!ordersBySession.has(order.sessionId)) {
+                ordersBySession.set(order.sessionId, []);
+            }
+            ordersBySession.get(order.sessionId)!.push(order);
+        }
+
+        return sessions.map(s => {
             const session = this.remapSession(s);
             return {
                 ...session,
@@ -486,10 +500,9 @@ export class SessionService {
                     relayChannel: s.relayChannel,
                     venue: { id: s.venueId, taxPercent: s.taxPercent, servicePercent: s.servicePercent }
                 } : null,
-                orders
+                orders: ordersBySession.get(s.id) || []
             };
-        }));
-        return sessionsWithDetails;
+        });
     }
 
     static async getPendingSessions() {

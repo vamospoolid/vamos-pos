@@ -209,11 +209,12 @@ export class RelayService {
                     logger.error(`❌ HARDWARE ERROR: Tidak bisa buka ${comPortPath} — ${err.message}`);
                     this.isConnected = false;
 
-                    // Port gagal → coba auto-detect semua port lain
-                    logger.info('🔄 Memulai auto-detect karena port utama gagal...');
-                    this.autoDetectPort(comPortPath as string).then((found) => {
-                        if (found) this.init(found);
-                    });
+                    // Port gagal → coba auto-detect port lain secara diam-diam
+                    if (!this.lastKnownPort) {
+                        this.autoDetectPort(comPortPath as string).then((found) => {
+                            if (found) this.init(found);
+                        });
+                    }
                 } else {
                     logger.info(`✅ HARDWARE SUCCESS: Relay terhubung di ${comPortPath} ⚡`);
                     this.isConnected = true;
@@ -226,20 +227,13 @@ export class RelayService {
                 this.isConnected = false;
 
                 // Reconnect: cek dulu apakah port yang sama masih ada di sistem
-                logger.info('🔄 Auto-reconnect dalam 5 detik...');
+                // Auto-reconnect dinonaktifkan sementara agar tidak spam error jika hardware tidak dicolok
+                // Anda bisa menekan tombol Reconnect di menu Setting nanti.
+                /*
                 setTimeout(async () => {
-                    const available = await SerialPort.list();
-                    const stillThere = available.some(p => p.path === comPortPath);
-
-                    if (stillThere) {
-                        logger.info(`🔌 Port ${comPortPath} masih ada, reconnect langsung...`);
-                        this.init(comPortPath as string);
-                    } else {
-                        logger.warn(`⚠️ Port ${comPortPath} tidak ditemukan lagi. Mulai auto-detect...`);
-                        const found = await this.autoDetectPort();
-                        if (found) this.init(found);
-                    }
+                    ...
                 }, 5000);
+                */
             });
 
             this.port.on('error', (err) => {

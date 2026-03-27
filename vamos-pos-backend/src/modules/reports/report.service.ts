@@ -151,12 +151,15 @@ export class ReportService {
 
             let qrisRevenue = 0;
             let qrisCount = 0;
+            let cardRevenue = 0;
             
             payments.forEach(p => {
                 totalRevenue += p.amount;
                 if (p.method === 'QRIS') {
                     qrisRevenue += p.amount;
                     qrisCount++;
+                } else if (p.method === 'CARD') {
+                    cardRevenue += p.amount;
                 }
 
                 if (p.session) {
@@ -190,8 +193,10 @@ export class ReportService {
                 fnbRevenue,
                 qrisRevenue,
                 qrisCount,
+                cardRevenue,
                 totalRevenue,
                 totalExpenses,
+                cashRevenue: totalRevenue - qrisRevenue - cardRevenue - totalExpenses,
                 expenseDistribution,
                 netRevenue: totalRevenue - totalExpenses,
                 sessionCount: payments.length

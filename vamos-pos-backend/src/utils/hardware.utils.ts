@@ -9,18 +9,23 @@ export const getHardwareId = (): string => {
     if (process.platform === 'win32') {
       const output = execSync('wmic csproduct get uuid').toString();
       const lines = output.split('\n');
-      if (lines.length >= 2) {
-        const uuid = lines[1].trim();
-        if (uuid && uuid !== '00000000-0000-0000-0000-000000000000') {
-          return uuid;
+      // Look for a line that isn't empty, isn't the header, and isn't the generic 0000...
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && 
+            trimmed.toUpperCase() !== 'UUID' && 
+            trimmed !== '00000000-0000-0000-0000-000000000000' &&
+            trimmed.length > 5) { // Ensure it's not some random debris
+          return trimmed;
         }
       }
     }
     
-    // Fallback/Generic (could be improved for Linux/macOS if needed)
-    return 'GENERIC-HWID-' + process.env.COMPUTERNAME || 'UNKNOWN';
+    // Fallback based on OS info + hostname
+    const fallback = `${process.platform}-${process.arch}-${process.env.COMPUTERNAME || 'NODE-MACHINE'}`.replace(/\s+/g, '-').toUpperCase();
+    return fallback;
   } catch (error) {
     console.error('Failed to get hardware ID:', error);
-    return 'ERROR-HWID';
+    return 'MACHINE-' + (process.env.COMPUTERNAME || 'UNKNOWN');
   }
 };

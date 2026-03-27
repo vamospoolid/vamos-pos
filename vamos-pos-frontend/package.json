@@ -14,8 +14,49 @@
     "electron": "electron .",
     "electron:build": "electron-builder -w"
   },
+  "build": {
+    "appId": "com.vamospool.pos",
+    "productName": "Vamos Pool POS",
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../vamos-pos-backend/vamous-pos.exe",
+        "to": "backend/vamous-pos.exe"
+      },
+      {
+        "from": "../vamos-pos-backend/query_engine-windows.dll.node",
+        "to": "backend/query_engine-windows.dll.node"
+      },
+      {
+        "from": "../vamos-pos-backend/prisma/schema.prisma",
+        "to": "backend/prisma/schema.prisma"
+      },
+      {
+        "from": "../vamos-pos-backend/public",
+        "to": "backend/public"
+      },
+      {
+        "from": "../vamos-pos-backend/.env",
+        "to": "backend/.env"
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "public/favicon.ico",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "portable": {
+      "artifactName": "Vamos_POS_Portable.exe",
+      "unpackDirName": "vamos-pos-engine"
+    }
+  },
   "dependencies": {
     "axios": "^1.13.5",
+    "dotenv": "^17.3.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "qrcode.react": "^4.2.0",

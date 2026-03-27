@@ -15,15 +15,17 @@ export default function ActivationPage() {
     }, []);
 
     const fetchStatus = async () => {
+        setLoading(true);
+        setError('');
         try {
             const res = await api.get('/license/status');
             setStatus(res.data.data);
             if (res.data.data.isActivated) {
                 // If activated, we should probably redirect or show a success message
-                // For now just show status
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to fetch license status', err);
+            setError('Gagal terhubung ke POS Engine. Pastikan backend sudah berjalan.');
         } finally {
             setLoading(false);
         }
@@ -110,9 +112,22 @@ export default function ActivationPage() {
                             )}
                         </div>
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 font-mono text-sm text-primary flex items-center justify-between group-hover:border-primary/30 transition-all">
-                            <span className="truncate">{status?.machineId || 'GENERATING...'}</span>
+                            <span className="truncate">
+                                {status?.machineId || (error.includes('Gagal') ? 'Koneksi Bermasalah' : 'GENERATING...')}
+                            </span>
+                            {error.includes('Gagal') && (
+                                <button 
+                                    onClick={fetchStatus}
+                                    className="p-1 hover:bg-white/5 rounded-lg text-primary transition-all"
+                                    title="Coba Lagi"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
-                        <p className="text-[9px] text-slate-600 mt-4 italic leading-relaxed uppercase tracking-wider">Berikan ID di atas kepada administrator untuk mendapatkan Lisensi yang valid.</p>
+                        <p className="text-[9px] text-slate-600 mt-4 italic leading-relaxed uppercase tracking-wider">
+                            {error.includes('Gagal') ? 'Pastikan Backend (CMD) sedang terbuka dan database aktif.' : 'Berikan ID di atas kepada administrator untuk mendapatkan Lisensi yang valid.'}
+                        </p>
                     </div>
 
                     <form onSubmit={handleActivate} className="space-y-8">

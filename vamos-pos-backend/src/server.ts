@@ -1,5 +1,20 @@
-import express from 'express';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// --- PKG / PRISMA ENGINE FIX ---
+// If we are running from a bundled EXE, we need to point to the external Prisma engine
+if ((process as any).pkg) {
+    const localEnginePath = path.join(process.cwd(), 'query_engine-windows.dll.node');
+    if (fs.existsSync(localEnginePath)) {
+        process.env.PRISMA_QUERY_ENGINE_LIBRARY = localEnginePath;
+    }
+}
+// --- END PKG FIX ---
+
+dotenv.config();
+
+import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -40,7 +55,9 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
+// Format 'combined' terlalu verbose di production — pakai 'tiny' agar overhead minimal
+const morganFormat = process.env.NODE_ENV === 'production' ? 'tiny' : 'combined';
+app.use(morgan(morganFormat, { stream: { write: message => logger.info(message.trim()) } }));
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -49,7 +66,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-import path from 'path';
+// import path from 'path'; // Removed duplicate
 import { waService } from './modules/whatsapp/wa.service';
 import { WaTemplateService } from './modules/whatsapp/wa.template.service';
 
@@ -190,6 +207,11 @@ const runMonthlyBackup = async () => {
 
 // Cek setiap jam (bukan setiap bulan) agar tahan restart server
 setInterval(runMonthlyBackup, 60 * 60 * 1000);   // setiap 1 jam
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── LOCAL-FIRST BACKGROUND SYNC WORKER ───────────────────────────────────
+import { SyncService } from './modules/system/sync.service';
+SyncService.startBackgroundSync();
 // ─────────────────────────────────────────────────────────────────────────
 
 const shutdown = (signal: string) => {

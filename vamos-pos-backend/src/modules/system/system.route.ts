@@ -11,7 +11,13 @@ router.post('/seed', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemContr
 router.post('/fix-tables', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.fixTables);
 
 // Database backup (pg_dump)
+// Database backup (pg_dump)
 router.post('/backup', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.runBackup);
 router.get('/backup/list', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.listBackups);
+
+// Local-First Sync
+router.post('/sync-now', authenticate, SystemController.syncNow);
+router.get('/unsynced-count', authenticate, SystemController.getUnsyncedCount);
+router.post('/sync/receive', SystemController.receiveSyncPayload);
 
 export default router;

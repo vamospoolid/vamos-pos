@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../database/db';
+import bcrypt from 'bcrypt';
 import { PricingService } from '../pricing/pricing.service';
 import { waService } from '../whatsapp/wa.service';
 import { getInitialRatingFromHC, calculateMatchRating } from '../../utils/rating.util';
@@ -410,8 +411,7 @@ export class PlayerController {
             if (!password) return res.status(400).json({ success: false, message: 'Password wajib diisi untuk keamanan' });
 
             const cleanedPhone = phone.replace(/[^0-9]/g, '');
-
-            const bcrypt = require('bcrypt');
+            
             const hashedPassword = await bcrypt.hash(password, 10);
 
             const existing = await prisma.member.findFirst({
@@ -474,8 +474,6 @@ export class PlayerController {
             });
 
             if (!member) return res.status(404).json({ success: false, message: 'Member tidak ditemukan. Silakan registrasi terlebih dahulu.' });
-
-            const bcrypt = require('bcrypt');
             
             // Legacy / First-time password set
             if (!member.password) {
@@ -1161,7 +1159,16 @@ export class PlayerController {
             }
 
             const { getIO } = await import('../../socket');
-            getIO().emit('waitlist:updated');
+            // Emit dengan payload LENGKAP agar local POS bridge bisa sync ke DB lokal
+            // tanpa perlu callback ke VPS (eliminasi latency)
+            getIO().emit('booking:new', {
+                ...result.booking,
+                memberName: member.name,
+                memberPhone: member.phone,
+                memberPhoto: member.photo,
+                memberTier: member.tier,
+            });
+            getIO().emit('waitlist:updated'); // backward compat untuk UI refresh
 
             res.json({ success: true, data: result.booking, waSent, message: 'Booking created successfully' });
         } catch (error) { next(error); }

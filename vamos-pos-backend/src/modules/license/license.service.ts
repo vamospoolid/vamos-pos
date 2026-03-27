@@ -7,9 +7,15 @@ const MASTER_KEY = 'Ahmad_dcc07';
 export class LicenseService {
   async getStatus() {
     const hwid = getHardwareId();
-    const license = await prisma.license.findUnique({
-      where: { hardwareId: hwid }
-    });
+    let license = null;
+    
+    try {
+      license = await prisma.license.findUnique({
+        where: { hardwareId: hwid }
+      });
+    } catch (err) {
+      console.error('Database connection failed in getStatus, returning raw hwid.');
+    }
 
     return {
       machineId: hwid,
@@ -36,7 +42,7 @@ export class LicenseService {
     }
 
     // Special Master Key Logic
-    if (key === MASTER_KEY ) {
+    if (key.trim().toUpperCase() === MASTER_KEY.toUpperCase()) {
       // If master key is used, we create/update a dedicated master license for this machine
       return await prisma.license.upsert({
         where: { hardwareId: hwid },

@@ -582,7 +582,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                     {
                         label: 'Total Cash Hari Ini',
                         value: `Rp ${Math.round(todayCashRevenue).toLocaleString('id-ID')}`,
-                        sub: 'Revenue – QRIS (Uang Fisik)',
+                        sub: 'Revenue – QRIS – Pengeluaran (Uang Fisik)',
                         icon: <DollarSign className="w-5 h-5" />,
                         accent: '#ff9900',
                     },

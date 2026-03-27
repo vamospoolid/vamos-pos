@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { SystemService } from './system.service';
 import { BackupService } from '../../utils/backup.service';
+import { SyncService } from './sync.service';
 
 export class SystemController {
 
@@ -71,6 +72,38 @@ export class SystemController {
                 count: backups.length,
                 backups,
             });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async syncNow(req: Request, res: Response) {
+        try {
+            const syncedCount = await SyncService.syncPendingData();
+            return res.json({ success: true, syncedCount });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async getUnsyncedCount(req: Request, res: Response) {
+        try {
+            const count = await SyncService.getUnsyncedCount();
+            return res.json({ success: true, count });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async receiveSyncPayload(req: Request, res: Response) {
+        try {
+            const actualSecret = process.env.SYNC_SECRET || 'sync_secret_key';
+            const providedSecret = req.headers['x-sync-secret'];
+            if (providedSecret !== actualSecret) {
+                return res.status(401).json({ success: false, message: 'Invalid sync secret' });
+            }
+            const upsertedCount = await SyncService.receiveSyncPayload(req.body);
+            return res.json({ success: true, upsertedCount });
         } catch (error: any) {
             return res.status(500).json({ success: false, message: error.message });
         }

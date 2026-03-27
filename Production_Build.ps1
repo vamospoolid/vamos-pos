@@ -61,6 +61,10 @@ npm install --silent
 npm run build
 npx prisma db push # Ensure DB schema is up to date
 npm run bundle     # pkg . --output vamous-pos.exe
+
+# Copy Prisma engine for the bundled EXE to use (resides in same folder as EXE)
+Copy-Item -Path "d:\vamosmobile\vamos-pos-backend\node_modules\.prisma\client\query_engine-windows.dll.node" -Destination "d:\vamosmobile\vamos-pos-backend\" -Force
+
 if ($LASTEXITCODE -ne 0) {
     Write-Host "   -> ERROR: Backend bundling failed!" -ForegroundColor Red
     exit

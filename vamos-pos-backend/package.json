@@ -8,7 +8,7 @@
     "assets": [
       "dist/**/*",
       "public/**/*",
-      "node_modules/.prisma/client/*.node",
+      "node_modules/**/*.node",
       "prisma/schema.prisma"
     ],
     "targets": [
@@ -28,6 +28,7 @@
   "dependencies": {
     "@prisma/client": "^5.0.0",
     "@types/socket.io": "^3.0.1",
+    "axios": "^1.14.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -39,6 +40,7 @@
     "qrcode-terminal": "^0.12.0",
     "serialport": "^13.0.0",
     "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "whatsapp-web.js": "^1.34.6",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
