@@ -173,6 +173,18 @@ const initCloudBridge = () => {
         });
     });
 
+    // ── BRIDGE: Tangkap perintah Relay dari Cloud untuk dieksekusi di Hardware Lokal ──
+    cloudSocket.on('relay:command', async (data: any) => {
+        logger.info(`🔌 [BRIDGE] relay:command diterima dari VPS: Meja ${data.channel} -> ${data.status}`);
+        try {
+            // Gunakan dynamic import agar tidak circular dependency
+            const { RelayService } = await import('./modules/relay/relay.service');
+            await RelayService.sendCommand(data.channel, data.status);
+        } catch (err: any) {
+            logger.error(`❌ [BRIDGE] Gagal eksekusi relay hardware: ${err.message}`);
+        }
+    });
+
     cloudSocket.on('disconnect', () => {
         logger.warn('⚠️ Jembatan Cloud TERPUTUS. Menunggu koneksi kembali...');
     });

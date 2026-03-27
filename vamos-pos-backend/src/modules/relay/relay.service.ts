@@ -170,6 +170,13 @@ export class RelayService {
     // ─────────────────────────────────────────────────────────────────────────
 
     static async init(forceComPort?: string) {
+        // Jangan jalankan hardware init jika di VPS mode
+        if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) {
+            logger.info('☁️ VPS Mode detected: Serial port hardware disabled.');
+            this.isConnected = false;
+            return;
+        }
+
         let comPortPath = forceComPort;
 
         if (!comPortPath) {
@@ -345,9 +352,26 @@ export class RelayService {
 
         this.mockStates[channel] = isOn;
 
-        // Use ONLY burstAsync which handles queue and locking
+        // --- BRIDGE: Broadcast ke Socket agar Electron Bridge di lokal bisa menangkap ---
+        try {
+            const { getIO } = await import('../../socket');
+            const io = getIO();
+            if (io) {
+                io.emit('relay:command', { channel, status: command });
+            }
+        } catch (e) {
+            // Abaikan jika socket belum siap
+        }
+
+        // Jika di VPS (bukan local electron), jangan lanjut ke serial port hardware
+        if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) {
+            logger.info(`☁️ VPS Mode: Perintah dipancarkan via Socket (Hardware Sync).`);
+            return true;
+        }
+
+        // Jalankan perintah serial asli khusus di aplikasi lokal (Electron)
         this.burstAsync(channel, isOn).catch(e => {
-            logger.error(`🚨 Relay Error Meja ${channel}: ${e.message}`);
+            logger.error(`🚨 Relay Error Hardware Meja ${channel}: ${e.message}`);
         });
         return true;
     }

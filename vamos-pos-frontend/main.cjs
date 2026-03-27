@@ -101,32 +101,17 @@ function createWindow() {
 
     if (!isDevVite) {
         // ─── PRODUCTION / BAT MODE ──────────────────────────────────────────
-        // Poll backend setiap 300ms sampai siap → load segera tanpa hardcode wait
-        let attempts = 0;
-        const maxAttempts = 30; // max 9 detik (30 x 300ms)
+        // VAMOS PURE ONLINE: Muat URL VPS langsung sebagai UI Utama.
+        // Lokal Engine tetap berjalan di background sebagai jembatan hardware (COM3).
+        const vpsUrl = process.env.CLOUD_BASE_URL || 'https://pos.vamospool.id';
+        console.log('VAMOS PURE ONLINE: Menghubungkan ke', vpsUrl);
 
-        const tryLoad = () => {
-            attempts++;
-            const req = http.get('http://localhost:3000', () => {
-                // Backend sudah merespons — muat sekarang!
-                win.loadURL('http://localhost:3000').catch(() => {
-                    win.loadFile(path.join(__dirname, 'dist/index.html'));
-                });
+        win.loadURL(vpsUrl).catch(() => {
+            // Fallback jika internet mati atau VPS down → pakai engine lokal
+            win.loadURL('http://localhost:3000').catch(() => {
+                win.loadFile(path.join(__dirname, 'dist/index.html'));
             });
-            req.on('error', () => {
-                if (attempts < maxAttempts) {
-                    setTimeout(tryLoad, 300);
-                } else {
-                    // Fallback: paksa load walaupun backend belum merespons
-                    win.loadURL('http://localhost:3000').catch(() => {
-                        win.loadFile(path.join(__dirname, 'dist/index.html'));
-                    });
-                }
-            });
-            req.setTimeout(500, () => req.destroy());
-        };
-
-        setTimeout(tryLoad, 500); // Beri 500ms agar proses backend sempat spawn
+        });
     } else {
         // ─── DEVELOPMENT MODE ────────────────────────────────────────────────
         // Jalankan dulu: npm run dev (di vamos-pos-frontend) sebelum electron
