@@ -28,9 +28,13 @@ export class SyncService {
         const waitlists = await prisma.waitlist.findMany({ where: { syncStatus: 'PENDING' } });
 
         const users = await prisma.user.findMany({ where: { deletedAt: null } });
+        const venues = await prisma.venue.findMany({ where: { deletedAt: null } });
+        const tables = await prisma.table.findMany({ where: { deletedAt: null } });
 
         const payload = {
             users,
+            venues,
+            tables,
             shifts,
             members,
             sessions,
@@ -95,12 +99,23 @@ export class SyncService {
      * Dipanggil oleh VPS Cloud ketika Local Backend menembak data ke `/api/sync/receive`
      */
     static async receiveSyncPayload(payload: any) {
-        const { users = [], shifts = [], members = [], sessions = [], orders = [], payments = [], expenses = [], waitlists = [] } = payload;
+        const { 
+            users = [], 
+            venues = [], 
+            tables = [], 
+            shifts = [], 
+            members = [], 
+            sessions = [], 
+            orders = [], 
+            payments = [], 
+            expenses = [], 
+            waitlists = [] 
+        } = payload;
         
         let upsertedCount = 0;
 
         // Kami melakukan eksekusi secara berurutan agar foreign key constraints terpenuhi
-        // Urutan krusial: shifts -> members -> sessions -> orders -> payments -> expenses -> waitlists
+        // Urutan krusial: users/venues -> tables -> members/shifts -> sessions -> orders -> payments -> expenses -> waitlists
 
         // Helper untuk upsert berulang
         const runUpsert = async (modelDelegate: any, items: any[]) => {
@@ -108,7 +123,7 @@ export class SyncService {
                 const dataToSave = { ...item };
                 
                 // User model: match by email. Other models: match by ID.
-                const isUser = dataToSave.email !== undefined;
+                const isUser = dataToSave.email !== undefined && dataToSave.password !== undefined;
                 if (isUser) {
                     delete dataToSave.syncStatus;
                     await modelDelegate.upsert({
@@ -117,7 +132,14 @@ export class SyncService {
                         update: dataToSave
                     });
                 } else {
-                    dataToSave.syncStatus = 'SYNCED';
+                    // Only add syncStatus if it's NOT a master data table (user, venue, table)
+                    const isMaster = dataToSave.relayChannel !== undefined || dataToSave.openTime !== undefined || isUser;
+                    if (!isMaster) {
+                         dataToSave.syncStatus = 'SYNCED';
+                    } else {
+                         delete dataToSave.syncStatus;
+                    }
+                    
                     await modelDelegate.upsert({
                         where: { id: item.id },
                         create: dataToSave,
@@ -130,6 +152,8 @@ export class SyncService {
 
         await prisma.$transaction(async (tx) => {
             await runUpsert(tx.user, users);
+            await runUpsert(tx.venue, venues);
+            await runUpsert(tx.table, tables);
             await runUpsert(tx.cashierShift, shifts);
             await runUpsert(tx.member, members);
             await runUpsert(tx.session, sessions);
