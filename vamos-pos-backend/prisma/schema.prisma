@@ -152,6 +152,8 @@ model Member {
   sessions                    Session[]
   tournamentParticipant       TournamentParticipant[]
   waitlist                    Waitlist[]
+
+  @@index([syncStatus])
 }
 
 model Session {
@@ -195,6 +197,7 @@ model Session {
   @@index([memberId])              // riwayat member
   @@index([status, durationOpts])  // checkExpiredSessions
   @@index([createdAt])             // laporan harian/bulanan
+  @@index([syncStatus])
 }
 
 model Product {
@@ -237,6 +240,7 @@ model Order {
   session   Session   @relation(fields: [sessionId], references: [id])
 
   @@index([sessionId])  // getActiveSessions bulk order fetch
+  @@index([syncStatus])
 }
 
 model Payment {
@@ -261,6 +265,7 @@ model Payment {
   @@index([sessionId])  // laporan per sesi
   @@index([shiftId])    // laporan per shift kasir
   @@index([createdAt])  // laporan harian
+  @@index([syncStatus])
 }
 
 model Match {
@@ -376,6 +381,7 @@ model Expense {
 
   @@index([memberId, isDebt])  // piutang per member
   @@index([date])              // laporan harian
+  @@index([syncStatus])
 }
 
 model Employee {
@@ -488,6 +494,8 @@ model Waitlist {
   syncStatus      SyncState @default(PENDING)
   member          Member?   @relation(fields: [memberId], references: [id])
   table           Table?    @relation(fields: [tableId], references: [id])
+
+  @@index([syncStatus])
 }
 
 model Announcement {
@@ -559,6 +567,8 @@ model CashierShift {
   user             User      @relation(fields: [userId], references: [id])
   expenses         Expense[]
   payments         Payment[]
+
+  @@index([syncStatus])
 }
 
 /// Template pesan WhatsApp yang bisa diedit via admin
