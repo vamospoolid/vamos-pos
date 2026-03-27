@@ -12,8 +12,32 @@ dotenv.config();
 
 const app = express();
 
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+    crossOriginOpenerPolicy: false, // Prevents the COOP error shown in console
+}));
+
+// Conditional CORS to avoid duplicate headers with Nginx in production
+// We disable it if the host contains vamospool.id or we are in production
+app.use((req, res, next) => {
+    const isProdHost = req.headers.host?.includes('vamospool.id');
+    const isLocalHost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
+    const isProdEnv = process.env.NODE_ENV === 'production';
+    
+    // If we're on the production domain, we assume Nginx adds the CORS headers.
+    // Express should NOT add them to avoid the "multiple values '*, *'" error.
+    if (isProdHost || (isProdEnv && !isLocalHost)) {
+        if (req.method === 'OPTIONS') {
+            // Some proxies still need the backend to acknowledge the OPTIONS request
+            res.header('Access-Control-Allow-Origin', '*');
+            res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+            res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-device-id');
+            return res.status(200).end();
+        }
+        next();
+    } else {
+        cors()(req, res, next);
+    }
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));

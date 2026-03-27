@@ -393,7 +393,9 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     fetchData();
     checkHardware(true); // Run hardware sequence silently on startup
 
-    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+    const socketUrl = window.location.origin.includes('localhost') 
+      ? 'http://localhost:3000' 
+      : window.location.origin;
     const socket = io(socketUrl);
 
     socket.on('sessions:updated', () => fetchData());

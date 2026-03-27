@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'http://pos.vamospool.id/api',
+    baseURL: window.location.origin.includes('localhost') 
+        ? 'http://localhost:3000/api' 
+        : (window.location.origin + '/api'),
 });
 
 api.interceptors.request.use((config) => {

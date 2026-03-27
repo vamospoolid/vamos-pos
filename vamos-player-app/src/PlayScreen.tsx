@@ -37,7 +37,7 @@ export function PlayScreen({ member }: { member: any }) {
     const kingInterval = setInterval(fetchKings, 10000);
     const chalInterval = setInterval(fetchChallenges, 5000);
 
-    const socket = io('http://pos.vamospool.id');
+    const socket = io('https://pos.vamospool.id');
     socket.on('king:updated', fetchKings);
     socket.on(`challenge:new:${member.id}`, fetchChallenges);
     socket.on(`challenge:update:${member.id}`, fetchChallenges);
