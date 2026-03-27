@@ -30,16 +30,15 @@ export const initSocket = (server: HttpServer) => {
     return io;
 };
 
+let cloudSocketInstance: any = null;
+
 /**
  * JEMBATAN CLOUD (Socket Bridge) + LOCAL SYNC
- * 
- * Menghubungkan POS Lokal ke Socket Server di VPS agar booking/tantangan
- * dari aplikasi Player bisa masuk secara REALTIME ke Kasir Windows.
- * 
- * Setiap event yang datang dari VPS juga langsung disimpan ke Local PostgreSQL
- * agar kasir baca dari DB lokal (cepat, tanpa latency VPS).
  */
 const initCloudBridge = () => {
+    // Singleton check: Jangan buat koneksi baru jika sudah ada
+    if (cloudSocketInstance) return;
+
     const cloudUrl = process.env.CLOUD_BASE_URL || 'https://pos.vamospool.id';
 
     // Jangan connect ke diri sendiri jika sedang berjalan di VPS
@@ -49,32 +48,37 @@ const initCloudBridge = () => {
 
     logger.info(`🌐 Membangun Jembatan Realtime ke Cloud: ${cloudUrl}`);
 
-    const cloudSocket = ioClient(cloudUrl, {
-        reconnectionAttempts: Infinity,      // coba terus sampai berhasil
+    cloudSocketInstance = ioClient(cloudUrl, {
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 5000,
-        reconnectionDelayMax: 30000,         // max 30 detik per percobaan
+        reconnectionDelayMax: 30000,
         timeout: 10000,
     });
+
+    const cloudSocket = cloudSocketInstance;
 
     cloudSocket.on('connect', () => {
         logger.info('✅ Jembatan Cloud TERHUBUNG! Booking & Tantangan kini Realtime.');
     });
 
+    // Memory untuk debounce (menyimpan waktu terakhir event diterima)
+    const eventDebounce = new Map<string, number>();
+    const isSpam = (key: string, limit = 1000) => {
+        const now = Date.now();
+        if (eventDebounce.has(key) && (now - eventDebounce.get(key)! < limit)) return true;
+        eventDebounce.set(key, now);
+        return false;
+    };
+
     // ── SYNC: Booking baru dari Player App ────────────────────────────────
     cloudSocket.on('booking:new', async (data: any) => {
+        if (isSpam(`booking:new-${data?.id}`)) return;
+        
         logger.info(`🔔 [SYNC] booking:new diterima dari VPS → menyimpan ke Local DB...`);
         try {
-            if (!data || !data.id) {
-                logger.warn('[SYNC] booking:new: data tidak valid, skip.');
-                return;
-            }
+            if (!data || !data.id) return;
+            if (data.memberId) await upsertMember(data);
 
-            // Pastikan member lokal ada — sync member dulu jika perlu
-            if (data.memberId) {
-                await upsertMember(data);
-            }
-
-            // Upsert booking ke Local Waitlist
             await (prisma as any).waitlist.upsert({
                 where: { id: data.id },
                 update: {
@@ -103,13 +107,11 @@ const initCloudBridge = () => {
                     syncStatus: 'SYNCED',
                 }
             });
-
             logger.info(`✅ [SYNC] Booking ${data.id} tersimpan di Local DB.`);
         } catch (err: any) {
             logger.error(`❌ [SYNC] Gagal simpan booking: ${err.message}`);
         }
 
-        // Teruskan ke UI kasir
         if (io) {
             io.emit('booking:new', data);
             io.emit('waitlist:updated');
@@ -118,6 +120,7 @@ const initCloudBridge = () => {
 
     // ── SYNC: Member baru registrasi dari Player App ──────────────────────
     cloudSocket.on('member:new', async (data: any) => {
+        if (isSpam(`member:new-${data?.id}`)) return;
         logger.info(`🔔 [SYNC] member:new → menyimpan ke Local DB...`);
         try {
             if (data?.id) await upsertMember(data);
@@ -129,6 +132,7 @@ const initCloudBridge = () => {
 
     // ── SYNC: Update profil member ────────────────────────────────────────
     cloudSocket.on('member:updated', async (data: any) => {
+        if (isSpam(`member:updated-${data?.id}`)) return;
         logger.info(`🔔 [SYNC] member:updated → update Local DB...`);
         try {
             if (data?.id) {
@@ -155,8 +159,7 @@ const initCloudBridge = () => {
         if (io) io.emit('member:updated', data);
     });
 
-    // ── MIRROR ONLY (Tidak perlu simpan ke DB) ────────────────────────────
-    // Events ini cukup diteruskan ke UI, tidak perlu disimpan
+    // ── MIRROR ONLY ───────────────────────────────────────────────────────
     const eventsToMirror = [
         'booking:updated',
         'challenge:new',
@@ -168,27 +171,21 @@ const initCloudBridge = () => {
 
     eventsToMirror.forEach(event => {
         cloudSocket.on(event, (data: any) => {
+            // Anti-Spam Global: Jeda 1 detik untuk tipe event yang sama
+            if (isSpam(`mirror-${event}`)) return;
+
             logger.info(`🔔 Cloud Event [${event}] → Teruskan ke UI Lokal...`);
             if (io) io.emit(event, data);
         });
     });
 
-    // ── BRIDGE: Tangkap perintah Relay dari Cloud untuk dieksekusi di Hardware Lokal ──
-    const lastCommands = new Map<string, number>();
-
+    // ── BRIDGE: Tangkap perintah Relay dari Cloud ─────────────────────────
     cloudSocket.on('relay:command', async (data: any) => {
-        const commandKey = `${data.channel}-${data.status}`;
-        const now = Date.now();
-        
-        // Anti-Spam: Abaikan jika perintah yang sama datang dalam < 2 detik
-        if (lastCommands.has(commandKey) && (now - lastCommands.get(commandKey)! < 2000)) {
-            return; 
-        }
-        lastCommands.set(commandKey, now);
+        // Anti-Spam Khusus Relay: 2 detik
+        if (isSpam(`relay-${data.channel}-${data.status}`, 2000)) return;
 
         logger.info(`🔌 [BRIDGE] relay:command diterima dari VPS: Meja ${data.channel} -> ${data.status}`);
         try {
-            // Gunakan dynamic import agar tidak circular dependency
             const { RelayService } = await import('./modules/relay/relay.service');
             await RelayService.sendCommand(data.channel, data.status);
         } catch (err: any) {
@@ -200,7 +197,7 @@ const initCloudBridge = () => {
         logger.warn('⚠️ Jembatan Cloud TERPUTUS. Menunggu koneksi kembali...');
     });
 
-    cloudSocket.on('connect_error', (err) => {
+    cloudSocket.on('connect_error', (err: any) => {
         logger.error(`❌ Gagal terhubung ke Jembatan Cloud: ${err.message}`);
     });
 };
