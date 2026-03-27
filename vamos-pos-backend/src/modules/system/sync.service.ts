@@ -105,12 +105,13 @@ export class SyncService {
         // Helper untuk upsert berulang
         const runUpsert = async (modelDelegate: any, items: any[]) => {
             for (const item of items) {
-                // Only add syncStatus for non-User models (scalar models)
                 const dataToSave = { ...item };
                 
-                // If model name is not 'user', add syncStatus
-                // We use the model delegate as key if possible or just check properties
-                if (dataToSave.email === undefined || dataToSave.password === undefined) {
+                // User model doesn't have syncStatus yet in some builds, avoid it
+                const isUser = dataToSave.email !== undefined;
+                if (isUser) {
+                    delete dataToSave.syncStatus;
+                } else {
                     dataToSave.syncStatus = 'SYNCED';
                 }
                 
