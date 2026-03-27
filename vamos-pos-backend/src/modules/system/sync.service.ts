@@ -27,7 +27,10 @@ export class SyncService {
         const expenses = await prisma.expense.findMany({ where: { syncStatus: 'PENDING' } });
         const waitlists = await prisma.waitlist.findMany({ where: { syncStatus: 'PENDING' } });
 
+        const users = await prisma.user.findMany({ where: { deletedAt: null } });
+
         const payload = {
+            users,
             shifts,
             members,
             sessions,
@@ -40,7 +43,7 @@ export class SyncService {
         const totalItems = Object.values(payload).reduce((acc, curr) => acc + curr.length, 0);
         if (totalItems === 0) return 0; // Tidak ada yang perlu disinkronisasi
 
-        console.log(`[Sync Worker] Attempting to sync ${totalItems} pending items...`);
+        console.log(`[Sync Worker] Attempting to sync ${totalItems} items to ${vpsUrl} with secret prefix ${syncSecret.substring(0, 3)}...`);
 
         try {
             // 2. POST ke VPS
@@ -92,7 +95,7 @@ export class SyncService {
      * Dipanggil oleh VPS Cloud ketika Local Backend menembak data ke `/api/sync/receive`
      */
     static async receiveSyncPayload(payload: any) {
-        const { shifts = [], members = [], sessions = [], orders = [], payments = [], expenses = [], waitlists = [] } = payload;
+        const { users = [], shifts = [], members = [], sessions = [], orders = [], payments = [], expenses = [], waitlists = [] } = payload;
         
         let upsertedCount = 0;
 
@@ -114,6 +117,7 @@ export class SyncService {
         };
 
         await prisma.$transaction(async (tx) => {
+            await runUpsert(tx.user, users);
             await runUpsert(tx.cashierShift, shifts);
             await runUpsert(tx.member, members);
             await runUpsert(tx.session, sessions);

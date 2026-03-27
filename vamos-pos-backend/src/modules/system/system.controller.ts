@@ -82,7 +82,8 @@ export class SystemController {
             const syncedCount = await SyncService.syncPendingData();
             return res.json({ success: true, syncedCount });
         } catch (error: any) {
-            return res.status(500).json({ success: false, message: error.message });
+             const errMsg = error.response?.data?.message || error.message;
+            return res.status(500).json({ success: false, message: `Sync Error: ${errMsg}` });
         }
     }
 
