@@ -1,0 +1,6 @@
+ M vamos-admin-app/src/components/Layout.tsx
+ M vamos-admin-app/src/pages/Dashboard.tsx
+ M vamos-admin-app/src/pages/Reports.tsx
+ M vamos-admin-app/src/services/api.ts
+ M vamos-player-app/src/PlayScreen.tsx
+ M vamos-pos-backend/src/server.ts
