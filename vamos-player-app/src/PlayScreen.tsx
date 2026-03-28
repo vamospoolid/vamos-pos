@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X } from 'lucide-react';
+import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { TableCard } from './components/TableCard';
+import { BulletinCarousel } from './components/BulletinCarousel';
 import { io } from 'socket.io-client';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api } from './api';
@@ -10,9 +11,11 @@ export function PlayScreen({ member }: { member: any }) {
   const [challenges, setChallenges] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
-  const [showStakeSelector, setShowStakeSelector] = useState(false);
   const [pendingOpponentId, setPendingOpponentId] = useState<string | null>(null);
-  const [stakeAmount, setStakeAmount] = useState<number>(100);
+  const [incomingChallenge, setIncomingChallenge] = useState<any | null>(null);
+  const [isChoosingStake, setIsChoosingStake] = useState(false);
+  const [selectedStake, setSelectedStake] = useState(0);
+  const [isFightForTable, setIsFightForTable] = useState(false);
 
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -39,7 +42,14 @@ export function PlayScreen({ member }: { member: any }) {
 
     const socket = io('https://pos.vamospool.id');
     socket.on('king:updated', fetchKings);
-    socket.on(`challenge:new:${member.id}`, fetchChallenges);
+    
+    // Listen for new challenges sent to ME
+    socket.on(`challenge:new:${member.id}`, (challenge) => {
+        setIncomingChallenge(challenge);
+        fetchChallenges();
+    });
+
+    // Listen for updates on my active challenges
     socket.on(`challenge:update:${member.id}`, fetchChallenges);
 
     return () => {
@@ -63,7 +73,7 @@ export function PlayScreen({ member }: { member: any }) {
             (decodedText) => {
               setPendingOpponentId(decodedText);
               setIsScanning(false);
-              setShowStakeSelector(true);
+              setIsChoosingStake(true); // Open stake selection instead of direct deploy
               if (isRunning) html5QrCode?.stop().catch(console.error);
             },
             () => { }
@@ -71,14 +81,13 @@ export function PlayScreen({ member }: { member: any }) {
             isRunning = true;
           }).catch(err => {
             console.error("Camera start failed", err);
-            // Fallback to any camera if environment fails
             html5QrCode?.start(
               { facingMode: "user" },
               { fps: 10, qrbox: { width: 250, height: 250 } },
               (decodedText) => {
                 setPendingOpponentId(decodedText);
                 setIsScanning(false);
-                setShowStakeSelector(true);
+                setIsChoosingStake(true);
                 if (isRunning) html5QrCode?.stop().catch(console.error);
               },
               () => { }
@@ -106,65 +115,49 @@ export function PlayScreen({ member }: { member: any }) {
     }
   }, [isScanning]);
 
-  const handleChallenge = async (stake: number, isFightForTable: boolean = false) => {
+  const handleDeployChallenge = async () => {
     if (!pendingOpponentId) return;
-
-    if (!navigator.geolocation) {
-       try {
+    try {
         const res = await api.post('/player/challenge', {
           challengerId: member.id,
           opponentId: pendingOpponentId,
-          pointsStake: stake,
-          isFightForTable,
-          sessionId: isFightForTable ? activeSession?.id : null,
-          lat: 0,
-          lng: 0
-        });
-        if (res.data.success) {
-          setShowStakeSelector(false);
-          setPendingOpponentId(null);
-          fetchChallenges();
-          alert("ARENA CHALLENGE DEPLOYED.");
-        }
-      } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const res = await api.post('/player/challenge', {
-          challengerId: member.id,
-          opponentId: pendingOpponentId,
-          pointsStake: stake,
-          isFightForTable,
-          sessionId: isFightForTable ? activeSession?.id : null,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
-        });
-        if (res.data.success) {
-          setShowStakeSelector(false);
-          setPendingOpponentId(null);
-          fetchChallenges();
-          alert("ARENA CHALLENGE DEPLOYED.");
-        }
-      } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
-    }, async () => {
-      try {
-        const res = await api.post('/player/challenge', {
-          challengerId: member.id,
-          opponentId: pendingOpponentId,
-          pointsStake: stake,
+          pointsStake: selectedStake, 
           isFightForTable,
           sessionId: isFightForTable ? activeSession?.id : null
         });
         if (res.data.success) {
-          setShowStakeSelector(false);
           setPendingOpponentId(null);
+          setIsChoosingStake(false);
           fetchChallenges();
-          alert("ARENA CHALLENGE DEPLOYED.");
+          alert("PROTOCOL DEPLOYED. WAITING FOR RIVAL CONFIRMATION.");
         }
       } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
-    }, { enableHighAccuracy: true });
+  };
+
+  const reportVictory = async (challengeId: string) => {
+    if (!window.confirm("ARE YOU SURE YOU WON THIS MATCH? Lying will result in account suspension.")) return;
+    try {
+        const res = await api.put(`/player/challenge/${challengeId}/claim-victory`, {
+            winnerId: member.id
+        });
+        if (res.data.success) {
+            fetchChallenges();
+            alert("VICTORY REPORTED. AWAITING CASHIER VERIFICATION.");
+        }
+    } catch (err: any) { alert(err.response?.data?.message || "REPORT FAILED."); }
+  };
+
+  const respondToChallenge = async (id: string, status: 'ACCEPTED' | 'DECLINED') => {
+    try {
+        const res = await api.post(`/player/challenge/${id}/respond`, { status });
+        if (res.data.success) {
+            setIncomingChallenge(null);
+            fetchChallenges();
+            if (status === 'ACCEPTED') {
+                alert("MATCH PROTOCOL INITIATED.");
+            }
+        }
+    } catch (err: any) { alert(err.response?.data?.message || "RESPONSE FAILED."); }
   };
 
   return (
@@ -175,6 +168,8 @@ export function PlayScreen({ member }: { member: any }) {
         </h1>
         <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mt-2 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
       </div>
+
+      <BulletinCarousel />
 
       {/* ─── LIVE SCOREBOARD / SESSION BANNER ─────────────────────────────────── */}
       {activeSession ? (
@@ -279,27 +274,57 @@ export function PlayScreen({ member }: { member: any }) {
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">ACTIVE CHALLENGES</h3>
             <span className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-primary uppercase tracking-widest italic opacity-60">{challenges.length} Pending</span>
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest italic opacity-60">{challenges.length} Engagement</span>
             </span>
           </div>
           <div className="grid grid-cols-1 gap-4">
             {challenges.map(chal => (
-              <div key={chal.id} className="fiery-card p-6 border-2 border-primary/20 bg-primary/5">
-                <div className="flex items-center justify-between">
+              <div key={chal.id} className={`fiery-card p-6 border-2 transition-all ${chal.status === 'WAITING_VERIFICATION' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-primary/20 bg-primary/5'}`}>
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                       <Swords className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">VS {chal.opponentId === member.id ? 'YOU' : (chal.opponent?.name || 'Rival')}</p>
-                      <p className="text-lg font-black text-white uppercase italic">{chal.pointsStake} PTS STAKE</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">VS {chal.opponentId === member.id ? (chal.challenger?.name || 'Rival') : (chal.opponent?.name || 'Rival')}</p>
+                      <p className="text-lg font-black text-white uppercase italic">
+                        {chal.isFightForTable ? 'KING FIGHT' : 'DUEL MATCH'}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">{chal.status}</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest italic ${chal.status === 'ACCEPTED' ? 'text-emerald-400' : chal.status === 'WAITING_VERIFICATION' ? 'text-yellow-400' : 'text-primary'}`}>{chal.status}</p>
                     <p className="text-[9px] text-slate-600 uppercase italic">{new Date(chal.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 mb-4">
+                    <div className="flex items-center gap-2">
+                        <Zap size={14} className="text-yellow-400" />
+                        <span className="text-[10px] font-black text-white uppercase italic">STAKE: {chal.pointsStake || 0} PTS</span>
+                    </div>
+                    {chal.isFightForTable && (
+                         <div className="flex items-center gap-2">
+                            <Crown size={14} className="text-primary" />
+                            <span className="text-[10px] font-black text-primary uppercase italic">FOR TABLE</span>
+                        </div>
+                    )}
+                </div>
+
+                {chal.status === 'ACCEPTED' && (
+                    <button 
+                        onClick={() => reportVictory(chal.id)}
+                        className="w-full py-4 fiery-btn-primary flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] italic"
+                    >
+                        <CheckCircle2 size={16} /> LAPORKAN KEMENANGAN (CLAIM)
+                    </button>
+                )}
+
+                {chal.status === 'WAITING_VERIFICATION' && (
+                     <div className="w-full py-4 text-center rounded-xl bg-yellow-400/10 border border-yellow-400/20">
+                        <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest italic">Wait for cashier verification...</p>
+                     </div>
+                )}
               </div>
             ))}
           </div>
@@ -307,6 +332,43 @@ export function PlayScreen({ member }: { member: any }) {
       )}
 
       {/* ─── MODALS ────────────────────────────────────────────────────────── */}
+
+      {/* Incoming Challenge Modal */}
+      {incomingChallenge && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8">
+            <div className="absolute inset-0 bg-[#0a0d18]/98 backdrop-blur-3xl animate-pulse" />
+            <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-4 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_150px_rgba(31,34,255,0.4)]">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px]" />
+                
+                <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center mx-auto mb-8 fiery-glow">
+                    <ShieldAlert size={40} className="text-white" />
+                </div>
+
+                <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2 leading-none">WAR PROTOCOL</h3>
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-10 italic animate-pulse">Incoming Strike Detected</p>
+                
+                <div className="bg-white/5 p-6 rounded-3xl border border-white/10 mb-10">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">CHALLENGER</p>
+                    <p className="text-2xl font-black text-white italic tracking-tighter uppercase">{incomingChallenge.challenger?.name || 'UNIDENTIFIED RIVAL'}</p>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                    <button 
+                        onClick={() => respondToChallenge(incomingChallenge.id, 'ACCEPTED')}
+                        className="w-full fiery-btn-primary py-6 flex items-center justify-center gap-3 text-sm tracking-[0.2em] font-black italic shadow-xl shadow-primary/30"
+                    >
+                        <CheckCircle2 className="w-5 h-5" /> LADENI DUEL
+                    </button>
+                    <button 
+                        onClick={() => respondToChallenge(incomingChallenge.id, 'DECLINED')}
+                        className="w-full py-5 rounded-[24px] bg-white/5 text-slate-500 font-black text-[10px] uppercase tracking-[0.4em] italic hover:bg-rose-500/10 hover:text-rose-500 transition-all"
+                    >
+                        KABUR / DECLINE
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Identity QR Modal */}
       {showMyQR && (
@@ -356,48 +418,58 @@ export function PlayScreen({ member }: { member: any }) {
         </div>
       )}
 
-      {/* Stake Selector Modal */}
-      {showStakeSelector && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8">
-          <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" onClick={() => { setShowStakeSelector(false); setPendingOpponentId(null); }} />
-          <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-2 border-primary/20 text-center fade-in overflow-hidden shadow-[0_0_100px_rgba(31,34,255,0.2)]">
-            <div className="absolute top-0 left-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
-            <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2 leading-none">DEPLOY PROTOCOL</h3>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-10 italic">Authorize point stake for combat</p>
-            
-            <div className="space-y-4 mb-10">
-               <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4 italic text-left px-2">Select Reputation Stake</p>
-               <div className="grid grid-cols-2 gap-3">
-                  {[100, 250, 500, 1000].map(val => (
-                    <button 
-                      key={val} 
-                      onClick={() => setStakeAmount(val)}
-                      className={`py-4 rounded-[20px] text-sm font-black transition-all border-2 italic ${stakeAmount === val ? 'bg-primary text-secondary border-primary shadow-[0_0_20px_rgba(31,34,255,0.3)]' : 'bg-white/5 text-slate-500 border-white/5'}`}
-                    >
-                      {val} <span className="text-[9px]">PTS</span>
-                    </button>
-                  ))}
-               </div>
-            </div>
+      {/* Point Stake Selection Modal */}
+      {isChoosingStake && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-8">
+            <div className="absolute inset-0 bg-[#0a0d18]/98 backdrop-blur-3xl" onClick={() => setIsChoosingStake(false)} />
+            <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-10 border-2 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_120px_rgba(31,34,255,0.3)]">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+                
+                <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">ARENA STAKE</h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8 italic">Pilih jumlah poin yang ditaruhkan</p>
+                
+                <div className="grid grid-cols-2 gap-3 mb-8">
+                    {[0, 20, 50, 100].map(pts => (
+                        <button 
+                            key={pts}
+                            onClick={() => setSelectedStake(pts)}
+                            className={`py-4 rounded-2xl border-2 transition-all font-black italic text-sm ${selectedStake === pts ? 'border-primary bg-primary/20 text-white' : 'border-white/5 bg-white/5 text-slate-500'}`}
+                        >
+                            {pts === 0 ? 'PERSAHABATAN' : `${pts} POIN`}
+                        </button>
+                    ))}
+                </div>
 
-            <div className="flex flex-col gap-4">
-               <button 
-                  onClick={() => handleChallenge(stakeAmount, false)}
-                  className="w-full fiery-btn-primary py-5 flex items-center justify-center gap-3 text-[11px] tracking-[0.2em] font-black italic shadow-lg shadow-primary/20"
-               >
-                  <Swords className="w-4 h-4" /> BASTARD DUEL
-               </button>
-               {activeSession && (
-                 <button 
-                    onClick={() => handleChallenge(stakeAmount, true)}
-                    className="w-full py-5 rounded-[20px] bg-orange-500 text-white font-black text-[11px] uppercase tracking-[0.2em] italic shadow-lg shadow-orange-500/20 flex items-center justify-center gap-3"
-                 >
-                    <Crown className="w-4 h-4" /> KING OF TABLE FIGHT
-                 </button>
-               )}
-               <button onClick={() => { setShowStakeSelector(false); setPendingOpponentId(null); }} className="text-[9px] font-black text-slate-700 uppercase tracking-widest pt-4 hover:text-slate-500 transition-colors italic">Abort Engagement</button>
+                {activeSession && (
+                    <div className="bg-white/5 p-4 rounded-3xl border border-white/5 mb-8 flex items-center justify-between">
+                        <div className="text-left">
+                            <p className="text-[10px] font-black text-white uppercase italic">FIGHT FOR TABLE</p>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Winnner takes the bill!</p>
+                        </div>
+                        <button 
+                            onClick={() => setIsFightForTable(!isFightForTable)}
+                            className={`w-12 h-6 rounded-full relative transition-all ${isFightForTable ? 'bg-primary' : 'bg-slate-800'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isFightForTable ? 'left-7' : 'left-1'}`} />
+                        </button>
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                    <button 
+                        onClick={handleDeployChallenge}
+                        className="w-full fiery-btn-primary py-5 font-black italic tracking-[0.2em] text-xs uppercase"
+                    >
+                        DEPLOY CHALLENGE
+                    </button>
+                    <button 
+                        onClick={() => setIsChoosingStake(false)}
+                        className="w-full py-4 text-slate-600 font-black text-[10px] uppercase tracking-widest italic"
+                    >
+                        CANCEL
+                    </button>
+                </div>
             </div>
-          </div>
         </div>
       )}
 

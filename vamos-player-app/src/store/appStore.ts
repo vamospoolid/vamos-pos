@@ -9,8 +9,8 @@ interface AppState {
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table';
-    setActiveTab: (tab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table') => void;
+    activeTab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger';
+    setActiveTab: (tab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger') => void;
 
     rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
     setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;

@@ -8,6 +8,7 @@ import { MenuScreen } from './MenuScreen';
 import { VictoryNotification } from './components/VictoryNotification';
 import { LeaderboardScreen } from './LeaderboardScreen';
 import { PlayScreen } from './PlayScreen';
+import { HistoryScreen } from './HistoryScreen';
 import { Gamepad2, Signal } from 'lucide-react';
 import { LiveTableScreen } from './LiveTableScreen';
 
@@ -388,10 +389,7 @@ function DashboardScreen({ member }: { member: any }) {
             Tukar Poin <ArrowRight className="w-4 h-4" />
           </button>
           <button
-            onClick={() => {
-              useAppStore.getState().setRewardsTab('history');
-              useAppStore.getState().setActiveTab('rewards');
-            }}
+            onClick={() => useAppStore.getState().setActiveTab('ledger')}
             className="fiery-btn-secondary py-4 text-[10px] font-black uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-4 h-4 text-slate-500" /> Riwayat
@@ -1258,6 +1256,7 @@ function MainApp() {
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
         {activeTab === 'tournaments' && <TournamentScreen member={member} activeTournaments={tournaments} leaderboard={leaderboard} />}
         {activeTab === 'profile' && <ProfileScreen member={member} onLogout={logout} />}
+        {activeTab === 'ledger' && <HistoryScreen member={member} onBack={() => setActiveTab('home')} />}
       </div>
 
       {/* Bottom Navigation */}
