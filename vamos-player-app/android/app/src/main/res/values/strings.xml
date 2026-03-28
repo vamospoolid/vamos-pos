@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">vamos-player-app</string>
-    <string name="title_activity_main">vamos-player-app</string>
-    <string name="package_name">com.example.app</string>
-    <string name="custom_url_scheme">com.example.app</string>
+    <string name="app_name">appvamos</string>
+    <string name="title_activity_main">appvamos</string>
+    <string name="package_name">com.vamospool.player</string>
+    <string name="custom_url_scheme">com.vamospool.player</string>
 </resources>
