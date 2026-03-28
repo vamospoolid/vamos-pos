@@ -8,6 +8,12 @@ import dotenv from 'dotenv';
 const isPkg = (process as any).pkg;
 const execDir = isPkg ? path.dirname(process.execPath) : process.cwd();
 
+// When running as a bundled EXE (cashier machine), always enforce Smart Bridge mode.
+// This disables SyncWorker, SessionService, etc. regardless of how the EXE is launched.
+if (isPkg && !process.env.IS_LOCAL_ELECTRON) {
+    process.env.IS_LOCAL_ELECTRON = 'true';
+}
+
 // Load .env from the physical directory where the EXE is located
 const envPath = path.join(execDir, '.env');
 if (fs.existsSync(envPath)) {

@@ -27,14 +27,15 @@ export class SyncService {
         const expenses = await prisma.expense.findMany({ where: { syncStatus: 'PENDING' } });
         const waitlists = await prisma.waitlist.findMany({ where: { syncStatus: 'PENDING' } });
 
+        // CATATAN: tables TIDAK disync dari lokal ke VPS.
+        // Status meja (AVAILABLE/PLAYING) dikelola sepenuhnya oleh VPS.
+        // Mengirim data tabel lokal akan menimpa status PLAYING di VPS.
         const users = await prisma.user.findMany({ where: { deletedAt: null } });
         const venues = await prisma.venue.findMany({ where: { deletedAt: null } });
-        const tables = await prisma.table.findMany({ where: { deletedAt: null } });
 
         const payload = {
             users,
             venues,
-            tables,
             shifts,
             members,
             sessions,
@@ -153,7 +154,8 @@ export class SyncService {
         await prisma.$transaction(async (tx) => {
             await runUpsert(tx.user, users);
             await runUpsert(tx.venue, venues);
-            await runUpsert(tx.table, tables);
+            // TIDAK melakukan upsert tables dari lokal — VPS adalah sumber kebenaran untuk status meja
+            // await runUpsert(tx.table, tables);
             await runUpsert(tx.cashierShift, shifts);
             await runUpsert(tx.member, members);
             await runUpsert(tx.session, sessions);
