@@ -39,7 +39,7 @@ export class PlayerController {
                 data: {
                     challengerId,
                     opponentId,
-                    pointsStake: 0,
+                    pointsStake: pointsStake || 0,
                     isFightForTable: !!isFightForTable,
                     sessionId: sessionId || null,
                     note: note || null,
@@ -185,7 +185,7 @@ export class PlayerController {
                 return res.status(404).json({ success: false, message: 'Challenge not found.' });
             }
 
-            const validStatuses = ['WAITING_VERIFICATION', 'ACCEPTED'];
+            const validStatuses = ['WAITING_VERIFICATION', 'ACCEPTED', 'PENDING'];
             if (!validStatuses.includes(challenge.status)) {
                 return res.status(400).json({ success: false, message: 'Challenge is not in a completable state.' });
             }
@@ -202,15 +202,49 @@ export class PlayerController {
             if (!winnerId) return res.status(400).json({ success: false, message: 'Winner not identified. Admin must select a winner.' });
 
             const loserId = challenge.challengerId === winnerId ? challenge.opponentId : challenge.challengerId;
-            const stake = 0; // challenge.pointsStake; -- No point betting
-            const arenaTax = 0; // Math.floor(stake * 0.2); // 20% Match Fee
-            const winnerPrize = 0; // stake - arenaTax;
-
+            const stake = challenge.pointsStake || 0;
+            
             // Professional Rank Logic (Fixed XP Rewards)
             const winReputation = 100; 
             const lossReputation = 20; 
-
+            
             const result = await prisma.$transaction(async (tx) => {
+                // 1. POINT TRANSFER (If stake > 0)
+                if (stake > 0) {
+                    const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                    
+                    // Deduct from loser
+                    await tx.member.update({
+                        where: { id: loserId },
+                        data: { loyaltyPoints: { decrement: stake } }
+                    });
+                    
+                    // Add to winner
+                    await tx.member.update({
+                        where: { id: winnerId },
+                        data: { loyaltyPoints: { increment: stake } }
+                    });
+
+                    // Log points
+                    await tx.pointLog.create({
+                        data: {
+                            memberId: winnerId,
+                            points: stake,
+                            type: 'EARN_GAME',
+                            description: `🏆 Menang Taruhan Arena vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name}`
+                        }
+                    });
+
+                    await tx.pointLog.create({
+                        data: {
+                            memberId: loserId,
+                            points: -stake,
+                            type: 'REDEEM',
+                            description: `💀 Kalah Taruhan Arena vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name}`
+                        }
+                    });
+                }
+
                 // Background Skill Rating Calculation (Shadow Mode)
                 const winner = await tx.member.findUnique({ where: { id: winnerId } });
                 const loser = await tx.member.findUnique({ where: { id: loserId } });
@@ -310,7 +344,7 @@ export class PlayerController {
                         memberId: winnerId, 
                         points: 0, 
                         type: 'EARN_GAME', 
-                        description: `🏆 Kemenangan Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name} (+${winReputation} XP)` 
+                        description: `⭐ Kemenangan Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name} (+${winReputation} XP)` 
                     }
                 });
 
@@ -318,8 +352,8 @@ export class PlayerController {
                     data: { 
                         memberId: loserId, 
                         points: 0, 
-                        type: 'REDEEM', 
-                        description: `💀 Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name} (+${lossReputation} XP)` 
+                        type: 'EARN_GAME', 
+                        description: `⭐ Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name} (+${lossReputation} XP)` 
                     }
                 });
 
@@ -1330,6 +1364,54 @@ export class PlayerController {
             res.json({ success: true, data: sortedStats });
         } catch (error) { next(error); }
     }
+    static async getTransactions(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: memberId } = req.params;
+            const sessions = await prisma.session.findMany({
+                where: { 
+                    memberId,
+                    status: 'PAID'
+                },
+                include: { 
+                    table: true,
+                    payments: true,
+                    orders: { include: { product: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20
+            });
+
+            res.json({ success: true, data: sessions });
+        } catch (error) { next(error); }
+    }
+
+    static async getUnpaidBills(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: memberId } = req.params;
+            
+            // Unpaid bills are stored as PENDING DEBT in Expense table
+            const debts = await prisma.expense.findMany({
+                where: {
+                    memberId,
+                    category: 'DEBT',
+                    status: 'PENDING',
+                    isDebt: true
+                },
+                include: {
+                    session: {
+                        include: {
+                            table: true,
+                            orders: { include: { product: true } }
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            res.json({ success: true, data: debts });
+        } catch (error) { next(error); }
+    }
+
     static async getVenues(req: Request, res: Response, next: NextFunction) {
         try {
             const venues = await prisma.venue.findMany({

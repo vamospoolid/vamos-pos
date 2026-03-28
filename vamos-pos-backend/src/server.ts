@@ -19,17 +19,17 @@ app.use(helmet({
 }));
 
 // Conditional CORS to avoid duplicate headers with Nginx in production
-// We disable it if the host contains vamospool.id or we are in production
+// We disable it if the host contains vamospool.id OR we are in production, 
+// BUT we must allow it if the origin is localhost (for local admin/dev testing)
 app.use((req, res, next) => {
     const isProdHost = req.headers.host?.includes('vamospool.id');
-    const isLocalHost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
+    const isLocalOrigin = req.headers.origin?.includes('localhost') || req.headers.origin?.includes('127.0.0.1');
     const isProdEnv = process.env.NODE_ENV === 'production';
     
-    // If we're on the production domain, we assume Nginx adds the CORS headers.
-    // Express should NOT add them to avoid the "multiple values '*, *'" error.
-    if (isProdHost || (isProdEnv && !isLocalHost)) {
+    // If we're on production AND the request is NOT from a local browser origin, 
+    // we let Nginx handle CORS to avoid "multiple values '*, *'" errors.
+    if (isProdHost && !isLocalOrigin && isProdEnv) {
         if (req.method === 'OPTIONS') {
-            // Some proxies still need the backend to acknowledge the OPTIONS request
             res.header('Access-Control-Allow-Origin', '*');
             res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
             res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-device-id');
@@ -37,7 +37,11 @@ app.use((req, res, next) => {
         }
         next();
     } else {
-        cors()(req, res, next);
+        // Use standard cors() for local dev or when being hit from localhost
+        cors({
+            origin: true, // Allow all origins for now to solve the sync issue
+            credentials: true
+        })(req, res, next);
     }
 });
 app.use(express.json({ limit: '10mb' }));
