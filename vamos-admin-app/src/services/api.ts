@@ -199,6 +199,8 @@ export const reportsApi = {
         api.get<any>('/expenses', { params }),
     getShifts: (params: { startDate?: string; endDate?: string; days?: number }) =>
         api.get<any>('/shifts/reports', { params }),
+    getOperationalDayRevenue: () =>
+        api.get<any>('/reports/operational-day-revenue'),
 };
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -218,10 +218,6 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [unpaidDebtCount, setUnpaidDebtCount] = useState(0);
   const [redemptionPendingCount, setRedemptionPendingCount] = useState(0);
 
-  // Sync States (Simulation for Local-First)
-  const [unsyncedCount, setUnsyncedCount] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
-
   // Hardware Init States
   const [hwStatus, setHwStatus] = useState<'IDLE' | 'CHECKING' | 'ERROR' | 'READY'>('IDLE');
   const [hwProgress, setHwProgress] = useState(0);
@@ -308,10 +304,9 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         api.get('/player/challenges/pending-verification'),
         api.get('/expenses/pending-count'),
         api.get('/loyalty/admin/redemptions/pending-count'),
-        api.get('/system/unsynced-count')
       ]);
 
-      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes, arenaRes, debtRes, redRes, syncCountRes] = results;
+      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes, arenaRes, debtRes, redRes] = results;
 
       if (tRes.status === 'fulfilled') setTables(tRes.value.data.data);
       if (sRes.status === 'fulfilled') setSessions(sRes.value.data);
@@ -337,7 +332,6 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       if (arenaRes.status === 'fulfilled') setArenaPendingCount(arenaRes.value.data.data?.length || 0);
       if (debtRes.status === 'fulfilled') setUnpaidDebtCount((debtRes as any).value.data.count || 0);
       if (redRes.status === 'fulfilled') setRedemptionPendingCount((redRes as any).value.data.count || 0);
-      if (syncCountRes.status === 'fulfilled') setUnsyncedCount((syncCountRes as any).value.data.count || 0);
 
       if (shiftRes.status === 'fulfilled') {
         const shiftData = shiftRes.value.data.data;

@@ -28,4 +28,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-vamous-pos.exe
+# Tambahkan ini ke .gitignore
+*.exe
+.wwebjs_auth/
+dist/
+node_modules/

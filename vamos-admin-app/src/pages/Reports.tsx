@@ -2,11 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     RefreshCw, Download, Calendar,
     Utensils, Coffee, LayoutGrid,
-    BarChart3, Table2, Users, Receipt, TrendingDown, Target, Shield, ArrowRight
+    BarChart3, Table2, Users, Receipt, TrendingDown, Target, Shield, ArrowRight,
+    Activity, DollarSign, Clock, ArrowDownRight
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { reportsApi } from '../services/api';
+import {
+    AreaChart, Area, XAxis, YAxis, CartesianGrid,
+    Tooltip as RechartsTooltip, ResponsiveContainer
+} from 'recharts';
+import { reportsApi, sessionsApi } from '../services/api';
 import type { TopPlayer, TableUtilization } from '../services/api';
 
 // ── Types ──────────────────────────────────────────
@@ -92,23 +97,37 @@ const Reports: React.FC = () => {
     const [liveFnb, setLiveFnb] = useState<FnbEntry[]>([]);
     const [liveTransactions, setLiveTransactions] = useState<TransactionEntry[]>([]);
     const [utilizationSplit, setUtilizationSplit] = useState({ dayHours: '0.0', nightHours: '0.0' });
-    const [todayQrisRevenue, setTodayQrisRevenue] = useState(0);
-    const [liveRevenue, setLiveRevenue] = useState<number | null>(null);
     const [loadingLive, setLoadingLive] = useState(false);
     const [expenseList, setExpenseList] = useState<any[]>([]);
     const [shiftList, setShiftList] = useState<ShiftEntry[]>([]);
+    const [todayStats, setTodayStats] = useState<any>(null);
+    const [pendingBillsCount, setPendingBillsCount] = useState(0);
+    const [pendingBillsAmount, setPendingBillsAmount] = useState(0);
 
     const fetchLive = async () => {
         setLoadingLive(true);
         try {
             const params = { startDate: dateFrom, endDate: dateTo };
-            const [playersRes, tablesRes, dailyRes, fnbRes, utilSplitRes] = await Promise.all([
+            const [playersRes, tablesRes, dailyRes, fnbRes, utilSplitRes, todayStatsRes, pendingRes] = await Promise.all([
                 reportsApi.topPlayers(params),
                 reportsApi.tableUtilization(params),
                 reportsApi.dailyRevenue(params),
                 reportsApi.topProducts(params),
-                reportsApi.todayUtilizationSplit()
+                reportsApi.todayUtilizationSplit(),
+                reportsApi.getOperationalDayRevenue(),
+                sessionsApi.getPending()
             ]);
+
+            if (todayStatsRes.data.success) {
+                setTodayStats(todayStatsRes.data.data);
+            }
+
+            if (pendingRes.data) {
+                const pending = pendingRes.data;
+                setPendingBillsCount(pending.length);
+                const totalPending = pending.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                setPendingBillsAmount(totalPending);
+            }
 
             if (playersRes.data.success) {
                 const d = playersRes.data.data;
@@ -143,8 +162,8 @@ const Reports: React.FC = () => {
 
                 const todayStr = new Date().toISOString().split('T')[0];
                 const todayData = d.find((day: any) => day.date === todayStr);
-                setLiveRevenue(todayData?.totalRevenue ?? null);
-                setTodayQrisRevenue(todayData?.qrisRevenue ?? 0);
+                // Silence unused warning for now as it's used for finding today's data in the array
+                void todayData;
             }
 
             if (fnbRes.data.success) {
@@ -220,29 +239,29 @@ const Reports: React.FC = () => {
         doc.setTextColor(59, 130, 246); // Primary Cobalt
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
-        doc.text('VAMOS TACTICAL ANALYTICS', 20, 25);
+        doc.text('LAPORAN ANALITIK VAMOS', 20, 25);
 
         doc.setTextColor(148, 163, 184); // Slate 400
         doc.setFontSize(10);
-        doc.text(`INTELLIGENCE LOG: ${now.toLocaleString('id-ID').toUpperCase()}`, 20, 34);
+        doc.text(`LOG LAPORAN: ${now.toLocaleString('id-ID').toUpperCase()}`, 20, 34);
         doc.text(dateRange.toUpperCase(), 220, 34);
 
         // Summary Section
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(14);
-        doc.text('FIELD PERFORMANCE SUMMARY', 20, 50);
+        doc.text('RINGKASAN PERFORMA LAPANGAN', 20, 50);
 
         autoTable(doc, {
             startY: 55,
-            head: [['PARAMETER', 'MAGNITUDE']],
+            head: [['PARAMETER', 'JUMALH / NILAI']],
             body: [
-                ['NET OPERATIONAL REVENUE', `Rp ${totals.revenue.toLocaleString('id-ID')}`],
-                ['LOGISTICAL DRAINS', `Rp ${totals.expenses.toLocaleString('id-ID')}`],
-                ['TACTICAL PROFIT', `Rp ${totals.profit.toLocaleString('id-ID')}`],
-                ['TOTAL ACTIVE SESSIONS', totals.sessions.toString()],
-                ['SECTOR MARGIN', `${((totals.profit / Math.max(totals.revenue, 1)) * 100).toFixed(1)}%`],
-                ['DAY / NIGHT DEPLOYMENT RATIO', `${utilizationSplit.dayHours}h / ${utilizationSplit.nightHours}h`],
-                ['TODAY DIGITAL REVENUE (QRIS)', `Rp ${todayQrisRevenue.toLocaleString('id-ID')}`],
+                ['PENDAPATAN OPERASIONAL BERSIH', `Rp ${totals.revenue.toLocaleString('id-ID')}`],
+                ['TOTAL PENGELUARAN', `Rp ${totals.expenses.toLocaleString('id-ID')}`],
+                ['KEUNTUNGAN BERSIH', `Rp ${totals.profit.toLocaleString('id-ID')}`],
+                ['TOTAL SESI AKTIF', totals.sessions.toString()],
+                ['MARGIN SEKTOR', `${((totals.profit / Math.max(totals.revenue, 1)) * 100).toFixed(1)}%`],
+                ['RASIO PENGGUNAAN SIANG / MALAM', `${utilizationSplit.dayHours}h / ${utilizationSplit.nightHours}h`],
+                ['PENDAPATAN DIGITAL (QRIS)', `Rp ${(todayStats?.qrisRevenue || 0).toLocaleString('id-ID')}`],
             ],
             theme: 'grid',
             headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
@@ -251,26 +270,26 @@ const Reports: React.FC = () => {
 
         // Detail Table based on active tab
         const finalY = (doc as any).lastAutoTable.finalY + 15;
-        doc.text(`INTELLIGENCE DETAIL: ${activeTab.toUpperCase()}`, 20, finalY);
+        doc.text(`DETAIL LAPORAN: ${activeTab.toUpperCase()}`, 20, finalY);
 
         if (activeTab === 'daily') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['DATE', 'REVENUE', 'SESSIONS', 'EXPENSES', 'PROFIT']],
+                head: [['TANGGAL', 'PENDAPATAN', 'SESI', 'PENGELUARAN', 'PROFIT']],
                 body: liveDaily.map(d => [d.date, `Rp ${d.revenue.toLocaleString('id-ID')}`, d.sessions, `Rp ${d.expenses.toLocaleString('id-ID')}`, `Rp ${d.profit.toLocaleString('id-ID')}`]),
                 headStyles: { fillColor: [30, 41, 59] }
             });
         } else if (activeTab === 'tables') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['ARENA NAME', 'SESSIONS', 'UTIL HOURS', 'REVENUE', 'UTIL %']],
+                head: [['NAMA MEJA', 'SESI', 'JAM UTILITAS', 'PENDAPATAN', 'UTIL %']],
                 body: liveTableUtil.map(t => [t.tableName, t.totalSessions, t.totalHours, `Rp ${t.revenue.toLocaleString('id-ID')}`, `${t.utilization.toFixed(1)}%`]),
                 headStyles: { fillColor: [30, 41, 59] }
             });
         } else if (activeTab === 'transactions') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['TIMESTAMP', 'OPERATIVE', 'ARENA', 'DURATION', 'MAGNITUDE', 'METHOD']],
+                head: [['WAKTU', 'MEMBER', 'MEJA', 'DURASI', 'TOTAL', 'METODE']],
                 body: liveTransactions.map(tx => [
                     new Date(tx.date).toLocaleString('id-ID').toUpperCase(),
                     tx.customer,
@@ -284,21 +303,21 @@ const Reports: React.FC = () => {
         } else if (activeTab === 'players') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['OPERATIVE NAME', 'SESSIONS', 'TOTAL SPEND', 'FAVORITE ARENA']],
+                head: [['NAMA MEMBER', 'SESI', 'TOTAL BELANJA', 'MEJA FAVORIT']],
                 body: liveTopPlayers.map(p => [p.memberName, p.totalSessions, `Rp ${p.totalSpend.toLocaleString('id-ID')}`, p.favoriteTable]),
                 headStyles: { fillColor: [30, 41, 59] }
             });
         } else if (activeTab === 'fnb') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['LOGISTICS', 'CLASS', 'QTY SOLD', 'REVENUE']],
+                head: [['PRODUK', 'KATEGORI', 'QTY TERJUAL', 'PENDAPATAN']],
                 body: liveFnb.map(f => [f.product, f.category, f.qty, `Rp ${f.revenue.toLocaleString('id-ID')}`]),
                 headStyles: { fillColor: [30, 41, 59] }
             });
         } else if (activeTab === 'expenses') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['DATE', 'CLASS', 'DESCRIPTION', 'MAGNITUDE']],
+                head: [['TANGGAL', 'KATEGORI', 'KETERANGAN', 'JUMLAH']],
                 body: expenseList.map(e => [
                     new Date(e.date).toLocaleDateString('id-ID'),
                     e.category,
@@ -310,7 +329,7 @@ const Reports: React.FC = () => {
         } else if (activeTab === 'shifts') {
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['DATE', 'KASIR', 'DEPLOYMENT TIME', 'SYSTEM CASH', 'ACTUAL CASH', 'DIFF / NOTES']],
+                head: [['TANGGAL', 'KASIR', 'WAKTU SHIFT', 'KAS SISTEM', 'KAS AKTUAL', 'SELISIH / CATATAN']],
                 body: shiftList.map(s => [
                     new Date(s.startTime).toLocaleDateString('id-ID'),
                     s.userName,
@@ -342,8 +361,6 @@ const Reports: React.FC = () => {
         { revenue: 0, expenses: 0, profit: 0, sessions: 0 }
     ), [filteredDaily]);
 
-    const maxRevenue = Math.max(...filteredDaily.map(d => d.revenue), 1);
-
     // Use live table data if available
     const tablesToShow: TableEntry[] = liveTableUtil.map(t => ({
         id: t.tableId,
@@ -365,13 +382,13 @@ const Reports: React.FC = () => {
     }));
 
     const tabs: { id: ReportTab; label: string; icon: React.ReactNode }[] = [
-        { id: 'daily', label: 'DAILY', icon: <BarChart3 size={16} /> },
-        { id: 'transactions', label: 'BILLING', icon: <Receipt size={16} /> },
-        { id: 'tables', label: 'ARENAS', icon: <Table2 size={16} /> },
-        { id: 'players', label: 'OPERATIVES', icon: <Users size={16} /> },
-        { id: 'fnb', label: 'LOGISTICS', icon: <Utensils size={16} /> },
-        { id: 'expenses', label: 'DRAINS', icon: <TrendingDown size={16} /> },
-        { id: 'shifts', label: 'SHIFTS', icon: <Users size={16} /> },
+        { id: 'daily', label: 'HARIAN', icon: <BarChart3 size={16} /> },
+        { id: 'transactions', label: 'TRANSAKSI', icon: <Receipt size={16} /> },
+        { id: 'tables', label: 'MEJA', icon: <Table2 size={16} /> },
+        { id: 'players', label: 'MEMBER', icon: <Users size={16} /> },
+        { id: 'fnb', label: 'PRODUK', icon: <Utensils size={16} /> },
+        { id: 'expenses', label: 'PENGELUARAN', icon: <TrendingDown size={16} /> },
+        { id: 'shifts', label: 'SHIFT', icon: <Users size={16} /> },
     ];
 
     return (
@@ -379,13 +396,13 @@ const Reports: React.FC = () => {
             {/* ── COMMAND HEADER ─────────────────────────────────────────────────── */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Intelligence Hub</p>
-                    <h1 className="text-3xl md:text-5xl lg:text-3xl xl:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">
-                        Sector <span className="text-primary">Analytics</span>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Pusat Laporan</p>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-3xl xl:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">
+                        Laporan <span className="text-primary">Sektor</span>
                     </h1>
                     <div className="flex items-center gap-3 mt-4">
                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_var(--primary)]" />
-                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">REAL-TIME DATA HARVEST ACTIVE</span>
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">PENGAMBILAN DATA REAL-TIME AKTIF</span>
                     </div>
                 </div>
                 <div className="flex gap-4">
@@ -400,76 +417,83 @@ const Reports: React.FC = () => {
                         className="fiery-btn-primary px-8 py-4 text-[10px] flex items-center gap-3"
                     >
                         <Download size={18} strokeWidth={3} />
-                        Export Intelligence PDF
+                        Export Laporan PDF
                     </button>
                 </div>
             </div>
 
-            {/* ── ANALYTICS HUB ──────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 fiery-card-highlight p-10 relative overflow-hidden group">
-                    <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/10 blur-[120px] pointer-events-none group-hover:bg-primary/20 transition-all duration-700"></div>
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-10 h-full">
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-3 italic">Total Sector Net Revenue</p>
-                            <h2 className="text-3xl md:text-4xl lg:text-3xl xl:text-6xl font-black text-white tracking-tighter italic uppercase leading-none">
-                                Rp {totals.revenue.toLocaleString('id-ID')}
-                            </h2>
-                            <div className="flex items-center gap-4 mt-6">
-                                <div className="px-3 py-1 bg-primary rounded-full text-white text-[10px] font-black italic shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                                    +{((totals.profit / Math.max(totals.revenue, 1)) * 100).toFixed(1)}% SECTOR MARGIN
-                                </div>
-                                <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic">Operational Window Performance</span>
+            {/* ── STATS GRID ────────────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {[
+                    {
+                        label: 'Pendapatan Hari Ini',
+                        value: `Rp ${Math.round(todayStats?.revenue || 0).toLocaleString('id-ID')}`,
+                        sub: 'Omzet operasional hari ini',
+                        icon: <BarChart3 className="w-5 h-5" />,
+                        accent: '#3b82f6',
+                    },
+                    {
+                        label: 'Tagihan Pending',
+                        value: `Rp ${Math.round(pendingBillsAmount || 0).toLocaleString('id-ID')}`,
+                        sub: `${pendingBillsCount} sesi belum lunas`,
+                        icon: <Receipt className="w-5 h-5" />,
+                        accent: pendingBillsCount > 0 ? '#f43f5e' : '#10b981',
+                    },
+                    {
+                        label: 'Total Pengeluaran',
+                        value: `Rp ${Math.round(todayStats?.totalExpenses || 0).toLocaleString('id-ID')}`,
+                        sub: 'Operasional hari ini',
+                        icon: <ArrowDownRight className="w-5 h-5" />,
+                        accent: '#f43f5e',
+                    },
+                    {
+                        label: 'Uang Fisik (Laci)',
+                        value: `Rp ${Math.round(todayStats?.cashRevenue || 0).toLocaleString('id-ID')}`,
+                        sub: 'Estimasi kas di laci',
+                        icon: <DollarSign className="w-5 h-5" />,
+                        accent: '#10b981',
+                    },
+                    {
+                        label: 'Total Jam Main',
+                        value: `${(parseFloat(utilizationSplit.dayHours) + parseFloat(utilizationSplit.nightHours)).toFixed(1)} Jam`,
+                        sub: `Siang: ${utilizationSplit.dayHours}j | Malam: ${utilizationSplit.nightHours}j`,
+                        icon: <Clock className="w-5 h-5" />,
+                        accent: '#0ea5e9',
+                    },
+                    {
+                        label: 'Transaksi QRIS',
+                        value: `Rp ${Math.round(todayStats?.qrisRevenue || 0).toLocaleString('id-ID')}`,
+                        sub: `${todayStats?.qrisCount || 0} transaksi digital`,
+                        icon: <Activity className="w-5 h-5" />,
+                        accent: '#d946ef',
+                    },
+                ].map((card) => (
+                    <div key={card.label} className="fiery-card p-4 sm:p-5 flex flex-col gap-3 transition-all hover:scale-[1.02] border-white/5 hover:border-white/10" style={{ background: '#111528' }}>
+                        <div className="flex items-center justify-between">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-white/[0.03] border border-white/5">
+                                <span style={{ color: card.accent }}>{card.icon}</span>
                             </div>
+                            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: card.accent, boxShadow: `0 0 8px ${card.accent}` }} />
                         </div>
-
-                        <div className="flex flex-wrap gap-10 md:border-l-2 border-white/5 md:pl-10">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Logistical Drain</p>
-                                <p className="text-2xl font-black text-rose-500 italic tracking-tighter">-{fmtK(totals.expenses)}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Unit Deployed</p>
-                                <p className="text-2xl font-black text-white italic tracking-tighter">{totals.sessions} OPS</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Net Tactical Profit</p>
-                                <p className="text-2xl font-black text-primary italic tracking-tighter">{fmtK(totals.profit)}</p>
-                            </div>
+                        <div className="min-w-0">
+                            <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1 italic truncate">{card.label}</p>
+                            <p className="text-lg sm:text-xl font-black tracking-tight text-white italic truncate">{card.value}</p>
+                            <p className="text-[8px] sm:text-[9px] text-slate-500 mt-1 italic font-medium truncate">{card.sub}</p>
                         </div>
                     </div>
-                </div>
-
-                <div className="fiery-card p-8 flex flex-col justify-between border-2 border-transparent hover:border-primary/20 transition-all">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 italic">Venue Deployment Ratio</p>
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]"></div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Solar Ops (06:00-18:00)</span>
-                            </div>
-                            <span className="text-base font-black text-white italic">{utilizationSplit.dayHours}H</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"></div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lunar Ops (18:00-06:00)</span>
-                            </div>
-                            <span className="text-base font-black text-white italic">{utilizationSplit.nightHours}H</span>
-                        </div>
-                        <div className="pt-6 border-t border-white/5 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Digital Revenue Today</span>
-                            <span className="text-lg font-black text-primary italic tracking-tighter">Rp {todayQrisRevenue.toLocaleString('id-ID')}</span>
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {liveRevenue !== null && (
-                <div className="flex items-center gap-4 px-8 py-5 rounded-[32px] bg-[#1a1f35]/20 border border-white/5 animate-pulse">
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_15px_var(--primary)]"></div>
-                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Current Sector Live Harvest:</span>
-                    <span className="text-xl font-black text-white tracking-tighter italic uppercase">Rp {liveRevenue.toLocaleString('id-ID')}</span>
+            {todayStats && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-6 sm:px-8 py-4 rounded-[24px] bg-primary/5 border border-primary/10 animate-pulse">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_15px_var(--primary)]"></div>
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] italic whitespace-nowrap">Live Sektor Saat Ini:</span>
+                    </div>
+                    <span className="text-lg sm:text-xl font-black text-white tracking-tighter italic uppercase">Rp {todayStats.revenue.toLocaleString('id-ID')}</span>
+                    <div className="sm:ml-auto flex items-center gap-2">
+                        <span className="text-[8px] sm:text-[9px] font-black text-slate-600 uppercase italic">Siklus: {todayStats.openHour}:00 - {todayStats.openHour}:00</span>
+                    </div>
                 </div>
             )}
 
@@ -479,7 +503,7 @@ const Reports: React.FC = () => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-3 flex-none lg:flex-1 justify-center px-6 lg:px-0 py-4 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 italic whitespace-nowrap ${activeTab === tab.id
+                        className={`flex items-center gap-2 sm:gap-3 flex-none lg:flex-1 justify-center px-4 sm:px-6 lg:px-0 py-3 sm:py-4 rounded-[22px] text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] transition-all duration-300 italic whitespace-nowrap ${activeTab === tab.id
                             ? 'bg-primary text-white shadow-[0_0_20px_rgba(59,130,246,0.4)] scale-105 z-10'
                             : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                             }`}
@@ -495,42 +519,62 @@ const Reports: React.FC = () => {
                     <div className="space-y-8 animate-in">
                         {/* PERFORMANCE CHART */}
                         <div className="fiery-card p-6 md:p-10 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
-                                <BarChart3 size={120} className="text-primary" />
-                            </div>
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6 relative">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 relative">
                                 <div>
-                                    <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Daily Vector Analysis</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Chronological revenue magnitude tracking</p>
+                                    <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Tren Pendapatan Sektor</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Grafik omzet dan statistik harian harian</p>
                                 </div>
                                 <div className="flex gap-6">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]"></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sector Revenue</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Total Pendapatan</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full bg-slate-800"></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Neutral Baseline</span>
+                                        <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pengeluaran</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-end gap-2 h-80 overflow-x-auto no-scrollbar pb-4 pt-10">
-                                {filteredDaily.map((d, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-4 flex-shrink-0 group/bar" style={{ minWidth: '40px' }}>
-                                        <div className="h-56 w-full flex items-end justify-center">
-                                            <div
-                                                className="w-full bg-[#1a1f35] rounded-t-xl group-hover/bar:bg-primary/40 transition-all duration-500 cursor-pointer relative border border-white/5 overflow-hidden"
-                                                style={{ height: `${(d.revenue / maxRevenue) * 100}%` }}
-                                            >
-                                                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover/bar:opacity-100 transition-opacity"></div>
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-[#101423] text-white text-[10px] font-black px-3 py-2 rounded-xl border-2 border-primary/20 opacity-0 group-hover/bar:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl scale-50 group-hover/bar:scale-100 italic">
-                                                    {fmtK(d.revenue)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <span className="text-[9px] font-black text-slate-500 uppercase -rotate-45 origin-center h-10 flex items-center italic">{d.date.slice(8)}/{d.date.slice(5, 7)}</span>
-                                    </div>
-                                ))}
+                            
+                            <div className="h-80 w-full pt-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={liveDaily} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis 
+                                            dataKey="date" 
+                                            stroke="#334155" 
+                                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: '900' }} 
+                                            tickFormatter={(val) => val.split('-').slice(1).reverse().join('/')}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis 
+                                            stroke="#334155" 
+                                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: '900' }} 
+                                            tickFormatter={(val) => fmtK(val)}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                        <RechartsTooltip 
+                                            contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', fontSize: '11px', color: '#fff' }}
+                                            itemStyle={{ fontWeight: '800' }}
+                                            labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                                            formatter={(val: any) => [`Rp ${Math.round(val || 0).toLocaleString('id-ID')}`, '']}
+                                        />
+                                        <Area type="monotone" dataKey="revenue" name="Pendapatan" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                                        <Area type="monotone" dataKey="expenses" name="Pengeluaran" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorExp)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
 
@@ -538,8 +582,8 @@ const Reports: React.FC = () => {
                         <div className="fiery-card overflow-hidden">
                             <div className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/[0.02] gap-6">
                                 <div>
-                                    <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Intelligence Log History</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Chronological operation summaries</p>
+                                    <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Riwayat Laporan Harian</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Ringkasan operasional kronologis</p>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="fiery-input !py-2 !px-4 !text-[10px] !w-auto !rounded-xl italic" />
@@ -551,7 +595,7 @@ const Reports: React.FC = () => {
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-white/5 bg-[#101423]">
-                                            {['Timestamp', 'Total Magnitude', 'Tactical Profit', 'Operational Margin'].map(h => (
+                                            {['Tanggal', 'Total Pendapatan', 'Keuntungan Bersih', 'Margin Operasional'].map(h => (
                                                 <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
                                             ))}
                                         </tr>
@@ -609,10 +653,10 @@ const Reports: React.FC = () => {
                                         </div>
                                     </div>
                                     <h4 className="text-xl font-black text-white italic tracking-tighter uppercase group-hover:text-primary transition-colors">{t.name.split(' - ')[0]}</h4>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-3 italic">{t.totalSessions} ACTIVE OPS</p>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-3 italic">{t.totalSessions} SESI AKTIF</p>
                                     <div className="mt-6 pt-6 border-t border-white/5 w-full">
                                         <p className="text-2xl font-black text-primary italic tracking-tighter">{fmtK(t.revenue)}</p>
-                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">Arena Harvest</p>
+                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">Total Pendapatan Meja</p>
                                     </div>
                                 </div>
                             ))}
@@ -638,12 +682,12 @@ const Reports: React.FC = () => {
                                                 <Target size={12} className="text-primary" />
                                                 FAVORITE: {p.favoriteTable}
                                             </span>
-                                            <span className="text-[10px] font-bold text-slate-500 italic uppercase tracking-widest">{p.sessions} COMBAT SESSIONS</span>
+                                            <span className="text-[10px] font-bold text-slate-500 italic uppercase tracking-widest">{p.sessions} TOTAL SESI</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-3xl font-black text-primary italic tracking-tighter shadow-primary/20">{fmtK(p.totalSpend)}</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">OPERATIVE CONTRIBUTION</p>
+                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">TOTAL BELANJA MEMBER</p>
                                     </div>
                                 </div>
                             ))}
@@ -655,14 +699,14 @@ const Reports: React.FC = () => {
                     <div className="space-y-8 animate-in">
                         <div className="fiery-card overflow-hidden">
                             <div className="p-8 border-b border-white/5 bg-white/[0.02]">
-                                <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Billing Registry</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Real-time financial flow verification</p>
+                                <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Catatan Transaksi</h3>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Verifikasi real-time semua transaksi lunas</p>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-white/5 bg-[#101423]">
-                                            {['Timestamp', 'Operative', 'Arena', 'Duration', 'Magnitude', 'Protocol'].map(h => (
+                                            {['Waktu', 'Nama Member', 'Meja', 'Durasi', 'Total', 'Metode'].map(h => (
                                                 <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
                                             ))}
                                         </tr>
@@ -673,8 +717,8 @@ const Reports: React.FC = () => {
                                                 <td colSpan={6} className="p-20 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <Shield size={48} className="text-slate-800 mb-6" />
-                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">No Billings Verified</h3>
-                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">REGISTRY EMPTY FOR CURRENT OPERATIONAL PERIOD</p>
+                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">Tidak Ada Transaksi</h3>
+                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">CATATAN KOSONG UNTUK PERIODE INI</p>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -721,7 +765,7 @@ const Reports: React.FC = () => {
                                             {cat === 'Makanan' ? <Utensils size={30} className="text-orange-500 group-hover:text-white" /> : cat === 'Minuman' ? <Coffee size={30} className="text-primary group-hover:text-white" /> : <LayoutGrid size={30} className="text-yellow-500 group-hover:text-white" />}
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">{cat} Sector</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">Sektor {cat}</p>
                                             <p className="text-3xl font-black text-white italic tracking-tighter">{fmtK(total)}</p>
                                         </div>
                                     </div>
@@ -734,7 +778,7 @@ const Reports: React.FC = () => {
                                 <table className="w-full text-left min-w-[600px]">
                                     <thead>
                                         <tr className="bg-[#101423] border-b border-white/5">
-                                            {['Provisioning Name', 'Quantity Sold', 'Sector Revenue Magnitude'].map(h => (
+                                            {['Nama Produk', 'Jumlah Terjual', 'Total Pendapatan'].map(h => (
                                                 <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
                                             ))}
                                         </tr>
@@ -743,7 +787,7 @@ const Reports: React.FC = () => {
                                         {liveFnb.map(f => (
                                             <tr key={f.id} className="hover:bg-white/[0.03] transition-all group">
                                                 <td className="p-6 font-black text-white italic text-lg uppercase tracking-tighter group-hover:text-primary transition-all">{f.product}</td>
-                                                <td className="p-6 font-black text-slate-400 italic text-base uppercase">{f.qty} UNITS</td>
+                                                <td className="p-6 font-black text-slate-400 italic text-base uppercase">{f.qty} UNIT</td>
                                                 <td className="p-6 font-black text-primary italic text-xl tracking-tighter">{fmtK(f.revenue)}</td>
                                             </tr>
                                         ))}
@@ -765,7 +809,7 @@ const Reports: React.FC = () => {
                                             <TrendingDown size={30} className="text-rose-500 group-hover:text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">{cat} Drain</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">Pengeluaran {cat}</p>
                                             <p className="text-3xl font-black text-white italic tracking-tighter">{fmtK(total)}</p>
                                         </div>
                                     </div>
@@ -778,7 +822,7 @@ const Reports: React.FC = () => {
                                 <table className="w-full text-left min-w-[800px]">
                                     <thead>
                                         <tr className="bg-[#101423] border-b border-white/5">
-                                            {['Timestamp', 'Deployment Class', 'Protocol Description', 'Drain Magnitude'].map(h => (
+                                            {['Tanggal', 'Kategori', 'Keterangan', 'Jumlah'].map(h => (
                                                 <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
                                             ))}
                                         </tr>
@@ -789,8 +833,8 @@ const Reports: React.FC = () => {
                                                 <td colSpan={4} className="p-20 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <Shield size={48} className="text-slate-800 mb-6" />
-                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">Budget Secured</h3>
-                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">ZERO LOGISTICAL DRAINS RECORDED IN SECTOR</p>
+                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">Anggaran Aman</h3>
+                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">TIDAK ADA PENGELUARAN TERCATAT</p>
                                                     </div>
                                                 </td>
                                             </tr>
