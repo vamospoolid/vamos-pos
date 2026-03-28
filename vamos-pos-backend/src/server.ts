@@ -100,9 +100,16 @@ server.keepAliveTimeout = 5000;
 server.headersTimeout = 6000;
 
 // ── AUTO FIX STUCK TABLES ────────────────────────────────────────────────
-// Jalankan sekali saat server start — bersihkan meja stuck dari restart sebelumnya.
-// Jadwal ulang setiap 5 menit hanya di VPS.
+// PENTING: Jangan jalankan di Smart Bridge (IS_LOCAL_ELECTRON) karena DB lokal
+// tidak menyimpan data sesi — semua sesi ada di VPS. Jika dijalankan, ia akan
+// melihat semua meja PLAYING sebagai "stuck" (tidak ada sesi lokal) dan mereset
+// seluruh meja ke AVAILABLE, membatalkan semua transaksi yang sedang berjalan!
 const runFixStuckTables = async () => {
+    // Guard: HANYA jalankan di VPS, TIDAK di mesin kasir lokal
+    if (isLocalBridge) {
+        logger.info('⏭️ fixStuckTables: Dilewati (Smart Bridge mode — sesi ada di VPS).');
+        return;
+    }
     try {
         const { TableService } = await import('./modules/tables/table.service');
         const result = await TableService.fixStuckTables();
@@ -119,6 +126,7 @@ const runFixStuckTables = async () => {
 };
 
 // Jalankan sekali saat start (delay 3 detik agar DB & relay siap)
+// Di Smart Bridge mode, fungsi akan langsung return tanpa efek
 setTimeout(runFixStuckTables, 3000);
 
 // ── BACKGROUND SERVICES (DI VPS SAJA) ────────────────────────────────────
