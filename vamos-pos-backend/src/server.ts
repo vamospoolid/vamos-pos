@@ -9,6 +9,8 @@ import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/errorHandler';
 import routes from './routes';
 import { logger } from './utils/logger';
+import { RelayService } from './modules/relay/relay.service';
+import { getCloudSocket } from './socket';
 
 // --- PKG NATIVE MODULES WORKAROUND ---
 // Memaksa pkg untuk membundel dan men-extract file .node yang dibutuhkan serialport
@@ -75,6 +77,25 @@ app.use(limiter);
 
 // API Routes
 app.use('/api', routes);
+
+// Diagnostic Route for Hardware Bridge
+app.get('/api/system/bridge-status', (req, res) => {
+    const cloudSocket = getCloudSocket();
+    res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        relay: RelayService.getStatus(),
+        vps: {
+            url: process.env.CLOUD_BASE_URL || 'https://pos.vamospool.id',
+            isConnected: cloudSocket?.connected || false,
+            socketId: cloudSocket?.id || null
+        },
+        env: {
+            IS_LOCAL_ELECTRON: process.env.IS_LOCAL_ELECTRON,
+            NODE_ENV: process.env.NODE_ENV
+        }
+    });
+});
 
 // Serve Frontend Static Files (Unified Build)
 const publicPath = path.join(process.cwd(), 'public');
