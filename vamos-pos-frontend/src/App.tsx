@@ -418,7 +418,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       console.log('📡 [BRIDGE] New Hardware Status:', data);
       
       // Tampilkan notifikasi jika baru pertama kali konek
-      setBridgeHwStatus(prev => {
+      setBridgeHwStatus((prev: any) => {
         if (!prev) {
           vamosAlert('📡 Jembatan Hardware Kasir TERDETEKSI!');
         }
