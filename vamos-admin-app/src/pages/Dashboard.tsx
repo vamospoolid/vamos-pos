@@ -134,8 +134,8 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Quick Stats Grid like QUICK ACTIONS in Player App */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Quick Stats Grid - Expanded for Desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <button
                     onClick={() => navigate('/events')}
                     className="fiery-card p-6 flex flex-col gap-4 hover:scale-[1.02] transition-all duration-300"

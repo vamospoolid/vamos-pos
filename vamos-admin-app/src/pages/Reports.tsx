@@ -98,6 +98,7 @@ const Reports: React.FC = () => {
     const [liveTransactions, setLiveTransactions] = useState<TransactionEntry[]>([]);
     const [utilizationSplit, setUtilizationSplit] = useState({ dayHours: '0.0', nightHours: '0.0' });
     const [loadingLive, setLoadingLive] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [expenseList, setExpenseList] = useState<any[]>([]);
     const [shiftList, setShiftList] = useState<ShiftEntry[]>([]);
     const [todayStats, setTodayStats] = useState<any>(null);
@@ -106,6 +107,7 @@ const Reports: React.FC = () => {
 
     const fetchLive = async () => {
         setLoadingLive(true);
+        setFetchError(null);
         try {
             const params = { startDate: dateFrom, endDate: dateTo };
             const [playersRes, tablesRes, dailyRes, fnbRes, utilSplitRes, todayStatsRes, pendingRes] = await Promise.all([
@@ -221,8 +223,9 @@ const Reports: React.FC = () => {
                     status: s.status
                 })));
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to fetch reports:', err);
+            setFetchError(err.message || 'Gagal terhubung ke Server VPS. Periksa koneksi internet atau CORS settings.');
         } finally {
             setLoadingLive(false);
         }
@@ -421,6 +424,25 @@ const Reports: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* ── CONNECTION ERROR ALERT ────────────────────────────────────────── */}
+            {fetchError && (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-[32px] flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500 flex items-center justify-center fiery-glow shadow-rose-500/20 shrink-0">
+                        <Activity className="text-white w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest italic mb-1">Data Sync Interrupted</p>
+                        <p className="text-sm font-bold text-slate-300">{fetchError}</p>
+                    </div>
+                    <button 
+                        onClick={fetchLive}
+                        className="ml-auto px-6 py-3 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+                    >
+                        Retry Protocol
+                    </button>
+                </div>
+            )}
 
             {/* ── STATS GRID ────────────────────────────────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
