@@ -12,6 +12,11 @@ import { logger } from './utils/logger';
 
 
 const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
+if (isLocalBridge) {
+    import('./modules/system/bridge.service').then(({ BridgeService }) => {
+        BridgeService.init();
+    });
+}
 const app = express();
 
 app.use(helmet({

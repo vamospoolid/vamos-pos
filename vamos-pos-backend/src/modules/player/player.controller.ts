@@ -22,24 +22,20 @@ export class PlayerController {
             const opponent = await prisma.member.findUnique({ where: { id: opponentId } });
             if (!opponent) return res.status(400).json({ success: false, message: 'Target ID tidak valid atau Player tidak ditemukan.' });
 
-            // Balance Check for Challenger -- REMOVED AS REQUESTED (XP ONLY)
-            /* 
-            const challenger = await prisma.member.findUnique({ where: { id: challengerId } });
-            if (!challenger || (challenger.loyaltyPoints || 0) < (pointsStake || 50)) {
-                return res.status(400).json({ success: false, message: 'Poin Anda tidak mencukupi untuk melakukan taruhan ini.' });
+            // Balance Check for Opponent (New Requirement)
+            const stake = pointsStake || 0;
+            if ((opponent.loyaltyPoints || 0) < stake) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Saldo poin lawan (${opponent.loyaltyPoints}) tidak mencukupi untuk menerima tantangan ini (${stake} POIN).` 
+                });
             }
-
-            // Balance Check for Opponent
-            if ((opponent.loyaltyPoints || 0) < (pointsStake || 50)) {
-                return res.status(400).json({ success: false, message: 'Saldo poin lawan tidak mencukupi untuk menerima tantangan ini.' });
-            }
-            */
 
             const challenge = await (prisma.matchChallenge as any).create({
                 data: {
                     challengerId,
                     opponentId,
-                    pointsStake: pointsStake || 0,
+                    pointsStake: stake,
                     isFightForTable: !!isFightForTable,
                     sessionId: sessionId || null,
                     note: note || null,

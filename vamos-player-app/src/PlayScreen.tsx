@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, ShieldAlert, CheckCircle2, Copy } from 'lucide-react';
 import { TableCard } from './components/TableCard';
 import { BulletinCarousel } from './components/BulletinCarousel';
 import { io } from 'socket.io-client';
@@ -16,6 +16,8 @@ export function PlayScreen({ member }: { member: any }) {
   const [isChoosingStake, setIsChoosingStake] = useState(false);
   const [selectedStake, setSelectedStake] = useState(0);
   const [isFightForTable, setIsFightForTable] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [manualOpponentId, setManualOpponentId] = useState('');
 
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -148,16 +150,31 @@ export function PlayScreen({ member }: { member: any }) {
   };
 
   const respondToChallenge = async (id: string, status: 'ACCEPTED' | 'DECLINED') => {
+    if (!id) return alert("PROTOCOL ERROR: MISSING CHALLENGE ID.");
     try {
         const res = await api.post(`/player/challenge/${id}/respond`, { status });
         if (res.data.success) {
             setIncomingChallenge(null);
-            fetchChallenges();
-            if (status === 'ACCEPTED') {
-                alert("MATCH PROTOCOL INITIATED.");
-            }
+            // Wait slightly for DB to propagate before fetching
+            setTimeout(() => {
+                fetchChallenges();
+                if (status === 'ACCEPTED') {
+                    alert("MATCH PROTOCOL INITIATED.");
+                } else {
+                    alert("PROTOCOL ABORTED.");
+                }
+            }, 500);
         }
-    } catch (err: any) { alert(err.response?.data?.message || "RESPONSE FAILED."); }
+    } catch (err: any) { 
+        alert(err.response?.data?.message || "RESPONSE FAILED."); 
+        setIncomingChallenge(null);
+    }
+  };
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(member.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -384,7 +401,15 @@ export function PlayScreen({ member }: { member: any }) {
             </div>
 
             <p className="text-sm font-black text-white mb-1 uppercase tracking-tighter italic">{member.name}</p>
-            <p className="text-[10px] font-mono text-primary font-bold uppercase tracking-widest mb-10">{member.id}</p>
+            <button 
+              onClick={handleCopyId}
+              className="group/id flex items-center justify-center gap-2 mx-auto mb-10 transition-all active:scale-95"
+            >
+              <p className="text-[10px] font-mono text-primary font-bold uppercase tracking-widest">{member.id}</p>
+              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 group-hover/id:bg-primary/20 transition-all">
+                {copied ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Copy size={12} className="text-primary" />}
+              </div>
+            </button>
 
             <button onClick={() => setShowMyQR(false)} className="w-full py-5 fiery-btn-secondary text-[10px] font-black uppercase tracking-widest italic border border-white/5 active:scale-95 transition-all">
               TUTUP PROTOKOL
@@ -413,6 +438,34 @@ export function PlayScreen({ member }: { member: any }) {
                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                  <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] italic">Search Active</span>
               </div>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-white/5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 italic text-center">RIVAL NOT DETECTED? INPUT MANUALLY</p>
+                <div className="flex gap-3">
+                  <div className="flex-1 bg-black/40 border-2 border-white/10 rounded-2xl p-1 px-4 flex items-center focus-within:border-primary/40 transition-all">
+                    <input 
+                      type="text"
+                      placeholder="ENTER RIVAL UUID..."
+                      value={manualOpponentId}
+                      onChange={(e) => setManualOpponentId(e.target.value)}
+                      className="w-full bg-transparent border-none outline-none text-white font-mono text-xs uppercase placeholder:text-slate-700"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => {
+                      if (manualOpponentId.trim()) {
+                        setPendingOpponentId(manualOpponentId.trim());
+                        setIsScanning(false);
+                        setIsChoosingStake(true);
+                      }
+                    }}
+                    disabled={!manualOpponentId.trim()}
+                    className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center fiery-glow disabled:opacity-30 disabled:grayscale transition-all active:scale-95"
+                  >
+                    <CheckCircle2 size={24} className="text-secondary" />
+                  </button>
+                </div>
             </div>
           </div>
         </div>

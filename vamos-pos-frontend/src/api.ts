@@ -1,9 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: (window.location.protocol === 'file:' || window.location.origin.includes('localhost'))
-        ? 'http://localhost:3000/api' 
-        : (window.location.origin + '/api'),
+    baseURL: 'http://localhost:3000/api', 
 });
 
 api.interceptors.request.use((config) => {

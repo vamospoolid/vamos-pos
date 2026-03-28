@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Clock, CreditCard, ChevronRight, AlertCircle, CheckCircle2, DollarSign, ArrowLeft } from 'lucide-react';
+import { Receipt, Clock, CreditCard, ChevronRight, AlertCircle, CheckCircle2, DollarSign, ArrowLeft, Swords } from 'lucide-react';
 import { api } from './api';
 
 export function HistoryScreen({ member, onBack }: { member: any, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'history' | 'debts'>('history');
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [debts, setDebts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+   const [activeTab, setActiveTab] = useState<'history' | 'debts' | 'matches'>('history');
+   const [sessions, setSessions] = useState<any[]>([]);
+   const [debts, setDebts] = useState<any[]>([]);
+   const [matches, setMatches] = useState<any[]>([]);
+   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [sessionRes, debtRes] = await Promise.all([
+        const [sessionRes, debtRes, matchRes] = await Promise.all([
           api.get(`/player/${member.id}/transactions`),
-          api.get(`/player/${member.id}/unpaid-bills`)
+          api.get(`/player/${member.id}/unpaid-bills`),
+          api.get(`/player/${member.id}/history`)
         ]);
         if (sessionRes.data.success) setSessions(sessionRes.data.data);
         if (debtRes.data.success) setDebts(debtRes.data.data);
+        if (matchRes.data.success) setMatches(matchRes.data.data);
       } catch (err) {}
       setLoading(false);
     };
@@ -39,20 +42,26 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-[#101423] p-2 rounded-[28px] border border-white/5">
+      <div className="flex bg-[#101423] p-1.5 rounded-[28px] border border-white/5 overflow-x-auto no-scrollbar">
         <button 
           onClick={() => setActiveTab('history')}
-          className={`flex-1 py-4 rounded-[22px] text-[10px] font-black uppercase tracking-widest italic transition-all ${activeTab === 'history' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
+          className={`flex-1 min-w-[100px] py-3.5 rounded-[22px] text-[9px] font-black uppercase tracking-widest italic transition-all ${activeTab === 'history' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
         >
-          SESSION HISTORY
+          SESSIONS
+        </button>
+        <button 
+          onClick={() => setActiveTab('matches')}
+          className={`flex-1 min-w-[100px] py-3.5 rounded-[22px] text-[9px] font-black uppercase tracking-widest italic transition-all ${activeTab === 'matches' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
+        >
+          ARENA MATCH
         </button>
         <button 
           onClick={() => setActiveTab('debts')}
-          className={`flex-1 py-4 rounded-[22px] text-[10px] font-black uppercase tracking-widest italic transition-all relative ${activeTab === 'debts' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
+          className={`flex-1 min-w-[100px] py-3.5 rounded-[22px] text-[9px] font-black uppercase tracking-widest italic transition-all relative ${activeTab === 'debts' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
         >
-          UNPAID BILLS (BON)
+          UNPAID
           {debts.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[#101423] animate-bounce">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] font-bold border-2 border-[#101423]">
                 {debts.length}
               </span>
           )}
@@ -107,6 +116,44 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
             ) : (
                 <div className="fiery-card p-20 text-center border-2 border-dashed border-white/5 bg-[#1a1f35]/10 italic">
                     <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">No transaction history found.</p>
+                </div>
+            )}
+        </div>
+      ) : activeTab === 'matches' ? (
+        <div className="space-y-4">
+            {matches.length > 0 ? (
+                matches.map(match => (
+                    <div key={match.id} className={`fiery-card p-6 border-2 transition-all ${match.isWinner ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/10 bg-rose-500/5'}`}>
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${match.isWinner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                                    <Swords size={20} className={match.isWinner ? 'text-emerald-500' : 'text-rose-500'} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{new Date(match.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} • {match.type}</p>
+                                    <h4 className="text-lg font-black text-white uppercase italic tracking-tighter">VS {match.opponentName}</h4>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase italic ${match.isWinner ? 'bg-emerald-500 text-secondary' : 'bg-rose-500 text-white'}`}>
+                                    {match.isWinner ? 'VICTORY' : 'DEFEAT'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                            <div className="text-[10px] font-black text-slate-500 uppercase italic opacity-60">
+                                {match.tournamentName}
+                            </div>
+                            <div className="text-sm font-black text-white italic tracking-tighter">
+                                {match.myScore} — {match.opponentScore}
+                            </div>
+                        </div>
+                    </div>
+                ))
+            ) : (
+                <div className="fiery-card p-20 text-center border-2 border-dashed border-white/5 bg-[#1a1f35]/10 italic">
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">No match records found.</p>
                 </div>
             )}
         </div>

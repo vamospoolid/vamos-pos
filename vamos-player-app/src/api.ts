@@ -12,7 +12,7 @@ if (!deviceId) {
 }
 
 export const api = axios.create({
-    baseURL: 'https://pos.vamospool.id/api', 
+    baseURL: 'http://localhost:3000/api', 
 });
 
 api.interceptors.request.use((config) => {
