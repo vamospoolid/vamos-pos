@@ -882,33 +882,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Sync Status Button */}
-            <button
-              onClick={async () => {
-                if(unsyncedCount > 0) {
-                     setIsSyncing(true);
-                     try {
-                         const res = await api.post('/system/sync-now');
-                         setUnsyncedCount(0);
-                         vamosAlert(`${res.data.syncedCount} data berhasil disikronisasi ke Cloud!`);
-                     } catch(err: any) {
-                         console.error(err);
-                         vamosAlert('Gagal mengirim data. Pastikan VPS_SYNC_URL valid dan server online.');
-                     } finally {
-                         setIsSyncing(false);
-                     }
-                } else {
-                     vamosAlert('Semua data sudah tersinkron dengan Cloud VPS.');
-                }
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${unsyncedCount > 0 ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 hover:bg-orange-500/30 hover:scale-105 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-[#1e1e1e] border-[#222222] text-[#00ff66] hover:bg-[#252525]'}`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : unsyncedCount > 0 ? 'animate-pulse' : ''}`} />
-              <span className="text-[10px] font-bold tracking-widest uppercase">
-                 {isSyncing ? 'Syncing...' : unsyncedCount > 0 ? `${unsyncedCount} PENDING SYNC` : 'SYNC: ONLINE'}
-              </span>
-            </button>
-            
+
             {/* Hardware Status Indicator (Mini) */}
             {!showHwProgress && (
               <div
