@@ -29,11 +29,11 @@ app.use(helmet({
 app.use((req, res, next) => {
     const isProdHost = req.headers.host?.includes('vamospool.id');
     const isLocalOrigin = req.headers.origin?.includes('localhost') || req.headers.origin?.includes('127.0.0.1');
-    const isProdEnv = process.env.NODE_ENV === 'production';
+    const isLocalDomain = req.headers.origin?.includes('pos.local');
     
-    // If we're on production AND the request is NOT from a local browser origin, 
+    // If we're on a vamospool.id host and the request is NOT from a local browser origin, 
     // we let Nginx handle CORS to avoid "multiple values '*, *'" errors.
-    if (isProdHost && !isLocalOrigin && isProdEnv) {
+    if (isProdHost && !isLocalOrigin && !isLocalDomain) {
         if (req.method === 'OPTIONS') {
             res.header('Access-Control-Allow-Origin', '*');
             res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
@@ -44,7 +44,7 @@ app.use((req, res, next) => {
     } else {
         // Use standard cors() for local dev or when being hit from localhost
         cors({
-            origin: true, // Allow all origins for now to solve the sync issue
+            origin: true,
             credentials: true
         })(req, res, next);
     }
