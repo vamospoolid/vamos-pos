@@ -12,8 +12,6 @@ if ((process as any).pkg) {
 }
 // --- END PKG FIX ---
 
-dotenv.config();
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -25,6 +23,7 @@ import { logger } from './utils/logger';
 
 dotenv.config();
 
+const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 const app = express();
 
 app.use(helmet({
@@ -66,9 +65,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// import path from 'path'; // Removed duplicate
-import { waService } from './modules/whatsapp/wa.service';
-import { WaTemplateService } from './modules/whatsapp/wa.template.service';
+// Dynamic imports for heavy services
+// import { waService } from './modules/whatsapp/wa.service';
+// import { WaTemplateService } from './modules/whatsapp/wa.template.service';
 
 // API Routes
 app.use('/api', routes);
@@ -85,11 +84,16 @@ app.get('*', (req, res, next) => {
 
 app.use(errorHandler);
 
-// Initialize WA Service
-waService.initialize();
+// Initialize WA Service (VPS ONLY)
+if (!isLocalBridge) {
+    import('./modules/whatsapp/wa.service').then(({ waService }) => {
+        waService.initialize();
+    }).catch(e => logger.error('WA Service init error:', e));
 
-// Seed default WA templates if not yet created
-WaTemplateService.ensureDefaults().catch(e => logger.error('WaTemplate seed error:', e));
+    import('./modules/whatsapp/wa.template.service').then(({ WaTemplateService }) => {
+        WaTemplateService.ensureDefaults().catch(e => logger.error('WaTemplate seed error:', e));
+    });
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -127,7 +131,6 @@ const runFixStuckTables = async () => {
 setTimeout(runFixStuckTables, 3000);
 
 // ── BACKGROUND SERVICES (DI VPS SAJA) ────────────────────────────────────
-const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 
 if (!isLocalBridge) {
     logger.info('⚙️ Starting VPS Background Services...');
