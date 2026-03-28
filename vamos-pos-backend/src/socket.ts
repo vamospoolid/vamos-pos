@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import { io as ioClient } from 'socket.io-client';
 import { logger } from './utils/logger';
 import { prisma } from './database/db';
+import { eventBus } from './utils/eventBus';
 
 let io: Server;
 
@@ -59,6 +60,20 @@ const initCloudBridge = () => {
 
     cloudSocket.on('connect', () => {
         logger.info('✅ Jembatan Cloud TERHUBUNG! Booking & Tantangan kini Realtime.');
+        
+        // Laporkan status hardware awal saat terhubung
+        import('./modules/relay/relay.service').then(({ RelayService }) => {
+            const status = RelayService.getStatus();
+            cloudSocket.emit('hardware:status', { isConnected: status.isConnected });
+        });
+    });
+
+    // Dengarkan perubahan status hardware dari RelayService (via Event Bus)
+    eventBus.on('hardware:status', (isConnected: boolean) => {
+        if (cloudSocketInstance && cloudSocketInstance.connected) {
+            logger.info(`📡 [BRIDGE] Meneruskan Status Hardware ke Cloud: ${isConnected ? 'ONLINE' : 'OFFLINE'}`);
+            cloudSocketInstance.emit('hardware:status', { isConnected });
+        }
     });
 
     // Memory untuk debounce (menyimpan waktu terakhir event diterima)
@@ -255,3 +270,5 @@ export const getIO = () => {
     }
     return io;
 };
+
+export const getCloudSocket = () => cloudSocketInstance;

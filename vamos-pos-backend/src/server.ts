@@ -126,15 +126,16 @@ const runFixStuckTables = async () => {
 // Jalankan sekali saat start (delay 3 detik agar DB & relay siap)
 setTimeout(runFixStuckTables, 3000);
 
-// Jadwalkan setiap 5 menit (Hanya di VPS)
-if (!process.env.IS_LOCAL_ELECTRON) {
-    setInterval(runFixStuckTables, 5 * 60 * 1000);
-}
-// ─────────────────────────────────────────────────────────────────────────
+// ── BACKGROUND SERVICES (DI VPS SAJA) ────────────────────────────────────
+const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 
-// ── PENJADWAL BACKGROUND (DI VPS SAJA) ───────────────────────────────────
-if (!process.env.IS_LOCAL_ELECTRON) {
-    // ── AUTO END EXPIRED SESSIONS ─────────────────────────────────────────────
+if (!isLocalBridge) {
+    logger.info('⚙️ Starting VPS Background Services...');
+
+    // 1. Auto-fix stuck tables (setiap 5 menit)
+    setInterval(runFixStuckTables, 5 * 60 * 1000);
+
+    // 2. Auto end expired sessions (setiap 1 menit)
     const runAutoExpireSessions = async () => {
         try {
             const { SessionService } = await import('./modules/sessions/session.service');
@@ -146,7 +147,7 @@ if (!process.env.IS_LOCAL_ELECTRON) {
     setTimeout(runAutoExpireSessions, 5000);
     setInterval(runAutoExpireSessions, 60 * 1000);
 
-    // ── AUTO EXPIRE WAITLIST (PENALTY NO-SHOW) ──────────────────────────────
+    // 3. Auto expire waitlist (setiap 10 menit)
     const runWaitlistCheck = async () => {
         try {
             const { WaitlistService } = await import('./modules/waitlist/waitlist.service');
@@ -158,7 +159,7 @@ if (!process.env.IS_LOCAL_ELECTRON) {
     setTimeout(runWaitlistCheck, 15000);
     setInterval(runWaitlistCheck, 10 * 60 * 1000);
 
-    // ── AUDIT LOG CLEANUP ────────────────────────────────────────────────────
+    // 4. Audit Log Cleanup (setiap 24 jam)
     const runAuditCleanup = async () => {
         try {
             const { AuditService } = await import('./modules/audit/audit.service');
@@ -170,7 +171,7 @@ if (!process.env.IS_LOCAL_ELECTRON) {
     setTimeout(runAuditCleanup, 10000);
     setInterval(runAuditCleanup, 24 * 60 * 60 * 1000);
 
-    // ── MONTHLY DATABASE BACKUP ──────────────────────────────────────────────
+    // 5. Monthly Database Backup (setiap jam 2 pagi tgl 1)
     const runMonthlyBackup = async () => {
         try {
             const now = new Date();
@@ -187,14 +188,13 @@ if (!process.env.IS_LOCAL_ELECTRON) {
         }
     };
     setInterval(runMonthlyBackup, 60 * 60 * 1000);
-}
-// ─────────────────────────────────────────────────────────────────────────
 
-// ── LOCAL-FIRST BACKGROUND SYNC WORKER ───────────────────────────────────
-if (!process.env.IS_LOCAL_ELECTRON) {
+    // 6. Local-First Sync Worker (ambil data dari POS lokal)
     import('./modules/system/sync.service').then(({ SyncService }) => {
         SyncService.startBackgroundSync();
     });
+} else {
+    logger.info('⚡ BRIDGE MODE: Background services locked (OFF) for local hardware bridge.');
 }
 // ─────────────────────────────────────────────────────────────────────────
 

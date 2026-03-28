@@ -1,6 +1,7 @@
 import { SerialPort } from 'serialport';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../database/db';
+import { eventBus } from '../../utils/eventBus';
 
 export class RelayService {
     private static port: SerialPort | null = null;
@@ -214,47 +215,48 @@ export class RelayService {
             this.port.open((err) => {
                 if (err) {
                     logger.error(`❌ HARDWARE ERROR: Tidak bisa buka ${comPortPath} — ${err.message}`);
-                    this.isConnected = false;
+                    this.updateConnectionStatus(false);
 
                     // Port gagal → coba auto-detect port lain secara diam-diam
-                    if (!this.lastKnownPort) {
-                        this.autoDetectPort(comPortPath as string).then((found) => {
-                            if (found) this.init(found);
-                        });
+                    if (!this.lastKnownPort || comPortPath === this.lastKnownPort) {
+                        setTimeout(() => {
+                            this.autoDetectPort(comPortPath as string).then((found) => {
+                                if (found) this.init(found);
+                                else {
+                                    // Jika gagal semua, coba lagi dlm 10 detik (looping scan)
+                                    setTimeout(() => this.init(), 10000);
+                                }
+                            });
+                        }, 2000);
                     }
                 } else {
                     logger.info(`✅ HARDWARE SUCCESS: Relay terhubung di ${comPortPath} ⚡`);
-                    this.isConnected = true;
+                    this.updateConnectionStatus(true);
                     this.lastKnownPort = comPortPath as string;
                 }
             });
 
             this.port.on('close', () => {
                 logger.warn(`⚠️ Serial port ${comPortPath} tertutup.`);
-                this.isConnected = false;
-
-                // Reconnect: cek dulu apakah port yang sama masih ada di sistem
-                // Auto-reconnect dinonaktifkan sementara agar tidak spam error jika hardware tidak dicolok
-                // Anda bisa menekan tombol Reconnect di menu Setting nanti.
-                /*
-                setTimeout(async () => {
-                    ...
-                }, 5000);
-                */
+                this.updateConnectionStatus(false);
+                
+                // Jika tertutup tiba-tiba (dicabut), mulai pencarian ulang
+                setTimeout(() => this.init(), 5000);
             });
 
             this.port.on('error', (err) => {
                 logger.error(`🚨 Serial Port Error: ${err.message}`);
-                this.isConnected = false;
+                this.updateConnectionStatus(false);
             });
         } catch (error: any) {
             logger.error(`❌ Hardware Relay Init Gagal: ${error.message}`);
-            this.isConnected = false;
+            this.updateConnectionStatus(false);
 
             // Crash saat buat objek SerialPort → auto-detect
             setTimeout(async () => {
                 const found = await this.autoDetectPort();
                 if (found) this.init(found);
+                else setTimeout(() => this.init(), 10000);
             }, 5000);
         }
 
@@ -466,6 +468,15 @@ export class RelayService {
             }
         }
         return crc;
+    }
+    private static async updateConnectionStatus(status: boolean) {
+        if (this.isConnected !== status) {
+            this.isConnected = status;
+            
+            // Siarkan status ke pusat (Event Bus) agar ditangkap Socket Bridge
+            eventBus.emit('hardware:status', status);
+            logger.info(`📡 [RELAY] Status Hardware diperbarui: ${status ? 'ONLINE' : 'OFFLINE'}`);
+        }
     }
 }
 
