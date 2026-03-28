@@ -42,6 +42,8 @@ export default function Challenges() {
     const [members, setMembers] = useState<Player[]>([]);
     const [challengerId, setChallengerId] = useState('');
     const [opponentId, setOpponentId] = useState('');
+    const [pointsStake, setPointsStake] = useState(0);
+    const [isFightForTable, setIsFightForTable] = useState(false);
     const [adminNote, setAdminNote] = useState('');
     const [isCreating, setIsCreating] = useState(false);
 
@@ -95,12 +97,16 @@ export default function Challenges() {
             await api.post('/player/challenges/admin-create', {
                 challengerId,
                 opponentId,
+                pointsStake,
+                isFightForTable,
                 note: adminNote || 'Admin Generated Match'
             });
             vamosAlert('Match created successfully! Both players have been notified.');
             setIsCreateModalOpen(false);
             setChallengerId('');
             setOpponentId('');
+            setPointsStake(0);
+            setIsFightForTable(false);
             setAdminNote('');
             fetchChallenges();
         } catch (err: any) {
@@ -247,6 +253,19 @@ export default function Challenges() {
                                     </div>
                                 )}
 
+                                <div className="flex items-center justify-between bg-black/40 p-3 rounded-2xl border border-white/5 mb-4">
+                                     <div className="flex items-center gap-2">
+                                        <Flame size={14} className="text-orange-500" />
+                                        <span className="text-[10px] font-black text-white uppercase italic">STAKE: {c.pointsStake || 0} PTS</span>
+                                    </div>
+                                    {c.isFightForTable && (
+                                         <div className="flex items-center gap-2">
+                                            <Trophy size={14} className="text-orange-500" />
+                                            <span className="text-[10px] font-black text-orange-500 uppercase italic">FIGHT FOR TABLE</span>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {c.session?.table?.name && (
                                     <div className="mb-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-left flex items-center justify-between">
                                         <div>
@@ -268,10 +287,12 @@ export default function Challenges() {
                                     className={`w-full border py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
                                         c.status === 'WAITING_VERIFICATION' 
                                             ? 'bg-orange-500 border-orange-500 text-black shadow-lg shadow-orange-500/20 hover:scale-[1.02]' 
+                                            : c.status === 'ACCEPTED'
+                                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/20 hover:scale-[1.02]'
                                             : 'bg-[#111] border-[#222] text-gray-600 hover:bg-white/5'
                                     }`}
                                 >
-                                    {c.status === 'WAITING_VERIFICATION' ? 'VERIFY RESULTS' : 'VIEW FIGHT'}
+                                    {c.status === 'WAITING_VERIFICATION' ? 'VERIFY RESULTS' : c.status === 'ACCEPTED' ? 'FORCE FINALIZE' : 'VIEW FIGHT'}
                                 </button>
                         </div>
                     </div>
@@ -327,13 +348,39 @@ export default function Challenges() {
                                 </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block ml-2">Point Staking</label>
+                                    <select 
+                                        value={pointsStake}
+                                        onChange={e => setPointsStake(Number(e.target.value))}
+                                        className="w-full bg-[#0a0a0a] border border-[#222] rounded-2xl px-4 py-4 text-white focus:border-orange-500 transition-all outline-none"
+                                    >
+                                        <option value="0">Friendly (0 Pts)</option>
+                                        <option value="20">Casual (20 Pts)</option>
+                                        <option value="50">Serious (50 Pts)</option>
+                                        <option value="100">Pro (100 Pts)</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block ml-2">Match Type</label>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsFightForTable(!isFightForTable)}
+                                        className={`w-full py-4 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${isFightForTable ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
+                                    >
+                                        {isFightForTable ? '🔥 FIGHT FOR TABLE' : 'STANDARD DUEL'}
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block ml-2">Rules / Notes</label>
                                 <textarea 
                                     value={adminNote}
                                     onChange={e => setAdminNote(e.target.value)}
                                     placeholder="e.g. Standard 8-ball, 10-rack race..."
-                                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-2xl px-4 py-4 text-white focus:border-orange-500 transition-all outline-none h-24"
+                                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-2xl px-4 py-4 text-white focus:border-orange-500 transition-all outline-none h-20"
                                 />
                             </div>
 
@@ -439,7 +486,7 @@ export default function Challenges() {
                                 onClick={() => handleComplete('APPROVE')}
                                 className="w-full py-4 bg-orange-500 text-black font-black rounded-2xl text-xs uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:scale-[1.02] transition-all"
                             >
-                                AUTHORIZE PROTOCOL
+                                {selectedChallenge.status === 'ACCEPTED' ? 'FORCE AUTHORIZE' : 'AUTHORIZE PROTOCOL'}
                             </button>
                             {selectedChallenge.status === 'WAITING_VERIFICATION' && (
                                 <button
