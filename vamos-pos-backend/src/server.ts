@@ -1,17 +1,6 @@
-import dotenv from 'dotenv';
+// db.ts sudah menangani dotenv dan Prisma engine config saat pertama diimpor
+import './database/db'; // Pastikan db init berjalan sebelum routes
 import path from 'path';
-import fs from 'fs';
-
-// --- PKG / PRISMA ENGINE FIX ---
-// If we are running from a bundled EXE, we need to point to the external Prisma engine
-if ((process as any).pkg) {
-    const localEnginePath = path.join(process.cwd(), 'query_engine-windows.dll.node');
-    if (fs.existsSync(localEnginePath)) {
-        process.env.PRISMA_QUERY_ENGINE_LIBRARY = localEnginePath;
-    }
-}
-// --- END PKG FIX ---
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -21,7 +10,6 @@ import { errorHandler } from './middleware/errorHandler';
 import routes from './routes';
 import { logger } from './utils/logger';
 
-dotenv.config();
 
 const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 const app = express();
@@ -86,13 +74,16 @@ app.use(errorHandler);
 
 // Initialize WA Service (VPS ONLY)
 if (!isLocalBridge) {
-    import('./modules/whatsapp/wa.service').then(({ waService }) => {
-        waService.initialize();
-    }).catch(e => logger.error('WA Service init error:', e));
-
-    import('./modules/whatsapp/wa.template.service').then(({ WaTemplateService }) => {
-        WaTemplateService.ensureDefaults().catch(e => logger.error('WaTemplate seed error:', e));
-    });
+    try {
+        // Gunakan eval-require agar pkg tidak melacak dependensi ini di lokal
+        const waMod = eval('require("./modules/whatsapp/wa.service")');
+        const templateMod = eval('require("./modules/whatsapp/wa.template.service")');
+        
+        waMod.waService.initialize();
+        templateMod.WaTemplateService.ensureDefaults().catch((e: any) => logger.error('WaTemplate seed error:', e));
+    } catch (e: any) {
+        logger.error('❌ Terjadi kesalahan saat memuat layanan WhatsApp (VPS ONLY):', e.message);
+    }
 }
 
 const PORT = process.env.PORT || 3000;

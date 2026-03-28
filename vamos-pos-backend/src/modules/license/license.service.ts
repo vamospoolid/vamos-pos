@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { getHardwareId } from '../../utils/hardware.utils';
+import { prisma } from '../../database/db';
 
-const prisma = new PrismaClient();
 const MASTER_KEY = 'Ahmad_dcc07';
 
 export class LicenseService {
