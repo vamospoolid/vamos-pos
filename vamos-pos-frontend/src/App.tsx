@@ -416,7 +416,15 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
     socket.on('bridge:hardware:status', (data: any) => {
       console.log('📡 [BRIDGE] New Hardware Status:', data);
-      setBridgeHwStatus(data);
+      
+      // Tampilkan notifikasi jika baru pertama kali konek
+      setBridgeHwStatus(prev => {
+        if (!prev) {
+          vamosAlert('📡 Jembatan Hardware Kasir TERDETEKSI!');
+        }
+        return data;
+      });
+
       if (data.isConnected) {
         setHwStatus('READY');
       } else {

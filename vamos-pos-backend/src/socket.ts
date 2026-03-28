@@ -6,6 +6,7 @@ import { prisma } from './database/db';
 import { eventBus } from './utils/eventBus';
 
 let io: Server;
+let latestBridgeStatus: any = null;
 
 /**
  * Inisialisasi Socket Server lokal (untuk UI kasir dan printer)
@@ -20,14 +21,22 @@ export const initSocket = (server: HttpServer) => {
 
     io.on('connection', (socket) => {
         logger.info(`[Socket.IO Local] Terhubung: ${socket.id}`);
+
+        // Jika ada status bridge yang tersimpan, kirim ke client yang baru konek (UI)
+        if (latestBridgeStatus) {
+            socket.emit('bridge:hardware:status', { ...latestBridgeStatus, isBridge: true, isCached: true });
+        }
+
         socket.on('disconnect', () => {
             logger.info(`[Socket.IO Local] Terputus: ${socket.id}`);
         });
 
         // VPS Broadcaster: Menerima status dari Bridge dan meneruskan ke UI
         socket.on('bridge:status:update', (data: any) => {
-            // Tambahkan flag agar UI tahu ini dari jembatan fisik
-            socket.broadcast.emit('bridge:hardware:status', { ...data, isBridge: true });
+            // Simpan ke memori VPS agar client baru bisa dapat status lama
+            latestBridgeStatus = data;
+            // Teruskan ke semua UI
+            io.emit('bridge:hardware:status', { ...data, isBridge: true });
         });
     });
 
@@ -74,14 +83,15 @@ const initCloudBridge = () => {
             cloudSocket.emit('bridge:status:update', status);
         });
 
-        // Setup Heartbeat: Kirim status lengkap setiap 30 detik ke Cloud
+        // Setup Heartbeat: Kirim status lengkap ke Cloud
+        // Gunakan interval yang lebih efisien (30 detik) agar tidak membebani performa
         const heartbeat = setInterval(async () => {
             try {
+                if (!cloudSocket.connected) return;
+                
                 const { RelayService } = await import('./modules/relay/relay.service');
                 const status = RelayService.getStatus();
-                if (cloudSocket.connected) {
-                    cloudSocket.emit('bridge:status:update', status);
-                }
+                cloudSocket.emit('bridge:status:update', status);
             } catch (e) {
                 // Ignore silent
             }
