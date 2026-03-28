@@ -10,6 +10,13 @@ import { errorHandler } from './middleware/errorHandler';
 import routes from './routes';
 import { logger } from './utils/logger';
 
+// --- PKG NATIVE MODULES WORKAROUND ---
+// Memaksa pkg untuk membundel dan men-extract file .node yang dibutuhkan serialport
+// Ini memperbaiki bug CRASH saat app portable (vamous-pos.exe) dijalankan.
+if ((process as any).pkg) {
+    require('@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node');
+}
+
 
 const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 if (isLocalBridge) {

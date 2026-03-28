@@ -223,6 +223,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [hwProgress, setHwProgress] = useState(0);
   const [hwMessage, setHwMessage] = useState('');
   const [showHwProgress, setShowHwProgress] = useState(false);
+  const [bridgeHwStatus, setBridgeHwStatus] = useState<any>(null);
 
   // Shift States
   const [activeShift, setActiveShift] = useState<any>(null);
@@ -411,6 +412,16 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     socket.on('members:updated', () => {
       console.log('[Socket] Received members:updated');
       fetchData();
+    });
+
+    socket.on('bridge:hardware:status', (data: any) => {
+      console.log('📡 [BRIDGE] New Hardware Status:', data);
+      setBridgeHwStatus(data);
+      if (data.isConnected) {
+        setHwStatus('READY');
+      } else {
+        setHwStatus('ERROR');
+      }
     });
 
     return () => {
@@ -899,8 +910,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               >
                 <div className={`w-2 h-2 rounded-full ${hwStatus === 'READY' ? 'bg-[#00ff66] animate-pulse shadow-[0_0_5px_#00ff66]' : 'bg-red-500 shadow-[0_0_5px_#ff0000]'}`} />
                 <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
-                  HW: {hwStatus === 'READY' ? 'SYNC' : 'COM 3'}
+                  HW: {bridgeHwStatus?.port || (hwStatus === 'READY' ? 'SYNC' : 'COM 3')}
                 </span>
+                {bridgeHwStatus?.lastError && (
+                  <span className="text-[8px] text-red-500 font-bold truncate max-w-[80px]">ERR: {bridgeHwStatus.lastError}</span>
+                )}
               </div>
             )}
             <div className="relative">

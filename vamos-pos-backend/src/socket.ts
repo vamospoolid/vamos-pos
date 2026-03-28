@@ -23,6 +23,12 @@ export const initSocket = (server: HttpServer) => {
         socket.on('disconnect', () => {
             logger.info(`[Socket.IO Local] Terputus: ${socket.id}`);
         });
+
+        // VPS Broadcaster: Menerima status dari Bridge dan meneruskan ke UI
+        socket.on('bridge:status:update', (data: any) => {
+            // Tambahkan flag agar UI tahu ini dari jembatan fisik
+            socket.broadcast.emit('bridge:hardware:status', { ...data, isBridge: true });
+        });
     });
 
     // Jalankan Jembatan Cloud jika berjalan di mode Lokal (ada Cloud URL di ENV)
@@ -65,7 +71,23 @@ const initCloudBridge = () => {
         import('./modules/relay/relay.service').then(({ RelayService }) => {
             const status = RelayService.getStatus();
             cloudSocket.emit('hardware:status', { isConnected: status.isConnected });
+            cloudSocket.emit('bridge:status:update', status);
         });
+
+        // Setup Heartbeat: Kirim status lengkap setiap 30 detik ke Cloud
+        const heartbeat = setInterval(async () => {
+            try {
+                const { RelayService } = await import('./modules/relay/relay.service');
+                const status = RelayService.getStatus();
+                if (cloudSocket.connected) {
+                    cloudSocket.emit('bridge:status:update', status);
+                }
+            } catch (e) {
+                // Ignore silent
+            }
+        }, 30000);
+
+        cloudSocket.once('disconnect', () => clearInterval(heartbeat));
     });
 
     // Dengarkan perubahan status hardware dari RelayService (via Event Bus)

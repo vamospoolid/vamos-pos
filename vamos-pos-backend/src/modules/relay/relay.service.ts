@@ -14,6 +14,9 @@ export class RelayService {
     /** Apakah sedang dalam proses auto-scan (agar tidak double-scan) */
     private static isScanning: boolean = false;
 
+    /** Pesan error terakhir saat mencoba membuka port */
+    private static lastError: string | null = null;
+
     // ─────────────────────────────────────────────────────────────────────────
     // STATUS
     // ─────────────────────────────────────────────────────────────────────────
@@ -25,6 +28,7 @@ export class RelayService {
             isOpen: this.port?.isOpen || false,
             lastKnownPort: this.lastKnownPort,
             isScanning: this.isScanning,
+            lastError: this.lastError,
         };
     }
 
@@ -79,16 +83,25 @@ export class RelayService {
                 return null;
             }
 
-            // Susun prioritas: lastKnown → preferred → sisanya
+            // Susun prioritas: COM3 → lastKnown → preferred → sisanya
             const paths = allPorts.map(p => p.path);
             const orderedPaths: string[] = [];
 
-            if (this.lastKnownPort && paths.includes(this.lastKnownPort)) {
+            // 1. Prioritas Utama: COM3 (Sesuai permintaan user)
+            if (paths.includes('COM3')) {
+                orderedPaths.push('COM3');
+            }
+
+            // 2. Port terakhir yang berhasil
+            if (this.lastKnownPort && paths.includes(this.lastKnownPort) && !orderedPaths.includes(this.lastKnownPort)) {
                 orderedPaths.push(this.lastKnownPort);
             }
+
+            // 3. Port yang disarankan (dari DB/Env)
             if (preferredPort && paths.includes(preferredPort) && !orderedPaths.includes(preferredPort)) {
                 orderedPaths.push(preferredPort);
             }
+
             for (const p of paths) {
                 if (!orderedPaths.includes(p)) orderedPaths.push(p);
             }
@@ -153,9 +166,11 @@ export class RelayService {
             testPort.open((err) => {
                 clearTimeout(timeout);
                 if (err) {
+                    this.lastError = err.message;
                     logger.warn(`⚠️ ${portPath}: ${err.message}`);
                     resolve(false);
                 } else {
+                    this.lastError = null;
                     // Berhasil dibuka — tutup segera, init() akan buka ulang dengan full setup
                     testPort.close((closeErr) => {
                         if (closeErr) logger.warn(`⚠️ Error menutup test port ${portPath}: ${closeErr.message}`);
@@ -214,6 +229,7 @@ export class RelayService {
 
             this.port.open((err) => {
                 if (err) {
+                    this.lastError = err.message;
                     logger.error(`❌ HARDWARE ERROR: Tidak bisa buka ${comPortPath} — ${err.message}`);
                     this.updateConnectionStatus(false);
 
