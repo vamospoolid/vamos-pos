@@ -10,7 +10,7 @@ import { errorHandler } from './middleware/errorHandler';
 import routes from './routes';
 import { logger } from './utils/logger';
 import { RelayService } from './modules/relay/relay.service';
-import { getCloudSocket } from './socket';
+import { getCloudSocket, getLastCloudError } from './socket';
 
 // --- PKG NATIVE MODULES WORKAROUND ---
 // Memaksa pkg untuk membundel dan men-extract file .node yang dibutuhkan serialport
@@ -88,7 +88,8 @@ app.get('/api/system/bridge-status', (req, res) => {
         vps: {
             url: process.env.CLOUD_BASE_URL || 'https://pos.vamospool.id',
             isConnected: cloudSocket?.connected || false,
-            socketId: cloudSocket?.id || null
+            socketId: cloudSocket?.id || null,
+            lastError: getLastCloudError()
         },
         env: {
             IS_LOCAL_ELECTRON: process.env.IS_LOCAL_ELECTRON,

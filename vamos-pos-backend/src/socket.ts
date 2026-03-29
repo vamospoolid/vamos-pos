@@ -7,6 +7,7 @@ import { eventBus } from './utils/eventBus';
 
 let io: Server;
 let latestBridgeStatus: any = null;
+let lastCloudError: string | null = null;
 
 /**
  * Inisialisasi Socket Server lokal (untuk UI kasir dan printer)
@@ -246,8 +247,14 @@ const initCloudBridge = () => {
 
     cloudSocket.on('connect_error', (err: any) => {
         logger.error(`❌ Gagal terhubung ke Jembatan Cloud: ${err.message}`);
+        lastCloudError = err.message;
     });
 };
+
+/**
+ * Helper: Ambil Error Cloud Terakhir
+ */
+export const getLastCloudError = () => lastCloudError;
 
 /**
  * Helper: Upsert member ke Local DB (skip jika phone conflict dengan member berbeda)
