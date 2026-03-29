@@ -187,27 +187,26 @@ export class RelayService {
     // ─────────────────────────────────────────────────────────────────────────
 
     static async init(forceComPort?: string) {
+        const self = this as any;
+        if (self.port) return;
+
         // Jangan jalankan hardware init jika di VPS mode
         if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) {
             logger.info('☁️ VPS Mode detected: Serial port hardware disabled.');
-            this.isConnected = false;
+            self.isConnected = false;
             return;
         }
 
         let comPortPath = forceComPort;
 
         if (!comPortPath) {
-            // Prioritas Lokal: ENV lebih diutamakan daripada DB synced dari Cloud
+            // Prioritas: ENV Lokal (Laptop/Kasir) > Database Cloud
             try {
-                const venue = await prisma.venue.findFirst();
-                
-                // Jika Lokal, utamakan ENV (misal COM4) agar tidak menabrak settingan VPS (/dev/ttyS0)
+                const venue: any = await prisma.venue.findFirst();
                 comPortPath = process.env.RELAY_COM_PORT || venue?.relayComPort || 'COM3';
                 
                 if (process.env.RELAY_COM_PORT) {
-                    logger.info(`📝 Local ENV priority: Menggunakan port dari .env [${comPortPath}]`);
-                } else if (venue?.relayComPort) {
-                    logger.info(`💾 Database priority: Menggunakan port dari database [${comPortPath}]`);
+                    logger.info(`📝 Local ENV priority: Port ${comPortPath}`);
                 }
             } catch (e) {
                 comPortPath = process.env.RELAY_COM_PORT || 'COM3';
@@ -217,13 +216,13 @@ export class RelayService {
         logger.info(`🔌 Mencoba relay pada ${comPortPath} (9600 baud, 8-N-1)...`);
 
         // Tutup port lama kalau masih terbuka
-        if (this.port && this.port.isOpen) {
-            await new Promise<void>((res) => this.port!.close(() => res()));
+        if (self.port && self.port.isOpen) {
+            await new Promise<void>((res) => self.port.close(() => res()));
             await new Promise<void>((res) => setTimeout(res, 300));
         }
 
         try {
-            this.port = new SerialPort({
+            self.port = new SerialPort({
                 path: comPortPath as string,
                 baudRate: 9600,
                 dataBits: 8,
@@ -232,68 +231,63 @@ export class RelayService {
                 autoOpen: false,
             });
 
-            this.port.open((err) => {
+            self.port.open((err: any) => {
                 if (err) {
-                    this.lastError = err.message;
-                    logger.error(`❌ HARDWARE ERROR: Tidak bisa buka ${comPortPath} — ${err.message}`);
-                    this.updateConnectionStatus(false);
+                    self.lastError = err.message;
+                    logger.error(`❌ HARDWARE ERROR: ${comPortPath} - ${err.message}`);
+                    self.updateConnectionStatus(false);
 
                     // Port gagal → coba auto-detect port lain secara diam-diam
-                    if (!this.lastKnownPort || comPortPath === this.lastKnownPort) {
+                    if (!self.lastKnownPort || comPortPath === self.lastKnownPort) {
                         setTimeout(() => {
-                            this.autoDetectPort(comPortPath as string).then((found) => {
-                                if (found) this.init(found);
+                            self.autoDetectPort(comPortPath as string).then((found: any) => {
+                                if (found) self.init(found);
                                 else {
                                     // Jika gagal semua, coba lagi dlm 10 detik (looping scan)
-                                    setTimeout(() => this.init(), 10000);
+                                    setTimeout(() => self.init(), 10000);
                                 }
                             });
                         }, 2000);
                     }
                 } else {
                     logger.info(`✅ HARDWARE SUCCESS: Relay terhubung di ${comPortPath} ⚡`);
-                    this.updateConnectionStatus(true);
-                    this.lastKnownPort = comPortPath as string;
+                    self.updateConnectionStatus(true);
+                    self.lastKnownPort = comPortPath as string;
 
                     // --- JEDA SETTLE TIME (2 DETIK) ---
-                    // Dibutuhkan oleh board relay tertentu setelah port dibuka agar stabil menerima data.
-                    logger.info('⏳ Hardware Settle Time: Menunggu 2 detik sebelum pengiriman data...');
+                    logger.info('⏳ Hardware Settle Time: Menunggu 2 detik...');
                     setTimeout(() => {
-                        logger.info('🚀 Hardware Ready: Relay siap menerima perintah.');
+                        logger.info('🚀 Hardware Ready: Relay siap.');
                     }, 2000);
                 }
             });
 
-            this.port.on('close', () => {
+            self.port.on('close', () => {
                 logger.warn(`⚠️ Serial port ${comPortPath} tertutup.`);
-                this.updateConnectionStatus(false);
-                
-                // Jika tertutup tiba-tiba (dicabut), mulai pencarian ulang
-                setTimeout(() => this.init(), 5000);
+                self.updateConnectionStatus(false);
+                setTimeout(() => self.init(), 5000);
             });
 
-            this.port.on('error', (err) => {
+            self.port.on('error', (err: any) => {
                 logger.error(`🚨 Serial Port Error: ${err.message}`);
-                this.updateConnectionStatus(false);
+                self.updateConnectionStatus(false);
             });
         } catch (error: any) {
             logger.error(`❌ Hardware Relay Init Gagal: ${error.message}`);
-            this.updateConnectionStatus(false);
-
-            // Crash saat buat objek SerialPort → auto-detect
+            self.updateConnectionStatus(false);
             setTimeout(async () => {
-                const found = await this.autoDetectPort();
-                if (found) this.init(found);
-                else setTimeout(() => this.init(), 10000);
+                const found = await self.autoDetectPort();
+                if (found) self.init(found);
+                else setTimeout(() => self.init(), 10000);
             }, 5000);
         }
 
-        // Inisialisasi mock states untuk semua channel (1-20)
+        // Inisialisasi mock states
         for (let i = 1; i <= 20; i++) {
-            if (this.mockStates[i] === undefined) this.mockStates[i] = false;
+            if (self.mockStates[i] === undefined) self.mockStates[i] = false;
         }
 
-        this.startBlinkMonitor();
+        self.startBlinkMonitor();
     }
 
     /**
