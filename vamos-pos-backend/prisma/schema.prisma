@@ -36,6 +36,8 @@ model Venue {
   blinkWarningMinutes Int       @default(5)
   servicePercent      Float     @default(5)
   taxPercent          Float     @default(11)
+  isSyncEnabled       Boolean   @default(true)
+  syncIntervalSeconds Int       @default(30)
   tables              Table[]
 }
 

@@ -23,7 +23,7 @@ if (-not (Test-Path "dist")) { New-Item -ItemType Directory -Path "dist" }
 # 3. PACKAGING ELECTRON
 Write-Host "`n[3/3] Packaging Electron Portable..." -ForegroundColor Yellow
 # Kita gunakan --win --portable agar cepat dan hanya menghasilkan satu file exe
-npm run electron:build -- --win --portable
+npm run electron:build
 Write-Host "   -> Electron Portable SIAP di folder dist." -ForegroundColor Green
 
 Write-Host "`n######################################################" -ForegroundColor Cyan

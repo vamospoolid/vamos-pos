@@ -26,6 +26,12 @@ export const initSocket = (server: HttpServer) => {
         // Jika ada status bridge yang tersimpan, kirim ke client yang baru konek (UI)
         if (latestBridgeStatus) {
             socket.emit('bridge:hardware:status', { ...latestBridgeStatus, isBridge: true, isCached: true });
+        } else {
+            // Jika belum ada di cache, coba ambil langsung dari RelayService
+            import('./modules/relay/relay.service').then(({ RelayService }) => {
+                const status = RelayService.getStatus();
+                socket.emit('bridge:hardware:status', { ...status, isBridge: true, isCached: false });
+            });
         }
 
         socket.on('disconnect', () => {
@@ -103,6 +109,15 @@ const initCloudBridge = () => {
 
     // Dengarkan perubahan status hardware dari RelayService (via Event Bus)
     eventBus.on('hardware:status', (isConnected: boolean) => {
+        const status = { isConnected, timestamp: new Date() };
+        latestBridgeStatus = status;
+
+        // 1. Kirim ke Lokal UI (KASIR)
+        if (io) {
+            io.emit('bridge:hardware:status', { ...status, isBridge: true });
+        }
+
+        // 2. Kirim ke Cloud Socket (VPS)
         if (cloudSocketInstance && cloudSocketInstance.connected) {
             logger.info(`📡 [BRIDGE] Meneruskan Status Hardware ke Cloud: ${isConnected ? 'ONLINE' : 'OFFLINE'}`);
             cloudSocketInstance.emit('hardware:status', { isConnected });

@@ -84,12 +84,14 @@ export class RelayService {
             }
 
             // Susun prioritas: COM3 → lastKnown → preferred → sisanya
-            const paths = allPorts.map(p => p.path);
+            // FILTER OUT COM1 & COM2 KARENA BUKAN PORT RELAY
+            const paths = allPorts.map(p => p.path).filter(p => !['COM1', 'COM2'].includes(p.toUpperCase()));
             const orderedPaths: string[] = [];
 
-            // 1. Prioritas Utama: COM3 (Sesuai permintaan user)
-            if (paths.includes('COM3')) {
-                orderedPaths.push('COM3');
+            // 1. Prioritas Utama: COM3 (Kasir) & COM4 (Laptop)
+            const priorityPorts = ['COM3', 'COM4'];
+            for (const p of priorityPorts) {
+                if (paths.includes(p)) orderedPaths.push(p);
             }
 
             // 2. Port terakhir yang berhasil
@@ -196,16 +198,27 @@ export class RelayService {
         let comPortPath = forceComPort;
 
         if (!comPortPath) {
-            // Prioritas: lastKnown → DB → env → default COM3
-            if (this.lastKnownPort) {
-                comPortPath = this.lastKnownPort;
-            } else {
-                try {
-                    const venue = await prisma.venue.findFirst();
-                    comPortPath = venue?.relayComPort || process.env.RELAY_COM_PORT || 'COM3';
-                } catch (e) {
-                    comPortPath = process.env.RELAY_COM_PORT || 'COM3';
+            // 1. Cek dulu di Database (Settingan User di GUI)
+            try {
+                const venue = await prisma.venue.findFirst();
+                if (venue?.relayComPort) {
+                    comPortPath = venue.relayComPort;
+                    logger.info(`💾 Database priority: Menggunakan port dari hasil simpan pengaturan [${comPortPath}]`);
                 }
+            } catch (dbErr) {
+                // Ignore DB error, proceed to fallback
+            }
+
+            // 2. Jika DB kosong atau error, gunakan COM3 sebagai default pabrik
+            if (!comPortPath) {
+                comPortPath = 'COM3';
+                logger.info(`🔌 No port in DB, using default COM3.`);
+            }
+            
+            // 3. Jika ada lastKnownPort, utamakan itu jika COM3 gagal (nanti di step open fallback)
+            if (this.lastKnownPort && !forceComPort) {
+                // Jika port yang mau dicoba bukan COM3, beri prioritas ke lastKnown
+                // (untuk sementara kita ikuti comPortPath dari DB dulu)
             }
         }
 
@@ -404,42 +417,50 @@ export class RelayService {
 
         const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-        const writeRaw = (data: string): Promise<void> => {
+        const writeRaw = (data: Buffer | string): Promise<void> => {
             return new Promise<void>((resolve) => {
                 if (!this.port || !this.port.isOpen) {
                     logger.warn('Port tertutup saat write, memulai reconnect...');
                     this.init().then(() => resolve());
                     return;
                 }
-                logger.info(`[SERIAL] Kirim: ${data.trim()}`);
-                this.port.write(data, (err) => {
+                const display = Buffer.isBuffer(data)
+                    ? `HEX[${(data as Buffer).toString('hex').toUpperCase().replace(/../g, '$& ').trim()}]`
+                    : data.trim();
+                logger.info(`[SERIAL] Kirim: ${display}`);
+                this.port.write(data as any, (err: any) => {
                     if (err) logger.error(`[SERIAL ERR]: ${err.message}`);
-                    setTimeout(resolve, 300);
+                    // Gunakan delay minimal (50ms) agar respons "instan" tapi data tetap terkirim stabil
+                    setTimeout(resolve, 50);
                 });
             });
         };
 
         try {
-            const state = isOn ? '1' : '0';
-            const cmd = `${channel}${state}\r\n`;
+            // Protocol LCUS Hex: Format A0 CH STATE CHECKSUM
+            // Ini untuk menyesuaikan dengan hardware relay LCUS di komputer kasir.
+            const state = isOn ? 0x01 : 0x00;
+            const checksum = (0xA0 + channel + state) & 0xFF;
+            const cmdBuffer = Buffer.from([0xA0, channel, state, checksum]);
+            const cmdStr = cmdBuffer.toString('hex').toUpperCase().replace(/../g, '$& ').trim();
 
-            logger.info(`⚡ COMMAND: Meja ${channel} → ${isOn ? 'ON' : 'OFF'}`);
+            logger.info(`⚡ COMMAND (LCUS HEX): Meja ${channel} → ${isOn ? 'ON' : 'OFF'} [${cmdStr}]`);
 
-            await writeRaw(cmd);
-            await delay(200);
-            await writeRaw(cmd); // kirim sekali lagi untuk redundansi
+            await writeRaw(cmdBuffer);
+            await delay(50); // Jeda antar pengiriman redundansi
+            await writeRaw(cmdBuffer); 
 
             logger.info(`✅ SENT: Meja ${channel}`);
         } catch (error: any) {
             logger.error(`❌ FAIL Meja ${channel}: ${error.message}`);
         } finally {
-            await delay(200);
+            await delay(50);
             this.lock = false;
             const next = this.queue.shift();
             if (next) {
                 setTimeout(() => {
                     this.burstAsync(next.channel, next.command === 'on').catch(() => { });
-                }, 200);
+                }, 50); // Jeda antar antrean dipercepat (sebelumnya 200ms)
             }
         }
     }

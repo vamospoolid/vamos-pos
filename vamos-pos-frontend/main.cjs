@@ -89,7 +89,7 @@ function createWindow() {
         height: 800,
         backgroundColor: '#0a0a0a',
         title: 'VAMOS POOL & CAFE - SMART POS',
-        icon: path.join(__dirname, 'public/favicon.ico'),
+        icon: path.join(__dirname, 'public/favicon.png'),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -98,6 +98,9 @@ function createWindow() {
     });
 
     win.setMenuBarVisibility(false);
+    
+    // Paksa buka DevTools agar kita bisa melihat error di Portable.exe
+    win.webContents.openDevTools();
 
     if (!isDevVite) {
         // ─── PRODUCTION / BAT MODE ──────────────────────────────────────────

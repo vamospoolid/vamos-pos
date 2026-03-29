@@ -1,0 +1,20 @@
+﻿BACKEND:
+PORT=3000
+HOST=0.0.0.0
+DATABASE_URL="postgresql://postgres:admin@localhost:5432/vamos_pos?schema=public"
+JWT_SECRET="admin"
+JWT_EXPIRES_IN="1d"
+RELAY_BASE_URL="http://localhost:8080/api/relay"
+RELAY_API_KEY="relay_secret_key"
+VPS_SYNC_URL=http://localhost:3000
+SYNC_SECRET=sync_secret_key
+
+ADMIN:
+# Local Development API URL
+VITE_API_URL=http://localhost:3000/api
+
+POS_EXISTS: True
+VITE_API_URL=http://localhost:3000/api
+
+PLAYER_EXISTS: True
+VITE_API_URL=http://localhost:3000/api

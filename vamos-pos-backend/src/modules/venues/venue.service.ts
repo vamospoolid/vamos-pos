@@ -37,7 +37,7 @@ export class VenueService {
         return venue;
     }
 
-    static async updateVenue(id: string, data: { name?: string; address?: string; openTime?: string; closeTime?: string; relayComPort?: string; taxPercent?: number; servicePercent?: number; printerPath?: string }) {
+    static async updateVenue(id: string, data: { name?: string; address?: string; openTime?: string; closeTime?: string; relayComPort?: string; taxPercent?: number; servicePercent?: number; printerPath?: string; blinkWarningMinutes?: number; isSyncEnabled?: boolean; syncIntervalSeconds?: number }) {
         const venue = await prisma.venue.findFirst({ where: { id, deletedAt: null } });
         if (!venue) {
             throw new AppError('Venue not found', 404);

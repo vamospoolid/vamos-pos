@@ -42,11 +42,15 @@
       {
         "from": "../vamos-pos-backend/.env",
         "to": "backend/.env"
+      },
+      {
+        "from": "../vamos-pos-backend/node_modules/@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node",
+        "to": "backend/@serialport+bindings-cpp.node"
       }
     ],
     "win": {
       "target": "portable",
-      "icon": "public/favicon.ico",
+      "icon": "public/favicon.png",
       "requestedExecutionLevel": "requireAdministrator"
     },
     "portable": {

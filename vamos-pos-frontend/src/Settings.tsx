@@ -20,7 +20,9 @@ export default function Settings() {
         printerPath: 'USB001',
         taxPercent: 11,
         servicePercent: 5,
-        blinkWarningMinutes: 5
+        blinkWarningMinutes: 5,
+        isSyncEnabled: true,
+        syncIntervalSeconds: 30
     });
 
     // Form Table
@@ -76,7 +78,9 @@ export default function Settings() {
                     printerPath: serpongVenue.printerPath || 'USB001',
                     taxPercent: serpongVenue.taxPercent ?? 11,
                     servicePercent: serpongVenue.servicePercent ?? 5,
-                    blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5
+                    blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5,
+                    isSyncEnabled: serpongVenue.isSyncEnabled ?? true,
+                    syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30
                 });
             }
         } catch (err) {
@@ -426,6 +430,61 @@ export default function Settings() {
                                 <button onClick={handleSaveVenue} className="w-full py-4 mt-2 bg-[#00ff66] text-[#0a0a0a] rounded-xl font-black text-sm hover:opacity-90 transition-all transform active:scale-95 flex items-center justify-center shadow-[0_0_20px_rgba(0,255,102,0.2)]">
                                     <Save className="w-4 h-4 mr-2" /> Save Hardware Config
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* VPS Sync Configuration */}
+                        <div className="bg-[#141414] border border-[#222] rounded-2xl p-6 shadow-xl">
+                            <div className="flex items-center mb-6">
+                                <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center mr-3 border border-blue-500/20">
+                                    <RefreshCw className="w-5 h-5 text-blue-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Cloud / VPS Sync</h2>
+                                <div className={`ml-auto px-2 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase ${venueForm.isSyncEnabled ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'}`}>
+                                    {venueForm.isSyncEnabled ? 'AUTO' : 'MANUAL'}
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${venueForm.isSyncEnabled ? 'bg-blue-500' : 'bg-gray-800'}`} onClick={() => setVenueForm({ ...venueForm, isSyncEnabled: !venueForm.isSyncEnabled })}>
+                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all ${venueForm.isSyncEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-white uppercase tracking-widest">Auto Sync to VPS</p>
+                                            <p className="text-[9px] text-gray-500 font-medium">Kirim data transaksi ke Cloud.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Sync Interval (Detik)</label>
+                                    <input 
+                                        type="number" 
+                                        min="10" 
+                                        value={venueForm.syncIntervalSeconds} 
+                                        onChange={e => setVenueForm({ ...venueForm, syncIntervalSeconds: Number(e.target.value) })} 
+                                        className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500" 
+                                        placeholder="Min 10" 
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button 
+                                        onClick={async () => {
+                                            try {
+                                                const res = await api.post('/system/sync/now');
+                                                vamosAlert(`Sync Manual Berhasil: ${res.data.syncedCount} item terbaru terkirim!`);
+                                            } catch (e: any) {
+                                                vamosAlert(`Sync Gagal: ${e.response?.data?.message || e.message}`);
+                                            }
+                                        }}
+                                        className="py-3 bg-white/5 border border-white/10 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                                    >
+                                        Sync Now
+                                    </button>
+                                    <button onClick={handleSaveVenue} className="py-3 bg-blue-600/10 border border-blue-600/30 text-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-[0_0_20px_rgba(37,99,235,0.1)]">
+                                        Save Settings
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

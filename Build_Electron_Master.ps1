@@ -60,7 +60,7 @@ Write-Host "   -> Backend Engine bundle COMPLETE." -ForegroundColor Green
 Write-Host "`n[5/6] Packaging Electron App (Windows Installer)..." -ForegroundColor Yellow
 Set-Location "d:\vamosmobile\vamos-pos-frontend"
 # Build electron installer
-npm run electron:build -- --win --portable
+npm run electron:build
 Write-Host "   -> Electron installer packaging COMPLETE." -ForegroundColor Green
 
 # 6. ALL DONE

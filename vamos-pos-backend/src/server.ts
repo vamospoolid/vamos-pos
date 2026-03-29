@@ -16,7 +16,20 @@ import { getCloudSocket, getLastCloudError } from './socket';
 // Memaksa pkg untuk membundel dan men-extract file .node yang dibutuhkan serialport
 // Ini memperbaiki bug CRASH saat app portable (vamous-pos.exe) dijalankan.
 if ((process as any).pkg) {
-    require('@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node');
+    try {
+        require('@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node');
+        console.log('✅ SerialPort native binding loaded OK (SNAPSHOT)');
+    } catch (e) {
+        try {
+            const path = require('path');
+            const externalDir = path.dirname(process.execPath);
+            const externalPath = path.join(externalDir, '@serialport+bindings-cpp.node');
+            require(externalPath);
+            console.log('✅ SerialPort native binding loaded OK (EXTERNAL):', externalPath);
+        } catch (e2) {
+            console.error('❌ ALL FAILED: SerialPort native binding missing!', (e2 as any).message);
+        }
+    }
 }
 
 
@@ -234,7 +247,12 @@ if (!isLocalBridge) {
         SyncService.startBackgroundSync();
     });
 } else {
-    logger.info('⚡ BRIDGE MODE: Background services locked (OFF) for local hardware bridge.');
+    logger.info('⚡ BRIDGE MODE: Socket listener enabled for cloud commands.');
+    
+    // Start Sync Worker even in bridge mode to push local transactions to VPS
+    import('./modules/system/sync.service').then(({ SyncService }) => {
+        SyncService.startBackgroundSync();
+    });
 }
 // ─────────────────────────────────────────────────────────────────────────
 

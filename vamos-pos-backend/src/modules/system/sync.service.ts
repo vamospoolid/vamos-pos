@@ -2,16 +2,27 @@ import axios from 'axios';
 import { prisma } from '../../database/db';
 
 export class SyncService {
-    // Jalankan setiap 15 detik untuk simulasi/real
+    // Jalankan worker yang memantau pengaturan sinkronisasi
     static startBackgroundSync() {
-        setInterval(async () => {
+        // Gunakan timeout rekursif agar intervalnya bisa berubah dinamis jika diinginkan
+        const runSyncCycle = async () => {
             try {
-                await this.syncPendingData();
+                const venue = await prisma.venue.findFirst();
+                if (venue?.isSyncEnabled) {
+                    await this.syncPendingData();
+                }
+                
+                // Jadwalkan siklus berikutnya berdasarkan database (default 30 detik)
+                const interval = (venue?.syncIntervalSeconds || 30) * 1000;
+                setTimeout(runSyncCycle, interval);
             } catch (err) {
-                // Jangan throw, biarkan jalan lagi di siklus berikutnya
-                console.error('[Sync Worker] Background sync error:', err instanceof Error ? err.message : String(err));
+                console.error('[Sync Worker] Cycle error:', err instanceof Error ? err.message : String(err));
+                // Jika error, coba lagi dalam 30 detik
+                setTimeout(runSyncCycle, 30000);
             }
-        }, 15000); // 15 seconds
+        };
+
+        runSyncCycle();
     }
 
     static async syncPendingData() {

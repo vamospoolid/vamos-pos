@@ -1,0 +1,1 @@
+if (process.pkg) { require('@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node'); } const { SerialPort } = require('serialport'); SerialPort.list().then(list => console.log('PORTS:', list)).catch(e => console.error('ERROR:', e.message));
