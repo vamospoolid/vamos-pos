@@ -1,0 +1,12 @@
+=== MAPPING MEJA -> RELAY CHANNEL ===
+Meja: Table 01     -> Channel: 1
+Meja: Table 02     -> Channel: 2
+Meja: Table 03     -> Channel: 3
+Meja: Table 04     -> Channel: 4
+Meja: Table 05     -> Channel: 5
+Meja: Table 06     -> Channel: 6
+Meja: Table 07     -> Channel: 7
+Meja: Table 08     -> Channel: 8
+Meja: Table 09     -> Channel: 9
+Meja: Table 10     -> Channel: 10
+=====================================

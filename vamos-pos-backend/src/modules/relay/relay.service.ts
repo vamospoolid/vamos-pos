@@ -84,7 +84,6 @@ export class RelayService {
             }
 
             // Susun prioritas: COM3 → lastKnown → preferred → sisanya
-            // FILTER OUT COM1 & COM2 KARENA BUKAN PORT RELAY
             const paths = allPorts.map(p => p.path).filter(p => !['COM1', 'COM2'].includes(p.toUpperCase()));
             const orderedPaths: string[] = [];
 
@@ -198,27 +197,20 @@ export class RelayService {
         let comPortPath = forceComPort;
 
         if (!comPortPath) {
-            // 1. Cek dulu di Database (Settingan User di GUI)
+            // Prioritas Lokal: ENV lebih diutamakan daripada DB synced dari Cloud
             try {
                 const venue = await prisma.venue.findFirst();
-                if (venue?.relayComPort) {
-                    comPortPath = venue.relayComPort;
-                    logger.info(`💾 Database priority: Menggunakan port dari hasil simpan pengaturan [${comPortPath}]`);
+                
+                // Jika Lokal, utamakan ENV (misal COM4) agar tidak menabrak settingan VPS (/dev/ttyS0)
+                comPortPath = process.env.RELAY_COM_PORT || venue?.relayComPort || 'COM3';
+                
+                if (process.env.RELAY_COM_PORT) {
+                    logger.info(`📝 Local ENV priority: Menggunakan port dari .env [${comPortPath}]`);
+                } else if (venue?.relayComPort) {
+                    logger.info(`💾 Database priority: Menggunakan port dari database [${comPortPath}]`);
                 }
-            } catch (dbErr) {
-                // Ignore DB error, proceed to fallback
-            }
-
-            // 2. Jika DB kosong atau error, gunakan COM3 sebagai default pabrik
-            if (!comPortPath) {
-                comPortPath = 'COM3';
-                logger.info(`🔌 No port in DB, using default COM3.`);
-            }
-            
-            // 3. Jika ada lastKnownPort, utamakan itu jika COM3 gagal (nanti di step open fallback)
-            if (this.lastKnownPort && !forceComPort) {
-                // Jika port yang mau dicoba bukan COM3, beri prioritas ke lastKnown
-                // (untuk sementara kita ikuti comPortPath dari DB dulu)
+            } catch (e) {
+                comPortPath = process.env.RELAY_COM_PORT || 'COM3';
             }
         }
 
@@ -262,6 +254,13 @@ export class RelayService {
                     logger.info(`✅ HARDWARE SUCCESS: Relay terhubung di ${comPortPath} ⚡`);
                     this.updateConnectionStatus(true);
                     this.lastKnownPort = comPortPath as string;
+
+                    // --- JEDA SETTLE TIME (2 DETIK) ---
+                    // Dibutuhkan oleh board relay tertentu setelah port dibuka agar stabil menerima data.
+                    logger.info('⏳ Hardware Settle Time: Menunggu 2 detik sebelum pengiriman data...');
+                    setTimeout(() => {
+                        logger.info('🚀 Hardware Ready: Relay siap menerima perintah.');
+                    }, 2000);
                 }
             });
 
@@ -437,18 +436,15 @@ export class RelayService {
         };
 
         try {
-            // Protocol LCUS Hex: Format A0 CH STATE CHECKSUM
-            // Ini untuk menyesuaikan dengan hardware relay LCUS di komputer kasir.
-            const state = isOn ? 0x01 : 0x00;
-            const checksum = (0xA0 + channel + state) & 0xFF;
-            const cmdBuffer = Buffer.from([0xA0, channel, state, checksum]);
-            const cmdStr = cmdBuffer.toString('hex').toUpperCase().replace(/../g, '$& ').trim();
+            // Protocol String ASCII: Format "101\r\n" untuk Meja 10 ON
+            // Ini adalah protokol yang sudah kita uji dan BERHASIL menyalakan lampu.
+            const cmd = `${channel}${isOn ? '1' : '0'}\r\n`;
 
-            logger.info(`⚡ COMMAND (LCUS HEX): Meja ${channel} → ${isOn ? 'ON' : 'OFF'} [${cmdStr}]`);
+            logger.info(`⚡ COMMAND (STRING): Meja ${channel} → ${isOn ? 'ON' : 'OFF'} [${cmd.trim()}]`);
 
-            await writeRaw(cmdBuffer);
+            await writeRaw(cmd);
             await delay(50); // Jeda antar pengiriman redundansi
-            await writeRaw(cmdBuffer); 
+            await writeRaw(cmd); 
 
             logger.info(`✅ SENT: Meja ${channel}`);
         } catch (error: any) {
@@ -477,15 +473,27 @@ export class RelayService {
         // Simpan state asli sebelum berkedip
         const originalState = this.mockStates[channel];
         
-        // Matikan lampu sebentar
-        this.burstAsync(channel, false);
-        
-        setTimeout(() => {
+        // --- BLINK 2 KALI (OFF-ON-OFF-ON) ---
+        // Sesuai permintaan user: Meja berkedip 2x sebagai peringatan (jeda 600ms).
+        logger.info(`🚨 BLINK Meja ${channel} started (2 cycles)...`);
+
+        try {
+            // Kedip 1
+            await this.burstAsync(channel, false);
+            await new Promise(r => setTimeout(r, 600));
+            await this.burstAsync(channel, true);
+            await new Promise(r => setTimeout(r, 600));
+
+            // Kedip 2 
+            await this.burstAsync(channel, false);
+            await new Promise(r => setTimeout(r, 600));
+            
             // Kembalikan ke state asli (biasanya ON untuk sesi aktif)
-            if (originalState) {
-                this.burstAsync(channel, true);
-            }
-        }, 1500);
+            await this.burstAsync(channel, originalState);
+            logger.info(`🚨 BLINK Meja ${channel} finished. Returned to state: ${originalState ? 'ON' : 'OFF'}`);
+        } catch (err: any) {
+            logger.error(`🚨 BLINK ERROR Meja ${channel}: ${err.message}`);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

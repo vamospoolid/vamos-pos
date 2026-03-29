@@ -32,7 +32,11 @@ Write-Host "   -> Backend Engine bundle COMPLETE." -ForegroundColor Green
 
 # 4. PACKAGING ELECTRON PORTABLE
 Write-Host "`n[4/5] Packaging Electron App (Portable)..." -ForegroundColor Yellow
+<<<<<<< HEAD
+Set-Location "d:\vamosmobile\vamos-pos-frontend"
+=======
 Set-Location "..\vamos-pos-frontend"
+>>>>>>> 15ffe378cb8242cd62a784e215d375b5bace6783
 npm run electron:build
 Write-Host "   -> Electron Portable packaging COMPLETE." -ForegroundColor Green
 
