@@ -7,6 +7,7 @@ import { eventBus } from './utils/eventBus';
 
 let io: Server;
 let latestBridgeStatus: any = null;
+export const getLatestBridgeStatus = () => latestBridgeStatus;
 let lastCloudError: string | null = null;
 
 /**

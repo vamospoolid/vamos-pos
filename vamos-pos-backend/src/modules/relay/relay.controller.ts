@@ -18,7 +18,23 @@ export const turnOff = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getStatus = catchAsync(async (req: Request, res: Response) => {
-    const status = RelayService.getStatus();
+    // Jika di VPS, prioritaskan status dari BRIDGE (Laptop/Kasir)
+    // yang sudah tersimpan di memori socket.ts
+    const isVPS = process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON;
+    let status = RelayService.getStatus();
+    
+    if (isVPS) {
+        const { getLatestBridgeStatus } = await import('../../socket');
+        const bridgeData = getLatestBridgeStatus();
+        if (bridgeData) {
+            status = { ...bridgeData, isBridge: true, isVPS: true };
+        } else {
+            // Jika belum ada bridge yang lapor, paksa OFFLINE (biar gak nampilin /dev/ttyS)
+            status.isConnected = false;
+            status.port = null;
+        }
+    }
+
     res.json({ success: true, data: status });
 });
 

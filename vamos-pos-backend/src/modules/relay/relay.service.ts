@@ -24,11 +24,13 @@ export class RelayService {
     static getStatus() {
         return {
             isConnected: this.isConnected,
-            port: this.port?.path ?? null,
-            isOpen: this.port?.isOpen || false,
+            port: this.port ? (this.port as any).path : (this.lastKnownPort || null),
+            isOpen: this.port ? (this.port as any).isOpen : false,
             lastKnownPort: this.lastKnownPort,
             isScanning: this.isScanning,
             lastError: this.lastError,
+            // Flag untuk membedakan apakah ini hardware asli atau hanya bridge di VPS
+            isVPS: process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON
         };
     }
 

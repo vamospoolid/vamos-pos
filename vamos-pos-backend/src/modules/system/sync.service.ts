@@ -7,7 +7,7 @@ export class SyncService {
         // Gunakan timeout rekursif agar intervalnya bisa berubah dinamis jika diinginkan
         const runSyncCycle = async () => {
             try {
-                const venue = await prisma.venue.findFirst();
+                const venue: any = await prisma.venue.findFirst();
                 if (venue?.isSyncEnabled) {
                     await this.syncPendingData();
                 }
