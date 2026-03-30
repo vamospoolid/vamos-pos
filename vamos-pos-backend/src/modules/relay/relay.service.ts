@@ -307,10 +307,13 @@ export class RelayService {
         
         const originalState = this.mockStates[channel];
         try {
+            // Blink Cycle 1
             await this.burstAsync(channel, false);
             await new Promise(r => setTimeout(r, 600));
             await this.burstAsync(channel, true);
             await new Promise(r => setTimeout(r, 600));
+            
+            // Blink Cycle 2
             await this.burstAsync(channel, false);
             await new Promise(r => setTimeout(r, 600));
             await this.burstAsync(channel, originalState);
