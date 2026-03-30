@@ -1020,7 +1020,9 @@ export default function Settings() {
                                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Security Role</label>
                                         <select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })} className="w-full bg-[#ff33a1]/10 border border-[#ff33a1]/30 text-[#ff33a1] rounded-xl px-3 py-3 focus:outline-none focus:border-[#ff33a1] text-xs font-black transition-all">
                                             <option value="KASIR">KASIR</option>
+                                            <option value="MANAGER">MANAGER</option>
                                             <option value="ADMIN">ADMIN</option>
+                                            <option value="OWNER">OWNER</option>
                                         </select>
                                     </div>
                                     <div>

@@ -134,7 +134,7 @@ function LicenseManagement() {
 interface AuthUser {
   id: string;
   name: string;
-  role: 'ADMIN' | 'KASIR' | 'OWNER';
+  role: 'ADMIN' | 'KASIR' | 'OWNER' | 'MANAGER';
   email: string;
 }
 
@@ -947,7 +947,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
           <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" badge={redemptionPendingCount > 0 ? redemptionPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'employees'} onClick={() => setActiveTab('employees')} icon={<Users />} label="Employees" />
-          {(user?.role === 'ADMIN' || user?.role === 'OWNER') && (
+          {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
              <>
                <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
                <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
@@ -963,7 +963,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-white truncate">{user?.name || 'Admin'}</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: user?.role === 'ADMIN' || user?.role === 'OWNER' ? '#00ff66' : '#9ca3af' }}>{user?.role || 'ADMIN'}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: (user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') ? '#00ff66' : '#9ca3af' }}>{user?.role || 'ADMIN'}</p>
             </div>
           </div>
           <button onClick={onLogout} className="flex items-center gap-3 text-gray-600 hover:text-red-400 hover:bg-red-500/5 w-full px-3 py-2 rounded-xl transition-all text-sm font-semibold">
@@ -1096,7 +1096,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 )}
                 <div>
                   <p className="text-xs font-bold text-white">{user?.name || 'Admin'}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#00ff66' }}>{user?.role || 'ADMIN'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: (user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') ? '#00ff66' : '#9ca3af' }}>{user?.role || 'ADMIN'}</p>
                 </div>
               </div>
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00ff66] to-blue-500 flex items-center justify-center font-black text-sm text-[#0a0a0a]">
