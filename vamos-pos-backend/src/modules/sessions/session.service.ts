@@ -583,11 +583,15 @@ export class SessionService {
             }
 
             // 2. CEK: Peringatan (Blink)
-            // Jika sisa waktu <= warningMinutes DAN (belum pernah blink ATAU sudah 2 menit sejak blink terakhir)
             const lastBlink = this.lastBlinkTimes.get(s.id) || 0;
-            const timeSinceLastBlink = now.getTime() - lastBlink;
 
-            if (timeLeftMs <= warningMs && timeSinceLastBlink > 2 * 60 * 1000) {
+            // Jika durasi diperpanjang melebihi batas warning, lupakan (reset) status kedipan sebelumnya.
+            if (timeLeftMs > warningMs + 60000 && lastBlink !== 0) {
+                this.lastBlinkTimes.delete(s.id);
+            }
+
+            // Jika sisa waktu <= warningMinutes DAN belum pernah blink di siklus terdekat ini
+            if (timeLeftMs <= warningMs && lastBlink === 0) {
                 if (s.table?.relayChannel) {
                     logger.info(`🔔 [Auto-Blink] Peringatan Meja ${s.table.name} (${Math.round(timeLeftMs/60000)} menit sisa)`);
                     RelayService.blink(s.table.relayChannel).catch(() => {});
