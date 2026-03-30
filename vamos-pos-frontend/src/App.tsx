@@ -942,17 +942,17 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
           {/* Management */}
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Management</p>
+          {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
+            <>
+              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
+              <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
+            </>
+          )}
           <NavItem active={activeTab === 'pricing'} onClick={() => setActiveTab('pricing')} icon={<span className="font-black text-sm w-5 text-center block">$</span>} label="Pricing" />
           <NavItem active={activeTab === 'discounts'} onClick={() => setActiveTab('discounts')} icon={<Tag />} label="Discounts" />
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
           <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" badge={redemptionPendingCount > 0 ? redemptionPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'employees'} onClick={() => setActiveTab('employees')} icon={<Users />} label="Employees" />
-          {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
-             <>
-               <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
-               <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
-             </>
-          )}
         </nav>
 
         {/* User footer */}
@@ -1069,6 +1069,19 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
                   HW: {bridgeHwStatus?.port || (hwStatus === 'READY' ? 'SYNC' : 'COM 3')}
                 </span>
+                {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      vamosConfirm("Tes lampu berkedip (Blink) pada Meja 1?").then(ok => {
+                        if (ok) api.post('/relay/blink/1').catch(() => vamosAlert("Gagal mengirim perintah blink"));
+                      });
+                    }}
+                    className="ml-2 px-2 py-0.5 bg-orange-500/20 hover:bg-orange-500/40 text-orange-500 text-[8px] font-black rounded border border-orange-500/30 transition-all uppercase"
+                  >
+                    Test Blink
+                  </button>
+                )}
                 {bridgeHwStatus?.lastError && (
                   <span className="text-[8px] text-red-500 font-bold truncate max-w-[80px]">ERR: {bridgeHwStatus.lastError}</span>
                 )}
