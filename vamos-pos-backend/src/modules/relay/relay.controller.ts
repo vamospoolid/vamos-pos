@@ -56,6 +56,16 @@ export const scanPorts = catchAsync(async (req: Request, res: Response) => {
  * Putuskan koneksi lama, lalu jalankan auto-detect ulang ke semua COM port.
  * Hasil port yang berhasil otomatis disimpan ke database.
  */
+/**
+ * POST /api/relay/blink/:channel
+ * Trigger blink mode pada relay tertentu (melalui VPS -> Bridge)
+ */
+export const blink = catchAsync(async (req: Request, res: Response) => {
+    const { channel } = req.params;
+    await RelayService.blink(parseInt(channel));
+    res.json({ success: true, channel, command: 'blink' });
+});
+
 export const reconnect = catchAsync(async (req: Request, res: Response) => {
     const result = await RelayService.reconnect();
     await AuditService.log(
