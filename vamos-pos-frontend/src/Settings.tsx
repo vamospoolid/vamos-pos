@@ -813,12 +813,6 @@ export default function Settings() {
                                                                 ON
                                                             </button>
                                                             <button
-                                                                onClick={() => testBlink(t.relayChannel)}
-                                                                className="px-3 py-1.5 text-[10px] font-black text-[#00aaff] hover:bg-[#00aaff]/10 border-r border-[#222] transition-colors"
-                                                            >
-                                                                BLINK
-                                                            </button>
-                                                            <button
                                                                 onClick={() => testRelay(t.relayChannel, 'off')}
                                                                 className="px-3 py-1.5 text-[10px] font-black text-gray-500 hover:bg-gray-500/10 transition-colors"
                                                             >

@@ -474,6 +474,26 @@ export class PlayerController {
                 await prisma.member.update({ where: { id: member.id }, data: { loyaltyPoints: 50 } });
             }
 
+            // Send WhatsApp Welcome Message
+            try {
+                const venue = await prisma.venue.findFirst();
+                const venueName = venue?.name || 'VAMOS';
+                const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
+                const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WELCOME_MEMBER, {
+                    name: member.name,
+                    venue: venueName,
+                });
+                
+                if (waTemplate) {
+                    const { waService } = await import('../whatsapp/wa.service');
+                    if (waService.isReady) {
+                        waService.sendMessage(member.phone, waTemplate.body, waTemplate.imageUrl || undefined);
+                    }
+                }
+            } catch (err: any) {
+                console.error('Failed to send WhatsApp welcome:', err.message);
+            }
+
             res.json({ success: true, data: { member, token: `player_${member.id}` }, message: 'Welcome to Vamos Elite Arena!' });
         } catch (error) { next(error); }
     }
