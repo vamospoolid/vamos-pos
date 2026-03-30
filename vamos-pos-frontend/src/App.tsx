@@ -942,12 +942,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
           {/* Management */}
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Management</p>
-          {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
-            <>
-              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
-              <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
-            </>
-          )}
+          <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="🚀 SYSTEM SETTINGS" accent="gold" />
+          <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="🔑 LICENSE MANAGEMENT" accent="orange" />
           <NavItem active={activeTab === 'pricing'} onClick={() => setActiveTab('pricing')} icon={<span className="font-black text-sm w-5 text-center block">$</span>} label="Pricing" />
           <NavItem active={activeTab === 'discounts'} onClick={() => setActiveTab('discounts')} icon={<Tag />} label="Discounts" />
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
