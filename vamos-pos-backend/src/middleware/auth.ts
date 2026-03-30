@@ -39,8 +39,11 @@ export const authorizeRoles = (...roles: Role[]) => {
 
         const userRole = req.user.role;
         
-        // HIERARCHY: OWNER can do anything ADMIN can do
+        // HIERARCHY: ADMIN and OWNER can do anything each other can
         const allowedRoles = [...roles];
+        if (allowedRoles.includes('OWNER') && !allowedRoles.includes('ADMIN')) {
+            allowedRoles.push('ADMIN');
+        }
         if (allowedRoles.includes('ADMIN') && !allowedRoles.includes('OWNER')) {
             allowedRoles.push('OWNER');
         }

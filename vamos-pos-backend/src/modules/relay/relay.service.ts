@@ -239,7 +239,7 @@ export class RelayService {
             if (io) io.emit('relay:command', { channel, status: command });
         } catch (e) { }
 
-        if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) return true;
+        if (!process.env.IS_LOCAL_ELECTRON) return true;
 
         this.burstAsync(channel, status === 'on').catch(() => {});
         return true;
@@ -303,7 +303,7 @@ export class RelayService {
     static async blink(channel: number): Promise<void> {
         this.notifyBlink(channel); // Broadcast to UI/Cloud
         
-        if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) return;
+        if (!process.env.IS_LOCAL_ELECTRON) return;
         
         const originalState = this.mockStates[channel];
         try {

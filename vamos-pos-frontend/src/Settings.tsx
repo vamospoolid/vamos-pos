@@ -231,6 +231,15 @@ export default function Settings() {
         }
     };
 
+    const testBlink = async (channel: number) => {
+        try {
+            await api.post('/relay/blink', { channel });
+            // No alert needed, user will see the light blink
+        } catch (err) {
+            vamosAlert(`Blink Test Failed: Could not send blink to Channel ${channel}`);
+        }
+    };
+
     const toggleKingTable = async (table: any) => {
         try {
             const nextStatus = !table.isKingTable;
@@ -801,7 +810,13 @@ export default function Settings() {
                                                                 onClick={() => testRelay(t.relayChannel, 'on')}
                                                                 className="px-3 py-1.5 text-[10px] font-black text-[#00ff66] hover:bg-[#00ff66]/10 border-r border-[#222] transition-colors"
                                                             >
-                                                                TEST ON
+                                                                ON
+                                                            </button>
+                                                            <button
+                                                                onClick={() => testBlink(t.relayChannel)}
+                                                                className="px-3 py-1.5 text-[10px] font-black text-[#00aaff] hover:bg-[#00aaff]/10 border-r border-[#222] transition-colors"
+                                                            >
+                                                                BLINK
                                                             </button>
                                                             <button
                                                                 onClick={() => testRelay(t.relayChannel, 'off')}
@@ -1005,9 +1020,7 @@ export default function Settings() {
                                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Security Role</label>
                                         <select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })} className="w-full bg-[#ff33a1]/10 border border-[#ff33a1]/30 text-[#ff33a1] rounded-xl px-3 py-3 focus:outline-none focus:border-[#ff33a1] text-xs font-black transition-all">
                                             <option value="KASIR">KASIR</option>
-                                            <option value="MANAGER">MANAGER</option>
                                             <option value="ADMIN">ADMIN</option>
-                                            <option value="OWNER">OWNER</option>
                                         </select>
                                     </div>
                                     <div>
