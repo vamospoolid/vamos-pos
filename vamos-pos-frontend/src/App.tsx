@@ -178,6 +178,7 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('vamos_token'));
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLicensed, setIsLicensed] = useState<boolean | null>(null);
+  const [waStatus, setWaStatus] = useState<{ isReady: boolean; isInitializing: boolean; hasQr: boolean } | null>(null);
 
   useEffect(() => {
     const checkLicense = async () => {
@@ -557,6 +558,10 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           api.post('/relay/on', { channel: data.channel }).catch(() => {});
         }, 500);
       }, 500);
+    });
+
+    socket.on('whatsapp:status', (status: any) => {
+      setWaStatus(status);
     });
 
     return () => {
@@ -1081,6 +1086,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 {bridgeHwStatus?.lastError && (
                   <span className="text-[8px] text-red-500 font-bold truncate max-w-[80px]">ERR: {bridgeHwStatus.lastError}</span>
                 )}
+              </div>
+            )}
+
+            {/* WhatsApp Status Indicator (VPS ONLY) */}
+            {(user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') && (
+              <div 
+                className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#1e1e1e] border border-[#222222] hover:bg-[#252525] cursor-pointer transition-colors"
+                title={waStatus?.isReady ? "WhatsApp Connected" : waStatus?.hasQr ? "WhatsApp QR Pending" : "WhatsApp Initializing..."}
+                onClick={() => setActiveTab('settings')}
+              >
+                <div className={`w-2 h-2 rounded-full ${waStatus?.isReady ? 'bg-[#00ff66] shadow-[0_0_5px_#00ff66]' : waStatus?.hasQr ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
+                  WA: {waStatus?.isReady ? 'READY' : waStatus?.hasQr ? 'SCAN QR' : 'OFFLINE'}
+                </span>
               </div>
             )}
             <div className="relative">

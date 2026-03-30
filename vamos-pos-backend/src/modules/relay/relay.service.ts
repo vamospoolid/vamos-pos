@@ -309,13 +309,13 @@ export class RelayService {
         try {
             // Blink Cycle 1
             await this.burstAsync(channel, false);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 300));
             await this.burstAsync(channel, true);
             await new Promise(r => setTimeout(r, 600));
             
             // Blink Cycle 2
             await this.burstAsync(channel, false);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 300));
             await this.burstAsync(channel, originalState);
         } catch (e) {}
     }

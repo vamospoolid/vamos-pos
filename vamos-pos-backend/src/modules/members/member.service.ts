@@ -50,7 +50,7 @@ export class MemberService {
                     }
                 }
             } catch (error: any) {
-                logger.error(`❌ [WA_WELCOME] Failed to send welcome WA: ${error.message}`);
+                logger.error(`❌ [WA_WELCOME] Failed to send welcome WA to ${newMember.phone}: ${error.message}`);
             }
         }
 
