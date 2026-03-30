@@ -4,7 +4,7 @@ import { LicenseService } from './license.service';
 const licenseService = new LicenseService();
 
 export class LicenseController {
-  private async getActiveHwid(): Promise<string | undefined> {
+  private getActiveHwid = async (): Promise<string | undefined> => {
     const isVPS = process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON;
     if (isVPS) {
        const { getLatestBridgeStatus } = await import('../../socket');
@@ -14,7 +14,7 @@ export class LicenseController {
     return undefined;
   }
 
-  async getStatus(req: Request, res: Response) {
+  getStatus = async (req: Request, res: Response) => {
     try {
       const hwid = await this.getActiveHwid();
       const status = await licenseService.getStatus(hwid);
@@ -24,7 +24,7 @@ export class LicenseController {
     }
   }
 
-  async activate(req: Request, res: Response) {
+  activate = async (req: Request, res: Response) => {
     try {
       const { licenseKey } = req.body;
       if (!licenseKey) {
@@ -39,7 +39,7 @@ export class LicenseController {
     }
   }
 
-  async requestDemo(req: Request, res: Response) {
+  requestDemo = async (req: Request, res: Response) => {
     try {
       const hwid = await this.getActiveHwid();
       const license = await licenseService.requestDemo(hwid);
