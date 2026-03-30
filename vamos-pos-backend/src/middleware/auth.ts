@@ -16,20 +16,28 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return;
         }
 
+        // --- SOLUSI BUG LOGOUT PLAYER APP ---
+        // Player App mengirim token 'player_...' yang BUKAN jwt, sehingga jwt.verify() sebelumnya akan melempar error dan men-tendang user.
+        if (token.startsWith('player_')) {
+            const memberId = token.replace('player_', '');
+            const member = await prisma.member.findUnique({ where: { id: memberId } });
+            if (!member) {
+                next(new AppError('Unauthorized: Player token invalid', 401));
+                return;
+            }
+            req.user = { id: member.id, role: 'MEMBER' as any };
+            return next();
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string; role: Role };
 
         const user = await prisma.user.findUnique({ where: { id: decoded.id } });
         if (!user) {
-            // Try matching as a Member token (Player App)
-            const member = await prisma.member.findUnique({ where: { id: decoded.id } });
-            if (!member) {
-                next(new AppError('Unauthorized: Token invalid or expired', 401));
-                return;
-            }
-            req.user = { id: decoded.id, role: 'MEMBER' as any };
-        } else {
-            req.user = decoded;
+            next(new AppError('Unauthorized: User token invalid or expired', 401));
+            return;
         }
+        
+        req.user = decoded;
         next();
     } catch (err) {
         next(new AppError('Unauthorized', 401));

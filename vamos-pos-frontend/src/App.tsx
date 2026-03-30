@@ -548,17 +548,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       }
     });
 
-    // POS-LOCAL: Jalankan blink jika disuruh oleh VPS 
-    socket.on('relay:blink', (data: { channel: number }) => {
-      console.log('⚡ [RELAY] Signal Blink received for CH:', data.channel);
-      api.post('/relay/on', { channel: data.channel }).catch(() => {});
-      setTimeout(() => {
-        api.post('/relay/off', { channel: data.channel }).catch(() => {});
-        setTimeout(() => {
-          api.post('/relay/on', { channel: data.channel }).catch(() => {});
-        }, 500);
-      }, 500);
-    });
+
 
     socket.on('whatsapp:status', (status: any) => {
       setWaStatus(status);

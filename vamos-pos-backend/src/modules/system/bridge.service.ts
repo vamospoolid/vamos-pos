@@ -40,6 +40,17 @@ export class BridgeService {
             }
         });
 
+        // Listen for native blink commands
+        this.client.on('relay:blink', async (data: { channel: number }) => {
+            logger.info(`📥 BRIDGE RECEIVE: Blinking Table ${data.channel}`);
+            try {
+                // Let the local relay service handle the exact hardware timing pattern
+                await RelayService.blink(data.channel);
+            } catch (err: any) {
+                logger.error(`🚨 BRIDGE BLINK ERROR: ${err.message}`);
+            }
+        });
+
         // Listen for Real-time Port Configuration update
         this.client.on('relay:config:update', async (data: { port: string }) => {
             logger.info(`🔄 BRIDGE CONFIG: Switching relay port to ${data.port}...`);
