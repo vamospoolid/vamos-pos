@@ -126,12 +126,14 @@ function createWindow() {
         });
     });
 
-    // Option to open dev tools for debugging if needed (Ctrl+Shift+I)
-    win.webContents.on('before-input-event', (event, input) => {
-        if (input.control && input.shift && input.key.toLowerCase() === 'i') {
-            win.webContents.openDevTools();
-        }
-    });
+    // Option to open dev tools only IN DEVELOPMENT
+    if (!isPackaged) {
+        win.webContents.on('before-input-event', (event, input) => {
+            if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+                win.webContents.openDevTools();
+            }
+        });
+    }
 }
 
 app.whenReady().then(() => {

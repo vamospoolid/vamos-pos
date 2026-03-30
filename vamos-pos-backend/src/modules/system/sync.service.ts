@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { prisma } from '../../database/db';
+import { logger } from '../../utils/logger';
 
 export class SyncService {
     // Jalankan worker yang memantau pengaturan sinkronisasi
@@ -146,17 +147,48 @@ export class SyncService {
                 } else {
                     // Only add syncStatus if it's NOT a master data table (user, venue, table)
                     const isMaster = dataToSave.relayChannel !== undefined || dataToSave.openTime !== undefined || isUser;
+                    const isVenue = dataToSave.isSyncEnabled !== undefined && dataToSave.syncIntervalSeconds !== undefined;
+
                     if (!isMaster) {
                          dataToSave.syncStatus = 'SYNCED';
                     } else {
                          delete dataToSave.syncStatus;
                     }
                     
-                    await modelDelegate.upsert({
+                    // PROTECTION: If this is venue data, do NOT overwrite hardware-specific fields locally
+                    const isLocal = process.env.IS_LOCAL_ELECTRON === 'true';
+                    const isVenueData = dataToSave.blinkWarningMinutes !== undefined || dataToSave.relayComPort !== undefined;
+                    
+                    if (isVenueData && isLocal) {
+                        delete dataToSave.relayComPort;
+                        delete dataToSave.blinkWarningMinutes;
+                        delete dataToSave.receiptPrinterPath;
+                        delete dataToSave.printerPath; // also protect printerPath
+                        logger.info(`🛡️ [SYNC] Shield active: Protected hardware settings from VPS overwrite.`);
+                    }
+
+                    // SPECIAL: If this is a member and we are on the VPS, we might want to trigger a WhatsApp welcome message
+                    const isNewMember = modelDelegate.name === 'member' && !isLocal;
+                    let existingMember = null;
+                    if (isNewMember) {
+                        existingMember = await modelDelegate.findUnique({ where: { id: item.id } });
+                    }
+
+                    const result = await modelDelegate.upsert({
                         where: { id: item.id },
                         create: dataToSave,
                         update: dataToSave
                     });
+
+                    // Trigger WhatsApp if it's a NEW member on the VPS
+                    if (isNewMember && !existingMember && dataToSave.phone) {
+                        try {
+                            const { MemberService } = await import('../members/member.service');
+                            // We use a small delay to ensure DB is committed (outside transaction is better but we are inside here)
+                            // Actually, it's better to trigger it AFTER the transaction, but we'll do it as a fire-and-forget promise.
+                            this.triggerSyncNotification(dataToSave).catch(() => {});
+                        } catch (e) {}
+                    }
                 }
                 upsertedCount++;
             }
@@ -179,5 +211,32 @@ export class SyncService {
         });
 
         return upsertedCount;
+    }
+
+    /**
+     * Helper: Trigger WhatsApp Welcome when a member is synced to the VPS
+     */
+    static async triggerSyncNotification(memberData: any) {
+        try {
+            const { prisma: localPrisma } = await import('../../database/db');
+            const venue = await localPrisma.venue.findFirst();
+            const venueName = venue?.name || 'VAMOS';
+            
+            const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
+            const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WELCOME_MEMBER, {
+                name: memberData.name,
+                venue: venueName,
+            });
+
+            if (waTemplate) {
+                const { waService } = await import('../whatsapp/wa.service');
+                if (waService.isReady) {
+                    await waService.sendMessage(memberData.phone, waTemplate.body, waTemplate.imageUrl || undefined);
+                    logger.info(`✅ [VPS_SYNC_WA] Welcome message sent forSynced Member: ${memberData.name}`);
+                }
+            }
+        } catch (err: any) {
+            logger.error(`❌ [VPS_SYNC_WA] Failed: ${err.message}`);
+        }
     }
 }

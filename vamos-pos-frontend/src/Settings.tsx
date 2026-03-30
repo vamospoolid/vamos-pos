@@ -116,6 +116,11 @@ export default function Settings() {
     }, []);
 
     const handleSaveVenue = async () => {
+        if (loading) return; // JANGAN SIMPAN JIKA BELUM SELESAI LOADING
+        if (!venueForm.name || venueForm.name.trim() === '') {
+            return vamosAlert('Nama Venue tidak boleh kosong!');
+        }
+
         try {
             if (venueForm.id && venueForm.id.length > 5) { // Ensure it's not '' or some short non-uuid
                 await api.put(`/venues/${venueForm.id}`, venueForm);

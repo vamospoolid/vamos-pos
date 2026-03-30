@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { TableController } from './table.controller';
+import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
 
-router.post('/', TableController.createTable);
-router.post('/fix-stuck', TableController.fixStuckTables);
-router.get('/', TableController.getTables);
-router.get('/:id', TableController.getTableById);
-router.put('/:id', TableController.updateTable);
-router.delete('/:id', TableController.deleteTable);
+router.post('/', authenticate, authorizeRoles('ADMIN', 'OWNER'), TableController.createTable);
+router.post('/fix-stuck', authenticate, authorizeRoles('ADMIN', 'OWNER'), TableController.fixStuckTables);
+router.get('/', authenticate, TableController.getTables);
+router.get('/:id', authenticate, TableController.getTableById);
+router.put('/:id', authenticate, authorizeRoles('ADMIN', 'OWNER'), TableController.updateTable);
+router.delete('/:id', authenticate, authorizeRoles('ADMIN', 'OWNER'), TableController.deleteTable);
 
 export default router;

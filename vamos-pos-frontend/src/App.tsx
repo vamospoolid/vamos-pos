@@ -547,6 +547,18 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       }
     });
 
+    // POS-LOCAL: Jalankan blink jika disuruh oleh VPS 
+    socket.on('relay:blink', (data: { channel: number }) => {
+      console.log('⚡ [RELAY] Signal Blink received for CH:', data.channel);
+      api.post('/relay/on', { channel: data.channel }).catch(() => {});
+      setTimeout(() => {
+        api.post('/relay/off', { channel: data.channel }).catch(() => {});
+        setTimeout(() => {
+          api.post('/relay/on', { channel: data.channel }).catch(() => {});
+        }, 500);
+      }, 500);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -935,7 +947,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
           <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" badge={redemptionPendingCount > 0 ? redemptionPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'employees'} onClick={() => setActiveTab('employees')} icon={<Users />} label="Employees" />
-          {user?.role === 'OWNER' && (
+          {(user?.role === 'ADMIN' || user?.role === 'OWNER') && (
              <>
                <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
                <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />

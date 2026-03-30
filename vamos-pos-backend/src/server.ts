@@ -51,32 +51,25 @@ app.use(helmet({
     crossOriginOpenerPolicy: false, // Prevents the COOP error shown in console
 }));
 
-// Conditional CORS to avoid duplicate headers with Nginx in production
-// We disable it if the host contains vamospool.id OR we are in production, 
-// BUT we must allow it if the origin is localhost (for local admin/dev testing)
-app.use((req, res, next) => {
-    const isProdHost = req.headers.host?.includes('vamospool.id');
-    const isLocalOrigin = req.headers.origin?.includes('localhost') || req.headers.origin?.includes('127.0.0.1');
-    const isLocalDomain = req.headers.origin?.includes('pos.local');
-    
-    // If we're on a vamospool.id host and the request is NOT from a local browser origin, 
-    // we let Nginx handle CORS to avoid "multiple values '*, *'" errors.
-    if (isProdHost && !isLocalOrigin && !isLocalDomain) {
-        if (req.method === 'OPTIONS') {
-            res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
-            res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-device-id');
-            return res.status(200).end();
+// Improved CORS for Local Bridge & Cloud UI Synergy
+app.use(cors({
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'https://pos.vamospool.id',
+            'http://pos.local'
+        ];
+        if (!origin || allowedOrigins.some(ao => origin.includes(ao.replace('https://', '').replace('http://', '')))) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Permissive for local hardware synergy
         }
-        next();
-    } else {
-        // Use standard cors() for local dev or when being hit from localhost
-        cors({
-            origin: true,
-            credentials: true
-        })(req, res, next);
-    }
-});
+    },
+    credentials: true,
+    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id']
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Format 'combined' terlalu verbose di production — pakai 'tiny' agar overhead minimal
@@ -188,8 +181,8 @@ setTimeout(runFixStuckTables, 3000);
 
 // ── BACKGROUND SERVICES (DI VPS SAJA) ────────────────────────────────────
 
-if (!isLocalBridge) {
-    logger.info('⚙️ Starting VPS Background Services...');
+if (!isLocalBridge || process.env.NODE_ENV === 'development') {
+    logger.info('⚙️ Starting Background Services (Local Dev/VPS)...');
 
     // 1. Auto-fix stuck tables (setiap 5 menit)
     setInterval(runFixStuckTables, 5 * 60 * 1000);
@@ -204,7 +197,7 @@ if (!isLocalBridge) {
         }
     };
     setTimeout(runAutoExpireSessions, 5000);
-    setInterval(runAutoExpireSessions, 30 * 1000);
+    setInterval(runAutoExpireSessions, 15 * 1000);
 
     // 3. Auto expire waitlist (setiap 10 menit)
     const runWaitlistCheck = async () => {

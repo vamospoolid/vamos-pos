@@ -1,6 +1,7 @@
 import { prisma } from '../../database/db';
 import { AppError } from '../../utils/errors';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { logger } from '../../utils/logger';
 
 export class MemberService {
     static async createMember(data: { name: string; phone: string; photo?: string; handicap?: string; handicapLabel?: string }) {
@@ -38,14 +39,18 @@ export class MemberService {
                     name: newMember.name,
                     venue: venueName,
                 });
+                
                 if (waTemplate) {
-                    import('../whatsapp/wa.service').then(({ waService }) => {
-                        waService.sendMessage(newMember.phone as string, waTemplate.body, waTemplate.imageUrl || undefined);
-                    });
+                    const { waService } = await import('../whatsapp/wa.service');
+                    if (waService.isReady) {
+                        await waService.sendMessage(newMember.phone as string, waTemplate.body, waTemplate.imageUrl || undefined);
+                        logger.info(`✅ [WA_WELCOME] Member ${newMember.name} (Phone: ${newMember.phone}) notified!`);
+                    } else {
+                        logger.warn(`⚠️ [WA_WELCOME] Skip notification for ${newMember.name}: WhatsApp client NOT ready.`);
+                    }
                 }
-
-            } catch (error) {
-                console.error('Failed to send welcome WA:', error);
+            } catch (error: any) {
+                logger.error(`❌ [WA_WELCOME] Failed to send welcome WA: ${error.message}`);
             }
         }
 

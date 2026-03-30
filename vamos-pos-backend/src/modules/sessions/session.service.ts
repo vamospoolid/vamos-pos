@@ -529,7 +529,7 @@ export class SessionService {
         return session;
     }
 
-    private static blinkedSessions = new Set<string>();
+    private static lastBlinkTimes = new Map<string, number>();
 
     /**
      * Otomatis mematikan sesi yang sudah habis durasinya (prepaid/package)
@@ -537,8 +537,17 @@ export class SessionService {
      */
     static async checkExpiredSessions() {
         const activeSessions = await prisma.session.findMany({
-            where: { status: 'ACTIVE', durationOpts: { not: null, gt: 0 } },
-            include: { table: true }
+            where: { 
+                status: 'ACTIVE',
+                OR: [
+                    { durationOpts: { gt: 0 } },
+                    { packageId: { not: null } }
+                ]
+            },
+            include: { 
+                table: true,
+                package: true
+            }
         });
 
         if (activeSessions.length === 0) return 0;
@@ -551,7 +560,13 @@ export class SessionService {
         let expiredCount = 0;
 
         for (const s of activeSessions) {
-            const durationMs = (s.durationOpts || 0) * 60000;
+            // Jika durationOpts 0/null, cari di Package
+            const effectiveDuration = s.durationOpts || s.package?.duration || 0;
+            
+            // Langompati jika Open Billing (0 menit)
+            if (effectiveDuration === 0) continue;
+
+            const durationMs = effectiveDuration * 60000;
             const limitTime = new Date(s.startTime.getTime() + durationMs);
             const timeLeftMs = limitTime.getTime() - now.getTime();
 
@@ -559,9 +574,8 @@ export class SessionService {
             if (timeLeftMs <= 0) {
                 try {
                     await this.endSession(s.id, 'SYSTEM');
-                    this.blinkedSessions.delete(s.id); // Bersihkan cache
+                    this.lastBlinkTimes.delete(s.id); // Bersihkan cache
                     expiredCount++;
-                    logger.info(`[Auto-Expire] Sesi meja ${s.table?.name} berakhir.`);
                 } catch (err: any) {
                     logger.error(`[Auto-Expire] Gagal mengakhiri sesi ${s.id}: ${err.message}`);
                 }
@@ -569,14 +583,21 @@ export class SessionService {
             }
 
             // 2. CEK: Peringatan (Blink)
-            // Jika sisa waktu <= warningMinutes DAN belum pernah berkedip
-            if (timeLeftMs <= warningMs && !this.blinkedSessions.has(s.id)) {
+            // Jika sisa waktu <= warningMinutes DAN (belum pernah blink ATAU sudah 2 menit sejak blink terakhir)
+            const lastBlink = this.lastBlinkTimes.get(s.id) || 0;
+            const timeSinceLastBlink = now.getTime() - lastBlink;
+
+            if (timeLeftMs <= warningMs && timeSinceLastBlink > 2 * 60 * 1000) {
                 if (s.table?.relayChannel) {
-                    logger.info(`[Auto-Blink] Memberi peringatan pada meja ${s.table.name} (${warningMinutes} menit sisa)`);
+                    logger.info(`🔔 [Auto-Blink] Peringatan Meja ${s.table.name} (${Math.round(timeLeftMs/60000)} menit sisa)`);
                     RelayService.blink(s.table.relayChannel).catch(() => {});
-                    this.blinkedSessions.add(s.id);
+                    this.lastBlinkTimes.set(s.id, now.getTime());
                 }
             }
+        }
+        
+        if (activeSessions.length > 0) {
+            logger.info(`⏲️ [Session-Monitor] Memantau ${activeSessions.length} sesi...`);
         }
 
         return expiredCount;

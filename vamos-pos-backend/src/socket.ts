@@ -284,6 +284,19 @@ const initCloudBridge = () => {
         }
     });
 
+    cloudSocket.on('relay:blink', async (data: any) => {
+        // Anti-Spam Blink: 2 detik
+        if (isSpam(`relay-blink-${data.channel}`, 2000)) return;
+
+        logger.info(`🔌 [BRIDGE] relay:blink diterima dari VPS: Meja ${data.channel}`);
+        try {
+            const { RelayService } = await import('./modules/relay/relay.service');
+            await RelayService.blink(data.channel);
+        } catch (err: any) {
+            logger.error(`❌ [BRIDGE] Gagal eksekusi blink hardware: ${err.message}`);
+        }
+    });
+
     cloudSocket.on('disconnect', () => {
         logger.warn('⚠️ Jembatan Cloud TERPUTUS. Menunggu koneksi kembali...');
     });

@@ -43,9 +43,15 @@ export class VenueService {
             throw new AppError('Venue not found', 404);
         }
 
+        // PROTECTION: Jangan timpa data dengan string Kosong (hasil race condition frontend)
+        const updateData: any = { ...data };
+        if (updateData.name === '') delete updateData.name;
+        if (updateData.address === '') delete updateData.address;
+        if (updateData.relayComPort === '') delete updateData.relayComPort;
+
         const updated = await prisma.venue.update({
             where: { id },
-            data
+            data: updateData
         });
 
         if (data.relayComPort) {

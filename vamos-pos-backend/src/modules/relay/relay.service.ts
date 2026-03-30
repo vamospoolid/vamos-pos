@@ -185,6 +185,14 @@ export class RelayService {
         } catch (e) { self.updateConnectionStatus(false); }
 
         for (let i = 1; i <= 20; i++) { if (self.mockStates[i] === undefined) self.mockStates[i] = false; }
+        
+        // Sync mockStates with current table status from DB
+        try {
+            const tables = await prisma.table.findMany({ where: { status: 'PLAYING' } });
+            for (const t of tables) {
+                if (t.relayChannel) self.mockStates[t.relayChannel] = true;
+            }
+        } catch (e) {}
     }
 
     static async reconnect() {
@@ -237,6 +245,14 @@ export class RelayService {
         return true;
     }
 
+    static async notifyBlink(channel: number) {
+        try {
+            const { getIO } = await import('../../socket');
+            const io = getIO();
+            if (io) io.emit('relay:blink', { channel });
+        } catch (e) { }
+    }
+
     private static async burstAsync(channel: number, isOn: boolean): Promise<void> {
         const self = this as any;
         if (this.lock) {
@@ -249,32 +265,54 @@ export class RelayService {
 
         const writeRaw = (data: string): Promise<void> => {
             return new Promise<void>((resolve) => {
-                if (!self.port || !self.port.isOpen) { this.init().then(() => resolve()); return; }
-                self.port.write(data, () => setTimeout(resolve, 50));
+                const sendNow = () => {
+                    if (!self.port || !self.port.isOpen) { resolve(); return; }
+                    self.port.write(data, (err: any) => {
+                        if (err) logger.error(`[RELAY] Write Error: ${err.message}`);
+                        setTimeout(resolve, 50);
+                    });
+                };
+                if (!self.port || !self.port.isOpen) { 
+                    this.init().then(() => {
+                        setTimeout(sendNow, 500); // Tunggu port stabil setelah OPEN
+                    });
+                    return; 
+                }
+                sendNow();
             });
         };
 
         try {
             const cmd = `${channel}${isOn ? '1' : '0'}\r\n`;
             await writeRaw(cmd);
-            await delay(50);
+            await delay(100);
             await writeRaw(cmd);
+            
+            // Extra safety for OFF command
+            if (!isOn) {
+                await delay(200);
+                await writeRaw(cmd);
+            }
         } catch (e) {} finally {
             this.lock = false;
             const next = this.queue.shift();
-            if (next) setTimeout(() => this.burstAsync(next.channel, next.command === 'on'), 50);
+            if (next) setTimeout(() => this.burstAsync(next.channel, next.command === 'on'), 100);
         }
     }
 
     static async blink(channel: number): Promise<void> {
+        this.notifyBlink(channel); // Broadcast to UI/Cloud
+        
+        if (process.env.NODE_ENV === 'production' && !process.env.IS_LOCAL_ELECTRON) return;
+        
         const originalState = this.mockStates[channel];
         try {
             await this.burstAsync(channel, false);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 800));
             await this.burstAsync(channel, true);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 800));
             await this.burstAsync(channel, false);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 800));
             await this.burstAsync(channel, originalState);
         } catch (e) {}
     }

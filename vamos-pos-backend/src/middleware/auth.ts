@@ -33,7 +33,19 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
 export const authorizeRoles = (...roles: Role[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user || !roles.includes(req.user.role)) {
+        if (!req.user) {
+            throw new AppError('Forbidden', 403);
+        }
+
+        const userRole = req.user.role;
+        
+        // HIERARCHY: OWNER can do anything ADMIN can do
+        const allowedRoles = [...roles];
+        if (allowedRoles.includes('ADMIN') && !allowedRoles.includes('OWNER')) {
+            allowedRoles.push('OWNER');
+        }
+
+        if (!allowedRoles.includes(userRole)) {
             throw new AppError('Forbidden', 403);
         }
         next();

@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { VenueController } from './venue.controller';
+import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
 
-router.post('/', VenueController.createVenue);
-router.get('/', VenueController.getVenues);
-router.get('/:id', VenueController.getVenueById);
-router.put('/:id', VenueController.updateVenue);
-router.delete('/:id', VenueController.deleteVenue);
+router.post('/', authenticate, authorizeRoles('ADMIN', 'OWNER'), VenueController.createVenue);
+router.get('/', authenticate, VenueController.getVenues);
+router.get('/:id', authenticate, VenueController.getVenueById);
+router.put('/:id', authenticate, authorizeRoles('ADMIN', 'OWNER'), VenueController.updateVenue);
+router.delete('/:id', authenticate, authorizeRoles('ADMIN', 'OWNER'), VenueController.deleteVenue);
 
 export default router;
