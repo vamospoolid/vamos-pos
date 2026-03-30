@@ -1,26 +1,20 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
-const http = require('http');
+const fs = require('fs');
+const dotenv = require('dotenv');
 
-// isPackaged  → apakah ini EXE yang sudah di-build electron-builder?
-//               Digunakan untuk menentukan PATH file backend (vamous-pos.exe)
+// VAMOS CONFIGURATION
+const CLOUD_URL = 'https://pos.vamospool.id';
+const LOCAL_BACKEND_PORT = 3000;
+
+// isPackaged: detect if running as built EXE
 const isPackaged = app.isPackaged;
-
-// isDevVite   → apakah kita load Vite (localhost:5173) atau backend (localhost:3000)?
-//               false jika: sudah package ATAU VAMOS_PROD_MODE=1 (via BAT)
-//               true  jika: development murni (jalankan npm run dev dulu)
-const isDevVite = !isPackaged && !process.env.VAMOS_PROD_MODE;
 
 let backendProcess = null;
 
 function startBackend() {
-    const fs = require('fs');
-    const dotenv = require('dotenv');
-
-    // ─── PATH: gunakan isPackaged (BUKAN isDevVite) ──────────────────────────
-    // Saat unpackaged (dev atau BAT), lokasi EXE selalu di ../vamos-pos-backend/
-    // Saat packaged, lokasi EXE ada di dalam resources/ bawaan electron-builder
+    // 1. DETERMINE PATHS
     const backendPath = isPackaged
         ? path.join(process.resourcesPath, 'backend', 'vamous-pos.exe')
         : path.join(__dirname, '../vamos-pos-backend/vamous-pos.exe');
@@ -29,29 +23,31 @@ function startBackend() {
         ? path.join(process.resourcesPath, 'backend', '.env')
         : path.join(__dirname, '../vamos-pos-backend/.env');
 
-    // External .env: di folder yang sama dengan EXE yang user klik
-    const portableDir = process.env.PORTABLE_EXECUTABLE_DIR || process.cwd();
-    const externalEnv = path.join(portableDir, '.env');
-
-    // 1. Muat Internal .env (Default)
+    // 2. LOAD ENVIRONMENT VARIABLES
     if (fs.existsSync(internalEnv)) {
-        console.log('Loading internal .env from:', internalEnv);
         Object.assign(process.env, dotenv.parse(fs.readFileSync(internalEnv)));
     }
 
-    // 2. Timpa dengan External .env (jika user menaruh .env di sebelah EXE)
+    // External .env in same directory as portable EXE
+    const portableDir = process.env.PORTABLE_EXECUTABLE_DIR || process.cwd();
+    const externalEnv = path.join(portableDir, '.env');
     if (fs.existsSync(externalEnv)) {
-        console.log('Overriding with external .env from:', externalEnv);
         Object.assign(process.env, dotenv.parse(fs.readFileSync(externalEnv)));
     }
 
-    console.log('Starting backend engine at:', backendPath);
+    console.log('Starting Vamos Backend at:', backendPath);
 
     if (!fs.existsSync(backendPath)) {
-        console.error('ERROR: vamous-pos.exe tidak ditemukan di:', backendPath);
+        // Fallback for dev: if exe not found, maybe they want to run via node?
+        // But for "wrapping into 1 app", we expect the EXE to be there.
+        if (!isPackaged) {
+           console.warn('Backend EXE not found, please build it first.');
+           return;
+        }
+        
         dialog.showErrorBox(
             'Backend Error',
-            `vamous-pos.exe tidak ditemukan.\n\nPath: ${backendPath}\n\nJalankan:\ncd vamos-pos-backend && npm run build && npm run bundle`
+            `vamous-pos.exe tidak ditemukan.\nPath: ${backendPath}`
         );
         return;
     }
@@ -66,7 +62,8 @@ function startBackend() {
             env: {
                 ...process.env,
                 IS_LOCAL_ELECTRON: 'true',
-                PRISMA_QUERY_ENGINE_LIBRARY: enginePath
+                PRISMA_QUERY_ENGINE_LIBRARY: enginePath,
+                NODE_ENV: 'production'
             }
         });
 
@@ -78,6 +75,7 @@ function startBackend() {
         backendProcess.on('exit', (code) => {
             console.log(`Backend process exited with code ${code}`);
         });
+
     } catch (e) {
         console.error('Exception starting backend:', e);
     }
@@ -93,35 +91,47 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: false
+            webSecurity: false // Allow connecting to local bridge from remote URL
         }
     });
 
     win.setMenuBarVisibility(false);
-    
-    // Paksa buka DevTools agar kita bisa melihat error di Portable.exe
-    win.webContents.openDevTools();
-
-    if (!isDevVite) {
-        // ─── PRODUCTION / BAT MODE ──────────────────────────────────────────
-        // VAMOS PURE ONLINE: Muat URL VPS langsung sebagai UI Utama.
-        // Lokal Engine tetap berjalan di background sebagai jembatan hardware (COM3).
-        const vpsUrl = process.env.CLOUD_BASE_URL || 'https://pos.vamospool.id';
-        console.log('VAMOS PURE ONLINE: Menghubungkan ke', vpsUrl);
-
-        win.loadURL(vpsUrl).catch(() => {
-            // Fallback jika internet mati atau VPS down → pakai engine lokal
-            win.loadURL('http://localhost:3000').catch(() => {
-                win.loadFile(path.join(__dirname, 'dist/index.html'));
-            });
-        });
-    } else {
-        // ─── DEVELOPMENT MODE ────────────────────────────────────────────────
-        // Jalankan dulu: npm run dev (di vamos-pos-frontend) sebelum electron
-        win.loadURL('http://localhost:5173');
-    }
-
+    Menu.setApplicationMenu(null);
     win.maximize();
+
+    // VAMOS CLOUD MODE: Load the VPS URL
+    // This is the "wrap into 1 app" essence where Cloud is the UI, Local is the Bridge.
+    const targetUrl = process.env.CLOUD_BASE_URL || CLOUD_URL;
+    
+    console.log('Loading Cloud UI:', targetUrl);
+
+    win.loadURL(targetUrl).catch((err) => {
+        console.warn('Failed to load Cloud URL, fallback to local...', err);
+        // Fallback to local bridge if offline
+        win.loadURL(`http://localhost:${LOCAL_BACKEND_PORT}`).catch(() => {
+            const indexPath = path.join(__dirname, 'dist/index.html');
+            if (fs.existsSync(indexPath)) {
+                win.loadFile(indexPath);
+            } else {
+                win.loadHTML(`
+                    <body style="background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;">
+                        <div style="text-align:center">
+                            <h1>VAMOS POS - OFFLINE</h1>
+                            <p>Gagal terhubung ke Cloud dan Local Engine belum siap.</p>
+                            <button onclick="location.reload()">Coba Lagi</button>
+                        </div>
+                    </body>
+                `);
+            }
+        });
+    });
+
+    // Option to open dev tools for debugging if needed (Ctrl+Shift+I)
+    win.webContents.on('before-input-event', (event, input) => {
+        if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+            win.webContents.openDevTools();
+        }
+    });
 }
 
 app.whenReady().then(() => {

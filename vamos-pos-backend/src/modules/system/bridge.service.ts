@@ -40,10 +40,45 @@ export class BridgeService {
             }
         });
 
-        // Listen for booking syncs to update local DB (optional but helpful)
-        this.client.on('booking:new', (data: any) => {
-            logger.info(`📥 BRIDGE SYNC: New booking received from cloud.`);
-            // Local DB sync logic can go here if needed
+        // Listen for Real-time Port Configuration update
+        this.client.on('relay:config:update', async (data: { port: string }) => {
+            logger.info(`🔄 BRIDGE CONFIG: Switching relay port to ${data.port}...`);
+            try {
+                // Force re-initialization with the new port from UI
+                await RelayService.init(data.port);
+            } catch (err: any) {
+                logger.error(`🚨 BRIDGE CONFIG ERROR: ${err.message}`);
+            }
+        });
+
+        // Listen for license sync from Cloud to persist offline
+        this.client.on('license:sync', async (data: any) => {
+            if (data.isActivated && data.license) {
+                logger.info(`📡 BRIDGE LICENSE: Syncing activation to local DB.`);
+                try {
+                    const { prisma } = await import('../../database/db');
+                    await prisma.license.upsert({
+                        where: { hardwareId: data.machineId },
+                        update: {
+                            isActivated: true,
+                            activatedAt: data.license.activatedAt,
+                            expiresAt: data.license.expiresAt,
+                            licenseKey: data.license.licenseKey,
+                            isActive: data.license.isActive
+                        },
+                        create: {
+                            hardwareId: data.machineId,
+                            isActivated: true,
+                            activatedAt: data.license.activatedAt,
+                            expiresAt: data.license.expiresAt,
+                            licenseKey: data.license.licenseKey,
+                            isActive: data.license.isActive
+                        }
+                    });
+                } catch (e: any) {
+                    logger.error(`🚨 BRIDGE LICENSE ERROR: ${e.message}`);
+                }
+            }
         });
     }
 }

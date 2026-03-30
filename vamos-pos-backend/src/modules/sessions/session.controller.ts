@@ -4,6 +4,7 @@ import { catchAsync } from '../../utils/catchAsync';
 import { z } from 'zod';
 import { AuthRequest } from '../../middleware/auth';
 import { getIO } from '../../socket';
+import { PrinterService } from '../system/printer.service';
 
 const startSessionParams = z.object({
     tableId: z.string().min(1),
@@ -59,6 +60,8 @@ export const paySession = catchAsync(async (req: AuthRequest, res: Response) => 
     const { method, discount, receivedAmount, taxAmount, serviceAmount } = req.body;
     const result = await SessionService.paySession(id, method, req.user!.id, discount, receivedAmount, taxAmount, serviceAmount);
     getIO().emit('sessions:updated');
+    // Auto-print receipt in background
+    PrinterService.printReceipt(id);
     res.json(result);
 });
 
@@ -67,6 +70,8 @@ export const payAsDebt = catchAsync(async (req: AuthRequest, res: Response) => {
     const { discount, taxAmount, serviceAmount } = req.body;
     const result = await SessionService.payAsDebt(id, req.user!.id, discount, taxAmount || 0, serviceAmount || 0);
     getIO().emit('sessions:updated');
+    // Auto-print receipt in background
+    PrinterService.printReceipt(id);
     res.json(result);
 });
 

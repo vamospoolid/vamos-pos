@@ -34,7 +34,7 @@ if ($pgService) {
 
 # 2. BUILD FRONTEND
 Write-Host "`n[2/5] Building Frontend..." -ForegroundColor Yellow
-Set-Location "d:\vamosmobile\vamos-pos-frontend"
+Set-Location "d:\APPS\vamosmobile\vamos-pos-frontend"
 npm install --silent
 npm run build
 if ($LASTEXITCODE -ne 0) {
@@ -45,25 +45,25 @@ Write-Host "   -> Frontend build COMPLETE." -ForegroundColor Green
 
 # 3. SYNC TO BACKEND PUBLIC DIR
 Write-Host "`n[3/5] Syncing build to Backend..." -ForegroundColor Yellow
-$publicDir = "d:\vamosmobile\vamos-pos-backend\public"
+$publicDir = "d:\APPS\vamosmobile\vamos-pos-backend\public"
 if (Test-Path $publicDir) {
     Remove-Item -Path "$publicDir\*" -Recurse -Force
 } else {
     New-Item -ItemType Directory -Path $publicDir
 }
-Copy-Item -Path "d:\vamosmobile\vamos-pos-frontend\dist\*" -Destination $publicDir -Recurse -Force
+Copy-Item -Path "d:\APPS\vamosmobile\vamos-pos-frontend\dist\*" -Destination $publicDir -Recurse -Force
 Write-Host "   -> Sync COMPLETE." -ForegroundColor Green
 
 # 4. BUILD BACKEND & BUNDLE (EXE)
 Write-Host "`n[4/5] Building & Bundling Backend..." -ForegroundColor Yellow
-Set-Location "d:\vamosmobile\vamos-pos-backend"
+Set-Location "d:\APPS\vamosmobile\vamos-pos-backend"
 npm install --silent
 npm run build
 npx prisma db push # Ensure DB schema is up to date
 npm run bundle     # pkg . --output vamous-pos.exe
 
 # Copy Prisma engine for the bundled EXE to use (resides in same folder as EXE)
-Copy-Item -Path "d:\vamosmobile\vamos-pos-backend\node_modules\.prisma\client\query_engine-windows.dll.node" -Destination "d:\vamosmobile\vamos-pos-backend\" -Force
+Copy-Item -Path "d:\APPS\vamosmobile\vamos-pos-backend\node_modules\.prisma\client\query_engine-windows.dll.node" -Destination "d:\APPS\vamosmobile\vamos-pos-backend\" -Force
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "   -> ERROR: Backend bundling failed!" -ForegroundColor Red
@@ -77,7 +77,7 @@ Write-Host "#               BUILD & SETUP SUCCESS!               #" -ForegroundC
 Write-Host "######################################################" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Aplikasi siap dijalankan melalui:" -ForegroundColor Yellow
-Write-Host "D:\vamosmobile\vamos-pos-backend\vamous-pos.exe" -ForegroundColor Green
+Write-Host "d:\APPS\vamosmobile\vamos-pos-backend\vamous-pos.exe" -ForegroundColor Green
 Write-Host ""
 Write-Host "Buka browser ke: http://localhost:3000" -ForegroundColor Green
 Write-Host ""

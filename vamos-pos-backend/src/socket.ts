@@ -40,9 +40,36 @@ export const initSocket = (server: HttpServer) => {
         });
 
         // VPS Broadcaster: Menerima status dari Bridge dan meneruskan ke UI
-        socket.on('bridge:status:update', (data: any) => {
+        socket.on('bridge:status:update', async (data: any) => {
             // Simpan ke memori VPS agar client baru bisa dapat status lama
+            const previousStatus = latestBridgeStatus;
             latestBridgeStatus = data;
+
+            // Jika port berubah, update Database VPS agar tetap konsisten (menghilangkan /dev/ttyS0)
+            if (data.port && data.port !== previousStatus?.port) {
+                try {
+                    await prisma.venue.updateMany({
+                        data: { relayComPort: data.port }
+                    });
+                    logger.info(`🔄 [VPS_SYNC] Venue port updated to: ${data.port}`);
+                } catch (e) {
+                    logger.error(`❌ [VPS_SYNC] Failed to update Venue port: ${e}`);
+                }
+            }
+
+            // Sync License HWID to memory if available
+            if (data.hardwareId) {
+                logger.debug(`🔑 [VPS_SYNC] Bridge Hardware ID reported: ${data.hardwareId}`);
+                
+                // PUSH License Status back to Bridge for Offline Persistence
+                try {
+                   const { LicenseService } = await import('./modules/license/license.service');
+                   const ls = new LicenseService();
+                   const status = await ls.getStatus(data.hardwareId);
+                   socket.emit('license:sync', status);
+                } catch (e) {}
+            }
+
             // Teruskan ke semua UI
             io.emit('bridge:hardware:status', { ...data, isBridge: true });
         });

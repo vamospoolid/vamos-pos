@@ -49,6 +49,10 @@ export class VenueService {
         });
 
         if (data.relayComPort) {
+            // TERIAKKAN KE BRIDGE (LAPTOP) AGAR GANTI PORT REAL-TIME
+            RelayService.notifyConfigUpdate(data.relayComPort);
+            
+            // JUGA UPDATE LOKAL (JIKA SEDANG RUN DI MODE LOKAL)
             RelayService.init(data.relayComPort);
         }
 

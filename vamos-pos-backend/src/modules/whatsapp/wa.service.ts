@@ -49,10 +49,32 @@ class WhatsAppService {
     }
 
     private setupListeners() {
-        this.client.on('qr', (qr) => {
+        const emitStatus = async () => {
+            try {
+                const { getIO } = await import('../../socket');
+                const io = getIO();
+                if (io) {
+                    io.emit('whatsapp:status', {
+                        isReady: this.isReady,
+                        isInitializing: this.isInitializing,
+                        hasQr: !!this.latestQr
+                    });
+                }
+            } catch (e) {}
+        };
+
+        this.client.on('qr', async (qr) => {
             this.latestQr = qr;
             this.isInitializing = false;
             logger.info('📱 [WHATSAPP] New QR Code generated. Silakan scan melalui Admin Settings.');
+            
+            try {
+                const { getIO } = await import('../../socket');
+                const io = getIO();
+                if (io) io.emit('whatsapp:qr', { qr });
+            } catch (e) {}
+            
+            emitStatus();
             qrcode.generate(qr, { small: true });
         });
 
@@ -60,28 +82,28 @@ class WhatsAppService {
             this.isReady = true;
             this.isInitializing = false;
             this.latestQr = '';
-            this.reconnectAttempts = 0; // reset attempts on success
+            this.reconnectAttempts = 0; 
             logger.info('✅ [WHATSAPP] Client is READY! Koneksi aktif.');
+            emitStatus();
         });
 
         this.client.on('authenticated', () => {
             logger.info('✅ [WHATSAPP] Berhasil terautentikasi.');
+            emitStatus();
         });
 
         this.client.on('auth_failure', msg => {
             logger.error(`❌ [WHATSAPP] Autentikasi gagal: ${msg}`);
             this.isInitializing = false;
             this.isReady = false;
-        });
-
-        this.client.on('change_state', state => {
-            logger.warn(`⚠️ [WHATSAPP] Status berubah: ${state}`);
+            emitStatus();
         });
 
         this.client.on('disconnected', (reason) => {
             logger.error(`❌ [WHATSAPP] Terputus: ${reason}`);
             this.isReady = false;
             this.latestQr = '';
+            emitStatus();
             this.handleReconnect();
         });
     }

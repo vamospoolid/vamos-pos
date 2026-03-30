@@ -4,17 +4,15 @@ import { prisma } from '../../database/db';
 const MASTER_KEY = 'Ahmad_dcc07';
 
 export class LicenseService {
-  async getStatus() {
-    const hwid = getHardwareId();
+  async getStatus(providedHwid?: string) {
+    const hwid = providedHwid || getHardwareId();
     let license = null;
     
     try {
       license = await prisma.license.findUnique({
         where: { hardwareId: hwid }
       });
-    } catch (err) {
-      console.error('Database connection failed in getStatus, returning raw hwid.');
-    }
+    } catch (err) { }
 
     return {
       machineId: hwid,
@@ -28,10 +26,9 @@ export class LicenseService {
     };
   }
 
-  async activate(key: string) {
-    const hwid = getHardwareId();
+  async activate(key: string, providedHwid?: string) {
+    const hwid = providedHwid || getHardwareId();
 
-    // Check if machine already has a license
     const existingMachineLicense = await prisma.license.findUnique({
       where: { hardwareId: hwid }
     });
@@ -40,9 +37,7 @@ export class LicenseService {
       throw new Error('This machine is already activated.');
     }
 
-    // Special Master Key Logic
     if (key.trim().toUpperCase() === MASTER_KEY.toUpperCase()) {
-      // If master key is used, we create/update a dedicated master license for this machine
       return await prisma.license.upsert({
         where: { hardwareId: hwid },
         update: {
@@ -61,14 +56,11 @@ export class LicenseService {
       });
     }
 
-    // Regular Key Logic
     const license = await prisma.license.findUnique({
       where: { licenseKey: key }
     });
 
-    if (!license) {
-      throw new Error('Invalid license key.');
-    }
+    if (!license) throw new Error('Invalid license key.');
 
     if (license.isActivated && license.hardwareId !== hwid) {
       throw new Error('This license key is already bound to another machine.');
@@ -84,22 +76,17 @@ export class LicenseService {
     });
   }
 
-  async requestDemo() {
-    const hwid = getHardwareId();
+  async requestDemo(providedHwid?: string) {
+    const hwid = providedHwid || getHardwareId();
 
-    // Check if machine already has any license
     const existing = await prisma.license.findUnique({
       where: { hardwareId: hwid }
     });
 
     if (existing) {
-      if (existing.isActivated && !existing.licenseKey.startsWith('DEMO-')) {
-        throw new Error('This machine already has a full license.');
-      }
       throw new Error('Trial has already been requested or used on this machine.');
     }
 
-    // Grant 24h trial
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
@@ -115,20 +102,14 @@ export class LicenseService {
     });
   }
 
-  async verify() {
-    const hwid = getHardwareId();
+  async verify(providedHwid?: string) {
+    const hwid = providedHwid || getHardwareId();
     const license = await prisma.license.findUnique({
       where: { hardwareId: hwid }
     });
 
-    if (!license || !license.isActivated || !license.isActive) {
-      return false;
-    }
-
-    // Check expiry
-    if (license.expiresAt && new Date() > license.expiresAt) {
-      return false;
-    }
+    if (!license || !license.isActivated || !license.isActive) return false;
+    if (license.expiresAt && new Date() > license.expiresAt) return false;
 
     return true;
   }

@@ -529,9 +529,11 @@ export class SessionService {
         return session;
     }
 
+    private static blinkedSessions = new Set<string>();
+
     /**
-     * Otomatis mematikan sesi yang sudah habis durasinya (prepaid/package).
-     * Dijalankan berkala dari server.ts.
+     * Otomatis mematikan sesi yang sudah habis durasinya (prepaid/package)
+     * DAN memberikan peringatan lampu berkedip (blink).
      */
     static async checkExpiredSessions() {
         const activeSessions = await prisma.session.findMany({
@@ -539,27 +541,44 @@ export class SessionService {
             include: { table: true }
         });
 
-        const expired: string[] = [];
+        if (activeSessions.length === 0) return 0;
+
         const now = new Date();
+        const venue = await prisma.venue.findFirst();
+        const warningMinutes = venue?.blinkWarningMinutes || 5;
+        const warningMs = warningMinutes * 60000;
+
+        let expiredCount = 0;
 
         for (const s of activeSessions) {
             const durationMs = (s.durationOpts || 0) * 60000;
             const limitTime = new Date(s.startTime.getTime() + durationMs);
+            const timeLeftMs = limitTime.getTime() - now.getTime();
 
-            if (now >= limitTime) {
+            // 1. CEK: Sesi Habis (Matikan Meja)
+            if (timeLeftMs <= 0) {
                 try {
-                    // System-id (null atau dedicated id) mengakhiri sesi
                     await this.endSession(s.id, 'SYSTEM');
-                    expired.push(s.table?.name || s.id);
+                    this.blinkedSessions.delete(s.id); // Bersihkan cache
+                    expiredCount++;
+                    logger.info(`[Auto-Expire] Sesi meja ${s.table?.name} berakhir.`);
                 } catch (err: any) {
                     logger.error(`[Auto-Expire] Gagal mengakhiri sesi ${s.id}: ${err.message}`);
+                }
+                continue;
+            }
+
+            // 2. CEK: Peringatan (Blink)
+            // Jika sisa waktu <= warningMinutes DAN belum pernah berkedip
+            if (timeLeftMs <= warningMs && !this.blinkedSessions.has(s.id)) {
+                if (s.table?.relayChannel) {
+                    logger.info(`[Auto-Blink] Memberi peringatan pada meja ${s.table.name} (${warningMinutes} menit sisa)`);
+                    RelayService.blink(s.table.relayChannel).catch(() => {});
+                    this.blinkedSessions.add(s.id);
                 }
             }
         }
 
-        if (expired.length > 0) {
-            logger.info(`[Auto-Expire] ${expired.length} sesi berakhir otomatis: [${expired.join(', ')}]`);
-        }
-        return expired.length;
+        return expiredCount;
     }
 }

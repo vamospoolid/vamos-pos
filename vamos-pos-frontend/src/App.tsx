@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
@@ -18,6 +18,118 @@ import Waitlist from './Waitlist';
 import Discounts from './Discounts';
 import { VamosLogo } from './components/VamosLogo';
 import ActivationPage from './ActivationPage';
+
+// --- LICENSE MANAGEMENT COMPONENT (OWNER ONLY) ---
+function LicenseManagement() {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [licenseKey, setLicenseKey] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/license/status');
+      setStatus(res.data.data);
+    } catch (err: any) {
+      setError('Gagal memuat status lisensi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStatus(); }, []);
+
+  const handleActivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.post('/license/activate', { licenseKey });
+      vamosAlert('Lisensi berhasil diperbarui!');
+      fetchStatus();
+      setLicenseKey('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Gagal aktivasi.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#00ff66]" /></div>;
+
+  return (
+    <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-[#141414] border border-[#222] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5"><ShieldCheck className="w-40 h-40" /></div>
+        
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-14 h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center border border-orange-500/20 shadow-lg shadow-orange-500/5">
+            <Key className="w-7 h-7 text-orange-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white italic tracking-tight uppercase">License & Security</h2>
+            <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Cashier Machine Hardware Identity</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl p-6 relative group overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Hardware ID (Laptop Kasir)</label>
+              <button 
+                onClick={() => { navigator.clipboard.writeText(status?.machineId); setCopied(true); setTimeout(()=>setCopied(false), 2000); }}
+                className="text-[10px] font-black text-[#00ff66] hover:text-white transition-colors flex items-center gap-2 uppercase tracking-widest"
+              >
+                {copied ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                {copied ? 'Copied' : 'Copy ID'}
+              </button>
+            </div>
+            <div className="font-mono text-lg font-black text-white bg-white/5 p-4 rounded-xl border border-white/5 flex items-center justify-between">
+               <span className="truncate">{status?.machineId}</span>
+               {status?.isActivated ? (
+                 <span className="bg-[#00ff66]/10 text-[#00ff66] text-[10px] px-3 py-1 rounded-full border border-[#00ff66]/20 font-black tracking-widest">LICENSED</span>
+               ) : (
+                 <span className="bg-red-500/10 text-red-500 text-[10px] px-3 py-1 rounded-full border border-red-500/20 font-black tracking-widest">UNLICENSED</span>
+               )}
+            </div>
+          </div>
+
+          <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl p-6">
+             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Update Activation Key</h3>
+             <form onSubmit={handleActivate} className="space-y-6">
+                <input 
+                  type="text" 
+                  value={licenseKey} 
+                  onChange={e => setLicenseKey(e.target.value.toUpperCase())}
+                  placeholder="VAMOS-XXXX-XXXX"
+                  className="w-full bg-[#111] border border-[#222] rounded-xl px-5 py-4 text-center font-black text-xl tracking-[0.2em] focus:outline-none focus:border-orange-500 focus:shadow-[0_0_20px_rgba(249,115,22,0.1)] transition-all uppercase placeholder:text-gray-800"
+                  required
+                />
+                {error && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest">{error}</p>}
+                <button 
+                  disabled={submitting}
+                  className="w-full py-5 bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-[0.3em] hover:bg-orange-500 transition-all shadow-xl shadow-orange-900/10 active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="animate-spin w-5 h-5 mx-auto"/> : 'Apply New License'}
+                </button>
+             </form>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-8 border-t border-[#1e1e1e] flex items-center justify-between">
+           <div className="flex items-center gap-3">
+              <ShieldAlert className="w-4 h-4 text-gray-700" />
+              <p className="text-[10px] text-gray-600 font-bold uppercase italic">Lisensi terikat pada hardware laptop ini.</p>
+           </div>
+           <p className="text-[10px] font-black text-gray-800 tracking-[0.3em]">SECURE CORE v3.0</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface AuthUser {
   id: string;
@@ -139,8 +251,8 @@ function App() {
 
 // --- LOGIN COMPONENT ---
 function Login({ onLogin }: { onLogin: (token: string, user: AuthUser) => void }) {
-  const [email, setEmail] = useState('admin@vamos.pos');
-  const [password, setPassword] = useState('admin123'); // Adjust to correct test user password
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState(''); 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -162,7 +274,7 @@ function Login({ onLogin }: { onLogin: (token: string, user: AuthUser) => void }
     <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white">
       <div className="w-full max-w-md bg-[#141414] p-8 rounded-2xl border border-[#222222] shadow-[0_0_50px_rgba(0,255,102,0.05)]">
         <div className="flex items-center space-x-3 mb-8 justify-center">
-          <VamosLogo className="w-12 h-12" color="#00ff66" glowing />
+          <VamosLogo className="w-12 h-12" glowing />
           <span className="text-3xl font-bold tracking-wider">VAMOS POOL</span>
         </div>
 
@@ -215,6 +327,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [utilizationSplit, setUtilizationSplit] = useState<{ dayHours: string, nightHours: string }>({ dayHours: '0.0', nightHours: '0.0' });
   const [waitlistCount, setWaitlistCount] = useState(0);
   const [arenaPendingCount, setArenaPendingCount] = useState(0);
+  const [syncCount, setSyncCount] = useState(0);
   const [unpaidDebtCount, setUnpaidDebtCount] = useState(0);
   const [redemptionPendingCount, setRedemptionPendingCount] = useState(0);
 
@@ -305,9 +418,10 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         api.get('/player/challenges/pending-verification'),
         api.get('/expenses/pending-count'),
         api.get('/loyalty/admin/redemptions/pending-count'),
+        api.get('/system/unsynced-count'),
       ]);
 
-      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes, arenaRes, debtRes, redRes] = results;
+      const [tRes, sRes, pRes, pkgRes, prodRes, vRes, revRes, utilRes, memRes, discRes, waitRes, shiftRes, arenaRes, debtRes, redRes, syncRes] = results;
 
       if (tRes.status === 'fulfilled') setTables(tRes.value.data.data);
       if (sRes.status === 'fulfilled') setSessions(sRes.value.data);
@@ -333,6 +447,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       if (arenaRes.status === 'fulfilled') setArenaPendingCount(arenaRes.value.data.data?.length || 0);
       if (debtRes.status === 'fulfilled') setUnpaidDebtCount((debtRes as any).value.data.count || 0);
       if (redRes.status === 'fulfilled') setRedemptionPendingCount((redRes as any).value.data.count || 0);
+      if (syncRes.status === 'fulfilled') setSyncCount((syncRes as any).value.data.count || 0);
 
       if (shiftRes.status === 'fulfilled') {
         const shiftData = shiftRes.value.data.data;
@@ -763,7 +878,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       <aside className="w-56 lg:w-64 bg-[#111] border-r border-[#1e1e1e] flex flex-col hidden md:flex shrink-0 relative">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3 border-b border-[#1e1e1e]">
-          <VamosLogo className="w-10 h-10" color="#00ff66" glowing />
+          <VamosLogo className="w-10 h-10" glowing />
           <div>
             <span className="text-lg font-black tracking-widest text-white">VAMOS POOL</span>
             <p className="text-[9px] text-gray-600 uppercase tracking-widest font-bold">Billiard Management</p>
@@ -774,6 +889,25 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         <div className="mx-4 mt-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2" style={{ background: '#0d1a0d', border: '1px solid rgba(0,255,102,0.15)' }}>
           <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse" />
           <span className="text-[10px] font-bold text-[#00ff66] uppercase tracking-widest">Live · {activeCount} meja aktif</span>
+        </div>
+
+        {/* Cloud Sync Status */}
+        <div className="mx-4 mb-4 px-3 py-2 rounded-xl flex items-center justify-between gap-2" 
+          style={syncCount > 0 
+            ? { background: 'rgba(255, 153, 0, 0.08)', border: '1px solid rgba(255, 153, 0, 0.2)' }
+            : { background: 'rgba(0, 170, 255, 0.08)', border: '1px solid rgba(0, 170, 255, 0.2)' }
+          }>
+          <div className="flex items-center gap-2">
+            {syncCount > 0 ? <ShieldAlert className="w-3.5 h-3.5 text-orange-400 animate-pulse" /> : <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />}
+            <span className={`text-[9px] font-black uppercase tracking-widest ${syncCount > 0 ? 'text-orange-400' : 'text-sky-400'}`}>
+              {syncCount > 0 ? 'Pending Sync' : 'Cloud Synced'}
+            </span>
+          </div>
+          {syncCount > 0 && (
+            <span className="bg-orange-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-lg min-w-[20px] text-center">
+              {syncCount}
+            </span>
+          )}
         </div>
 
         <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
@@ -801,8 +935,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
           <NavItem active={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} icon={<Gift />} label="Rewards & Loyalty" accent="gold" badge={redemptionPendingCount > 0 ? redemptionPendingCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'employees'} onClick={() => setActiveTab('employees')} icon={<Users />} label="Employees" />
-          {user?.role !== 'KASIR' && (
-            <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
+          {user?.role === 'OWNER' && (
+             <>
+               <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="License Management" accent="orange" />
+               <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="System Settings" />
+             </>
           )}
         </nav>
 
@@ -1210,6 +1347,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             {activeTab === 'competitions' && <Competitions />}
             {activeTab === 'rewards' && <Rewards />}
             {activeTab === 'settings' && <Settings />}
+            {activeTab === 'license' && <LicenseManagement />}
           </div>
         </div>
       </main>
@@ -2785,11 +2923,11 @@ interface NavItemProps {
   onClick: () => void;
   badge?: number | string | null;
   badgeColor?: 'red' | 'blue' | 'green' | 'orange';
-  accent?: 'gold' | 'green';
+  accent?: 'gold' | 'green' | 'orange';
 }
 
 function NavItem({ icon, label, active, onClick, badge, badgeColor, accent }: NavItemProps) {
-  const accentColor = accent === 'gold' ? '#f59e0b' : '#00ff66';
+  const accentColor = accent === 'gold' ? '#f59e0b' : accent === 'orange' ? '#f97316' : '#00ff66';
   return (
     <button
       onClick={onClick}

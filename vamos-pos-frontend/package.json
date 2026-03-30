@@ -49,9 +49,20 @@
       }
     ],
     "win": {
-      "target": "portable",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/favicon.png",
       "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vamos Pool POS",
+      "artifactName": "Vamos_POS_Setup_${version}.exe"
     },
     "portable": {
       "artifactName": "Vamos_POS_Portable.exe",

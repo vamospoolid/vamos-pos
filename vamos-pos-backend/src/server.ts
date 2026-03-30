@@ -35,10 +35,16 @@ if ((process as any).pkg) {
 
 const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
 if (isLocalBridge) {
+    // Non-blocking initialization to ensure UI is never blocked by hardware
     import('./modules/system/bridge.service').then(({ BridgeService }) => {
-        BridgeService.init();
+        try {
+            BridgeService.init();
+        } catch (e) {
+            logger.error('⚠️ BRIDGE INIT ERROR (Non-blocking):', (e as any).message);
+        }
     });
 }
+logger.info('🚀 SYSTEM STARTING: Access First mode active. Hardware scanning in background.');
 const app = express();
 
 app.use(helmet({
@@ -198,7 +204,7 @@ if (!isLocalBridge) {
         }
     };
     setTimeout(runAutoExpireSessions, 5000);
-    setInterval(runAutoExpireSessions, 60 * 1000);
+    setInterval(runAutoExpireSessions, 30 * 1000);
 
     // 3. Auto expire waitlist (setiap 10 menit)
     const runWaitlistCheck = async () => {
