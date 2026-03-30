@@ -178,7 +178,6 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('vamos_token'));
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLicensed, setIsLicensed] = useState<boolean | null>(null);
-  const [waStatus, setWaStatus] = useState<{ isReady: boolean; isInitializing: boolean; hasQr: boolean } | null>(null);
 
   useEffect(() => {
     const checkLicense = async () => {
@@ -333,6 +332,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [redemptionPendingCount, setRedemptionPendingCount] = useState(0);
 
   // Hardware Init States
+  const [waStatus, setWaStatus] = useState<{ isReady: boolean; isInitializing: boolean; hasQr: boolean } | null>(null);
   const [hwStatus, setHwStatus] = useState<'IDLE' | 'CHECKING' | 'ERROR' | 'READY'>('IDLE');
   const [hwProgress, setHwProgress] = useState(0);
   const [hwMessage, setHwMessage] = useState('');

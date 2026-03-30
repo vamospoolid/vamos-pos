@@ -231,14 +231,6 @@ export default function Settings() {
         }
     };
 
-    const testBlink = async (channel: number) => {
-        try {
-            await api.post('/relay/blink', { channel });
-            // No alert needed, user will see the light blink
-        } catch (err) {
-            vamosAlert(`Blink Test Failed: Could not send blink to Channel ${channel}`);
-        }
-    };
 
     const toggleKingTable = async (table: any) => {
         try {
