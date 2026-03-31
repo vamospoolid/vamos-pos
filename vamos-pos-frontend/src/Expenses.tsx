@@ -144,6 +144,7 @@ export default function Expenses() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (saving) return;
         const numAmount = parseFloat(amount);
         if (!numAmount || numAmount <= 0) {
             vamosAlert('Masukkan jumlah pengeluaran yang valid.');
@@ -169,6 +170,7 @@ export default function Expenses() {
             setCategory('OPERATIONAL');
             setSelectedMemberId('');
             fetchExpenses();
+            vamosAlert('Pengeluaran berhasil disimpan');
         } catch (err: any) {
             console.error('Failed to save expense', err);
             const msg = err?.response?.data?.message || 'Gagal menyimpan pengeluaran. Coba lagi.';

@@ -136,7 +136,7 @@ export class SyncService {
                 const dataToSave = { ...item };
                 
                 // User model: match by email. Other models: match by ID.
-                const isUser = dataToSave.email !== undefined && dataToSave.password !== undefined;
+                const isUser = typeof dataToSave.email === 'string' && dataToSave.role !== undefined;
                 if (isUser) {
                     delete dataToSave.syncStatus;
                     await modelDelegate.upsert({

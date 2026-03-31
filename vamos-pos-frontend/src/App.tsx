@@ -709,6 +709,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const payBill = async () => {
     if (!checkoutBill) return;
 
+    const subtotal = (checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0);
     const servicePercent = checkoutBill.table?.venue?.servicePercent ?? venueConfig?.servicePercent ?? 0;
     const taxPercent = checkoutBill.table?.venue?.taxPercent ?? venueConfig?.taxPercent ?? 0;
 
