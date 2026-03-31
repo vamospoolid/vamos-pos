@@ -112,7 +112,7 @@ export class ReportService {
                 let currentDate = new Date(startParam);
                 while (currentDate <= endParam) {
                     const start = new Date(currentDate);
-                    start.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+                    start.setHours(await ReportService.getOpenHour(), 0, 0, 0);
 
                     const end = new Date(start);
                     end.setDate(end.getDate() + 1);
@@ -296,7 +296,7 @@ export class ReportService {
             sessionCount: payments.length,
             activeSessions: activeSessions.length,
             minutesSinceOpen: opensSince,
-            openHour: ReportService.OPEN_HOUR
+            openHour: await ReportService.getOpenHour()
         };
     }
 
@@ -454,11 +454,11 @@ export class ReportService {
 
         if (startDateStr && endDateStr) {
             gteDate = new Date(startDateStr);
-            gteDate.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+            gteDate.setHours(await ReportService.getOpenHour(), 0, 0, 0);
             
             const endDate = new Date(endDateStr);
             endDate.setDate(endDate.getDate() + 1);
-            endDate.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+            endDate.setHours(await ReportService.getOpenHour(), 0, 0, 0);
             endDate.setMilliseconds(endDate.getMilliseconds() - 1);
             lteDate = endDate;
         } else {
