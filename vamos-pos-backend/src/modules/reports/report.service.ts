@@ -61,24 +61,36 @@ export class ReportService {
      *   - If current time is 03:00 AM on 2026-02-28, we're still in the
      *     2026-02-27 operational day.
      */
-    static readonly OPEN_HOUR = 10; // configurable: hour venue opens (24h format)
+    /**
+     * OPERATIONAL DAY BOUNDS
+     * ─────────────────────────────────────────────────────────────────────
+     * Venue opens at OPEN_HOUR (fetched from Venue settings) and the "business day"
+     * ends at OPEN_HOUR the NEXT calendar day.
+     */
+    static async getOpenHour(): Promise<number> {
+        const venue = await prisma.venue.findFirst({ where: { deletedAt: null } });
+        if (!venue || !venue.openTime) return 10; // Fallback to 10 AM
+        return parseInt(venue.openTime.split(':')[0], 10);
+    }
 
     /** Returns { start, end, label } for an operational day N days ago (0 = today/current). */
-    static getOperationalDayBounds(daysAgo = 0): { start: Date; end: Date; label: string } {
+    static async getOperationalDayBounds(daysAgo = 0): Promise<{ start: Date; end: Date; label: string }> {
+        const openHour = await ReportService.getOpenHour();
         const now = new Date();
-        // If current time is before OPEN_HOUR, we are still "in yesterday's" operational day
+        
+        // If current time is before openHour, we are still "in yesterday's" operational day
         const pivotDate = new Date(now);
-        if (now.getHours() < ReportService.OPEN_HOUR) {
+        if (now.getHours() < openHour) {
             pivotDate.setDate(pivotDate.getDate() - 1);
         }
         // Move back daysAgo
         pivotDate.setDate(pivotDate.getDate() - daysAgo);
 
         const start = new Date(pivotDate);
-        start.setHours(ReportService.OPEN_HOUR, 0, 0, 0);
+        start.setHours(openHour, 0, 0, 0);
 
         const end = new Date(start);
-        end.setDate(end.getDate() + 1); // OPEN_HOUR next calendar day
+        end.setDate(end.getDate() + 1); // openHour next calendar day
         end.setMilliseconds(end.getMilliseconds() - 1); // inclusive
 
         const label = start.toISOString().split('T')[0]; // "YYYY-MM-DD" of open hour date
@@ -114,7 +126,7 @@ export class ReportService {
             }
         } else {
             for (let i = days - 1; i >= 0; i--) {
-                datesToProcess.push(ReportService.getOperationalDayBounds(i));
+                datesToProcess.push(await ReportService.getOperationalDayBounds(i));
             }
         }
 
@@ -207,7 +219,7 @@ export class ReportService {
 
     /** Revenue for the CURRENT operational day (from OPEN_HOUR today or yesterday if before OPEN_HOUR). */
     static async getCurrentOperationalDayRevenue() {
-        const { start, end, label } = ReportService.getOperationalDayBounds(0);
+        const { start, end, label } = await ReportService.getOperationalDayBounds(0);
 
         const payments = await prisma.payment.findMany({
             where: {
@@ -450,7 +462,7 @@ export class ReportService {
             endDate.setMilliseconds(endDate.getMilliseconds() - 1);
             lteDate = endDate;
         } else {
-            const { start } = ReportService.getOperationalDayBounds(days - 1);
+            const { start } = await ReportService.getOperationalDayBounds(days - 1);
             gteDate = start;
         }
 

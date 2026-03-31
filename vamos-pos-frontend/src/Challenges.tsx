@@ -437,9 +437,12 @@ export default function Challenges() {
                             </p>
                         </div>
 
-                        <div className="p-8 space-y-4">
-                             <div className="space-y-3">
-                                <p className="text-[10px] uppercase font-black text-gray-500 ml-2">Score Recap:</p>
+                        <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                             <div className="bg-orange-500/5 border border-orange-500/10 p-5 rounded-[32px] space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                                    <p className="text-[10px] uppercase font-black text-white ml-2 tracking-widest">Final Match Score</p>
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
                                         <p className="text-[8px] font-black text-gray-500 uppercase mb-1">{selectedChallenge.challenger.name}</p>

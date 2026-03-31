@@ -35,12 +35,13 @@ export class PricingService {
     // --- PRICING RULE CRUD ---
     static async createPricingRule(data: { name: string; tableType: string; dayOfWeek: number[]; startTime: string; endTime: string; ratePerHour: number; memberRatePerHour?: number; isActive?: boolean }) {
         const existing = await prisma.pricingRule.findMany({
-            where: { tableType: data.tableType, isActive: true, deletedAt: null }
+            where: { isActive: true, deletedAt: null }
         });
 
         for (const rule of existing) {
             const hasCommonDay = data.dayOfWeek.some(d => rule.dayOfWeek.includes(d));
-            if (hasCommonDay && rangesOverlap(data.startTime, data.endTime, rule.startTime, rule.endTime)) {
+            const tableTypeMatch = rule.tableType.toUpperCase() === data.tableType.toUpperCase();
+            if (hasCommonDay && tableTypeMatch && rangesOverlap(data.startTime, data.endTime, rule.startTime, rule.endTime)) {
                 throw new AppError(`Overlap detected with rule "${rule.name}" for the same time slot and table type.`, 400);
             }
         }
@@ -105,8 +106,9 @@ export class PricingService {
                 const dataDays = data.dayOfWeek || [0, 1, 2, 3, 4, 5, 6];
                 const pkgDays = pkg.dayOfWeek || [0, 1, 2, 3, 4, 5, 6];
                 const hasCommonDay = dataDays.some(d => pkgDays.includes(d));
+                const tableTypeMatch = pkg.tableType.toUpperCase() === data.tableType.toUpperCase();
 
-                if (hasCommonDay && rangesOverlap(data.startTime, data.endTime, pkg.startTime, pkg.endTime)) {
+                if (hasCommonDay && tableTypeMatch && rangesOverlap(data.startTime, data.endTime, pkg.startTime, pkg.endTime)) {
                     if (pkg.name.toLowerCase() === data.name.toLowerCase()) {
                         throw new AppError('Package name conflict in overlapping time.', 400);
                     }
