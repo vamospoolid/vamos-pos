@@ -3,40 +3,57 @@ import { AppError } from '../../utils/errors';
 import { PointTxType } from '@prisma/client';
 import { logger } from '../../utils/logger';
 
-// ── Tier thresholds (Based on Experience/XP) ───────────────────────
-const TIER_CONFIG = {
-    BRONZE: { minExperience: 0, earnRate: 1 },
-    SILVER: { minExperience: 1000, earnRate: 1.1 },
-    GOLD: { minExperience: 2500, earnRate: 1.25 },
-    PLATINUM: { minExperience: 5000, earnRate: 1.5 } // Added Platinum for consistency with frontend
-};
-
-const MAINTENANCE_GOLD_HOURS = 15; // Kept for hours check if still relevant
-
-function determineTier(experience: number): string {
-    if (experience >= TIER_CONFIG.PLATINUM.minExperience) return 'PLATINUM';
-    if (experience >= TIER_CONFIG.GOLD.minExperience) return 'GOLD';
-    if (experience >= TIER_CONFIG.SILVER.minExperience) return 'SILVER';
-    return 'BRONZE';
-}
-
-function getTierRate(tier: string): number {
-    const config = TIER_CONFIG[tier as keyof typeof TIER_CONFIG];
-    return config ? config.earnRate : 1;
-}
-
 // ── Config helpers ───────────────────────────────────────────────
 async function getConfig() {
     let cfg = await prisma.loyaltyConfig.findUnique({ where: { id: 'global' } });
     if (!cfg) {
         cfg = await prisma.loyaltyConfig.create({
-            data: { id: 'global', pointPerRupiah: 1, streakThreshold: 5, streakWindowDays: 30, streakBonusPoints: 100, isPointsEnabled: true, updatedAt: new Date() }
+            data: { 
+                id: 'global', 
+                pointPerRupiah: 1, 
+                streakThreshold: 5, 
+                streakWindowDays: 30, 
+                streakBonusPoints: 100, 
+                isPointsEnabled: true, 
+                updatedAt: new Date(),
+                silverThreshold: 1000,
+                goldThreshold: 2500,
+                platinumThreshold: 5000,
+                silverMultiplier: 1.1,
+                goldMultiplier: 1.25,
+                platinumMultiplier: 1.5
+            }
         });
     }
     return cfg;
 }
 
-function isDoublePointActive(cfg: Awaited<ReturnType<typeof getConfig>>): boolean {
+function getTierConfig(cfg: any) {
+    return {
+        BRONZE: { minExperience: 0, earnRate: 1 },
+        SILVER: { minExperience: cfg.silverThreshold, earnRate: cfg.silverMultiplier },
+        GOLD: { minExperience: cfg.goldThreshold, earnRate: cfg.goldMultiplier },
+        PLATINUM: { minExperience: cfg.platinumThreshold, earnRate: cfg.platinumMultiplier }
+    };
+}
+
+const MAINTENANCE_GOLD_HOURS = 15; // Kept for hours check if still relevant
+
+function determineTier(experience: number, cfg: any): string {
+    const tierMapping = getTierConfig(cfg);
+    if (experience >= tierMapping.PLATINUM.minExperience) return 'PLATINUM';
+    if (experience >= tierMapping.GOLD.minExperience) return 'GOLD';
+    if (experience >= tierMapping.SILVER.minExperience) return 'SILVER';
+    return 'BRONZE';
+}
+
+function getTierRate(tier: string, cfg: any): number {
+    const tierMapping = getTierConfig(cfg);
+    const tierData = tierMapping[tier as keyof typeof tierMapping];
+    return tierData ? tierData.earnRate : 1;
+}
+
+function isDoublePointActive(cfg: any): boolean {
     if (!cfg.doublePointEnabled) return false;
     if (cfg.doublePointExpiry && cfg.doublePointExpiry < new Date()) return false;
     return true;
@@ -50,10 +67,10 @@ export class LoyaltyService {
         const member = await prisma.member.findUnique({ where: { id: memberId } });
         if (!member) throw new AppError('Member not found', 404);
 
-        // 1 point per 1000 Rupiah. 
-        // If amount 100.000, Base is 100 points.
-        const tierRate = getTierRate(member.tier);
-        const base = Math.floor((amount / 1000) * tierRate);
+        // Use dynamic divisor from config if available (default to 1000)
+        const pointDivisor = (cfg as any).pointPerRupiah > 0 ? (1 / (cfg as any).pointPerRupiah) : 1000;
+        const tierRate = getTierRate(member.tier, cfg);
+        const base = Math.floor((amount / pointDivisor) * tierRate);
         const doubleMulti = isDoublePointActive(cfg) ? 2 : 1;
         const earned = base * doubleMulti;
 
@@ -73,8 +90,9 @@ export class LoyaltyService {
         const member = await prisma.member.findUnique({ where: { id: memberId } });
         if (!member) throw new AppError('Member not found', 404);
 
-        const tierRate = getTierRate(member.tier);
-        const base = Math.floor((fnbAmount / 1000) * tierRate);
+        const tierRate = getTierRate(member.tier, cfg);
+        const pointDivisor = (cfg as any).pointPerRupiah > 0 ? (1 / (cfg as any).pointPerRupiah) : 1000;
+        const base = Math.floor((fnbAmount / pointDivisor) * tierRate);
         const doubleMulti = isDoublePointActive(cfg) ? 2 : 1;
         const earned = base * doubleMulti;
 
@@ -95,7 +113,8 @@ export class LoyaltyService {
         const isNewMonth = now.getMonth() !== lastSync.getMonth() || now.getFullYear() !== lastSync.getFullYear();
 
         // 1. Tentukan tier berdasarkan experience (Promotion)
-        const xpBasedTier = determineTier(m.experience || 0);
+        const cfg = await getConfig();
+        const xpBasedTier = determineTier(m.experience || 0, cfg);
         let finalTier = xpBasedTier;
 
         // 2. Gold Maintenance Check (Demotion)
@@ -147,10 +166,13 @@ export class LoyaltyService {
         let pointsEarned = 0;
         let description = '';
 
+        const cfg = await getConfig();
+        const pointDivisor = (cfg as any).pointPerRupiah > 0 ? (1 / (cfg as any).pointPerRupiah) : 1000;
+
         switch (type) {
             case 'PARTICIPATE':
-                // XP: 1 XP per 1000 IDR of entry fee (Max 100 XP)
-                xpEarned = Math.min(100, Math.floor(entryFee / 1000));
+                // XP: 1 XP per pointDivisor IDR of entry fee (Max 100 XP)
+                xpEarned = Math.min(100, Math.floor(entryFee / pointDivisor));
                 // Points: 0 (To prevent "boncos")
                 pointsEarned = 0;
                 description = `🎟️ Partisipasi Tournament (+${xpEarned} XP)`;
@@ -165,10 +187,10 @@ export class LoyaltyService {
                 break;
 
             case 'PLACEMENT':
-                // XP: 1 XP per 1000 IDR of prize won
-                xpEarned = Math.floor(prizeAmount / 1000);
-                // Points: 1 Point per 2000 IDR of prize won (Balanced bonus)
-                pointsEarned = Math.floor(prizeAmount / 2000);
+                // XP: 1 XP per pointDivisor IDR of prize won
+                xpEarned = Math.floor(prizeAmount / pointDivisor);
+                // Points: 1 Point per (pointDivisor * 2) IDR of prize won (Balanced bonus)
+                pointsEarned = Math.floor(prizeAmount / (pointDivisor * 2));
                 description = `🏆 Placement Reward Tournament (+${xpEarned} XP, +${pointsEarned} Poin)`;
                 break;
         }
@@ -325,9 +347,11 @@ export class LoyaltyService {
         });
         if (!member) throw new AppError('Member tidak ditemukan', 404);
 
-        const nextTier = member.tier === 'BRONZE' ? 'SILVER' : member.tier === 'SILVER' ? 'GOLD' : null;
-        const currentConfig = TIER_CONFIG[member.tier as keyof typeof TIER_CONFIG];
-        const nextConfig = nextTier ? TIER_CONFIG[nextTier as keyof typeof TIER_CONFIG] : null;
+        const cfg = await getConfig();
+        const tierMapping = getTierConfig(cfg);
+        const nextTier = member.tier === 'BRONZE' ? 'SILVER' : member.tier === 'SILVER' ? 'GOLD' : member.tier === 'GOLD' ? 'PLATINUM' : null;
+        const currentConfig = tierMapping[member.tier as keyof typeof tierMapping];
+        const nextConfig = nextTier ? tierMapping[nextTier as keyof typeof tierMapping] : null;
 
         const nextTarget = nextConfig ? nextConfig.minExperience : 0;
         const currentMin = currentConfig ? currentConfig.minExperience : 0;
@@ -389,10 +413,16 @@ export class LoyaltyService {
         streakBonusPoints: number;
         pointsExpiryDays: number;
         isPointsEnabled: boolean;
+        silverThreshold: number;
+        goldThreshold: number;
+        platinumThreshold: number;
+        silverMultiplier: number;
+        goldMultiplier: number;
+        platinumMultiplier: number;
     }>, adminId?: string) {
         return prisma.loyaltyConfig.update({
             where: { id: 'global' },
-            data: { ...data, updatedBy: adminId, updatedAt: new Date() },
+            data: { ...data, updatedBy: adminId, updatedAt: new Date() } as any,
         });
     }
 

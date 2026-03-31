@@ -48,7 +48,13 @@ export default function Settings() {
         pointPerRupiah: 1,
         streakThreshold: 5,
         streakWindowDays: 30,
-        streakBonusPoints: 100
+        streakBonusPoints: 100,
+        silverThreshold: 1000,
+        goldThreshold: 2500,
+        platinumThreshold: 5000,
+        silverMultiplier: 1.1,
+        goldMultiplier: 1.25,
+        platinumMultiplier: 1.5
     });
 
     const fetchData = async () => {
@@ -240,6 +246,16 @@ export default function Settings() {
             vamosAlert(`Meja ${table.name} sekarang ${nextStatus ? 'menjadi' : 'bukan lagi'} King Table!`);
         } catch (err) {
             vamosAlert('Gagal mengubah status King Table');
+        }
+    };
+
+    const handleSaveLoyaltyConfig = async () => {
+        try {
+            await api.patch('/loyalty/config', loyaltyConfig);
+            vamosAlert('Pengaturan loyalitas berhasil disimpan!');
+            fetchData();
+        } catch (err) {
+            vamosAlert('Gagal menyimpan pengaturan loyalitas');
         }
     };
 
@@ -665,23 +681,47 @@ export default function Settings() {
                                 </div>
 
                                 <div className="bg-[#111] border border-[#222] rounded-xl p-4">
-                                    <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-3 mb-4">
                                         <Database className="w-4 h-4 text-gray-500" />
-                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Configuration Summary</p>
+                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Configuration & Rates</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-[#0d0d0d] p-3 rounded-lg border border-white/5">
-                                            <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Rate Poin</p>
-                                            <p className="text-xs font-bold text-white">{loyaltyConfig.pointPerRupiah} Poin / 1k</p>
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[9px] font-bold text-gray-600 uppercase mb-1">Poin per 1k IDR</label>
+                                                <input type="number" step="0.1" value={loyaltyConfig.pointPerRupiah} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, pointPerRupiah: Number(e.target.value) })} className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-xs font-mono text-white focus:border-yellow-500/50 outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[9px] font-bold text-gray-600 uppercase mb-1">Streak Bonus</label>
+                                                <input type="number" value={loyaltyConfig.streakBonusPoints} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, streakBonusPoints: Number(e.target.value) })} className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-xs font-mono text-white focus:border-yellow-500/50 outline-none" />
+                                            </div>
                                         </div>
-                                        <div className="bg-[#0d0d0d] p-3 rounded-lg border border-white/5">
-                                            <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Streak Bonus</p>
-                                            <p className="text-xs font-bold text-white">Min {loyaltyConfig.streakThreshold}x</p>
+
+                                        <div className="border-t border-[#222] pt-4">
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Tier Thresholds (XP)</p>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-16 text-[9px] font-bold text-gray-400">SILVER</span>
+                                                    <input type="number" value={loyaltyConfig.silverThreshold} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, silverThreshold: Number(e.target.value) })} className="flex-1 bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-xs font-mono text-white outline-none" placeholder="Target XP" />
+                                                    <input type="number" step="0.1" value={loyaltyConfig.silverMultiplier} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, silverMultiplier: Number(e.target.value) })} className="w-16 bg-[#0d0d0d] border border-[#222] rounded-lg px-2 py-2 text-xs font-mono text-white outline-none text-center" placeholder="Mult" />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-16 text-[9px] font-bold text-yellow-500/80">GOLD</span>
+                                                    <input type="number" value={loyaltyConfig.goldThreshold} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, goldThreshold: Number(e.target.value) })} className="flex-1 bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-xs font-mono text-white outline-none" />
+                                                    <input type="number" step="0.1" value={loyaltyConfig.goldMultiplier} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, goldMultiplier: Number(e.target.value) })} className="w-16 bg-[#0d0d0d] border border-[#222] rounded-lg px-2 py-2 text-xs font-mono text-white outline-none text-center" />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-16 text-[9px] font-bold text-[#00aaff]">PLATINUM</span>
+                                                    <input type="number" value={loyaltyConfig.platinumThreshold} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, platinumThreshold: Number(e.target.value) })} className="flex-1 bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-xs font-mono text-white outline-none" />
+                                                    <input type="number" step="0.1" value={loyaltyConfig.platinumMultiplier} onChange={e => setLoyaltyConfig({ ...loyaltyConfig, platinumMultiplier: Number(e.target.value) })} className="w-16 bg-[#0d0d0d] border border-[#222] rounded-lg px-2 py-2 text-xs font-mono text-white outline-none text-center" />
+                                                </div>
+                                            </div>
                                         </div>
+
+                                        <button onClick={handleSaveLoyaltyConfig} className="w-full py-3 mt-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-yellow-500 hover:text-black transition-all">
+                                            <Save className="w-3 h-3 inline mr-1" /> Update Loyalty Settings
+                                        </button>
                                     </div>
-                                    <p className="text-[9px] text-gray-700 mt-4 italic text-center">
-                                        * Pengaturan detail dapat diakses melalui menu Rewards.
-                                    </p>
                                 </div>
                             </div>
                         </div>

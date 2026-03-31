@@ -473,6 +473,16 @@ model LoyaltyConfig {
   updatedAt          DateTime  @updatedAt
   updatedBy          String?
   pointsExpiryDays   Int       @default(180)
+  
+  // Tier Thresholds (Experience/XP)
+  silverThreshold    Int       @default(1000)
+  goldThreshold      Int       @default(2500)
+  platinumThreshold  Int       @default(5000)
+  
+  // Tier Multipliers (Earn Rates)
+  silverMultiplier   Float     @default(1.1)
+  goldMultiplier     Float     @default(1.25)
+  platinumMultiplier Float     @default(1.5)
 }
 
 model Waitlist {

@@ -207,6 +207,14 @@ class WhatsAppService {
             return false;
         }
     }
+
+    public getStatus() {
+        return {
+            isReady: this.isReady,
+            isInitializing: this.isInitializing,
+            hasQr: !!this.latestQr
+        };
+    }
 }
 
 export const waService = new WhatsAppService();

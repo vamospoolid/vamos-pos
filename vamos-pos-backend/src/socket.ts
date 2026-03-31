@@ -35,6 +35,11 @@ export const initSocket = (server: HttpServer) => {
             });
         }
 
+        // Kirim status WhatsApp saat ini
+        import('./modules/whatsapp/wa.service').then(({ waService }) => {
+            socket.emit('whatsapp:status', waService.getStatus());
+        });
+
         socket.on('disconnect', () => {
             logger.info(`[Socket.IO Local] Terputus: ${socket.id}`);
         });

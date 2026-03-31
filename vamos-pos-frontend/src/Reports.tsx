@@ -22,9 +22,10 @@ interface ReportsProps {
     pendingBillsCount?: number;
     todayExpenses?: number;
     utilizationSplit?: { dayHours: string; nightHours: string };
+    venue?: any;
 }
 
-export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayCashRevenue = 0, todayExpenses = 0, pendingBillsAmount = 0, pendingBillsCount = 0, utilizationSplit = { dayHours: '0.0', nightHours: '0.0' } }: ReportsProps) {
+export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayCashRevenue = 0, todayExpenses = 0, pendingBillsAmount = 0, pendingBillsCount = 0, utilizationSplit = { dayHours: '0.0', nightHours: '0.0' }, venue }: ReportsProps) {
     const [revenue30, setRevenue30] = useState<any[]>([]);
     const [utilization, setUtilization] = useState<any[]>([]);
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
@@ -86,10 +87,9 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
     useEffect(() => {
         if (timeFilter === 'daily') {
             const now = new Date();
-            const openHour = 9; // Should ideally come from venue state, but 9 is current db value
+            const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
             const reportDate = new Date();
             
-            // If it's before open hour, the operational day is still "yesterday"
             if (now.getHours() < openHour) {
                 reportDate.setDate(reportDate.getDate() - 1);
             }
@@ -150,8 +150,8 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                 if (filter === 'daily') {
                     const now = new Date();
                     const reportDate = new Date();
-                    // Operational day reset logic (9 AM)
-                    if (now.getHours() < 9) reportDate.setDate(reportDate.getDate() - 1);
+                    const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+                    if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
                     startStr = reportDate.toISOString().split('T')[0];
                 }
                 const days = filter === 'daily' ? 1 : filter === 'weekly' ? 7 : 30;
@@ -571,7 +571,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
 
             {/* ─── Private Live Stats (moved from dashboard for privacy) ──── */}
             <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
-                INFO: Rekap Harian dihitung per Siklus Operasional (09:00 Pagi s/d 08:59 Pagi berikutnya)
+                INFO: Rekap Harian dihitung per Siklus Operasional ({venue?.openTime || '09:00'})
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                 {[
