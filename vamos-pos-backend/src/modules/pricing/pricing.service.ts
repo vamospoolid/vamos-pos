@@ -168,39 +168,28 @@ export class PricingService {
     // --- PRICING LOGIC ---
     static async calculateTableAmount(tableType: string, startTime: Date, endTime: Date, isMember: boolean = false): Promise<number> {
         let totalMs = Math.max(0, endTime.getTime() - startTime.getTime());
-        const totalMinutes = totalMs / 60000;
+        const totalMinutes = Math.floor(totalMs / 60000); // jumlah menit membulat ke bawah
         
-        // Add a 3-minute grace period before rounding up to the next hour
-        const GRACE_PERIOD_MINUTES = 3;
-        const isExhibition = tableType.toUpperCase() === 'EXEBITION';
-        let totalHours = 0;
-        
-        if (totalMinutes > 0 && !isExhibition) {
-            totalHours = Math.floor(totalMinutes / 60);
-            const remainingMinutes = totalMinutes % 60;
-            if (remainingMinutes > GRACE_PERIOD_MINUTES) {
-                totalHours += 1;
-            }
-            if (totalHours === 0) totalHours = 1; // Minimum 1 hour
-        }
+        if (totalMinutes <= 0) return 0;
 
         const rules = await prisma.pricingRule.findMany({
             where: { tableType: { equals: tableType, mode: 'insensitive' }, isActive: true, deletedAt: null },
         });
 
         let totalAmount = 0;
-        let currentTime = new Date(startTime);
 
-        if (isExhibition) {
-            // Per-minute calculation for EXHIBITION
-            const currentDay = startTime.getDay();
-            const currentHour = startTime.getHours();
-            const currentMin = startTime.getMinutes();
+        // Loop per-menit untuk mengakomodir perubahan tarif per jam ganjil (pergantian waktu)
+        for (let i = 0; i < totalMinutes; i++) {
+            const minToCheck = new Date(startTime.getTime() + i * 60000);
+            const currentDay = minToCheck.getDay();
+            const currentHour = minToCheck.getHours();
+            const currentMin = minToCheck.getMinutes();
             const currentHourStr = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
 
             const rule = rules.find(r => {
                 const dayMatch = r.dayOfWeek.includes(currentDay);
                 if (!dayMatch) return false;
+
                 if (r.startTime <= r.endTime) {
                     return currentHourStr >= r.startTime && currentHourStr < r.endTime;
                 } else {
@@ -208,49 +197,20 @@ export class PricingService {
                 }
             });
 
+            // Default fallback
             const isNight = currentHour >= 18 || currentHour < 4;
             const fallbackRate = isMember ? (isNight ? 35000 : 25000) : (isNight ? 45000 : 35000);
+
             let hourlyRate = rule
                 ? (isMember && rule.memberRatePerHour ? rule.memberRatePerHour : rule.ratePerHour)
                 : fallbackRate;
 
-            if (hourlyRate < 1000) hourlyRate *= 1000;
-            
-            const ratePerMin = hourlyRate / 60;
-            totalAmount = totalMinutes * ratePerMin;
-        } else {
-            // Existing hourly logic for other table types
-            for (let i = 0; i < totalHours; i++) {
-                const hourToCheck = new Date(currentTime.getTime() + i * 3600000);
-                const currentDay = hourToCheck.getDay();
-                const currentHour = hourToCheck.getHours();
-                const currentMin = hourToCheck.getMinutes();
-                const currentHourStr = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
-
-                const rule = rules.find(r => {
-                    const dayMatch = r.dayOfWeek.includes(currentDay);
-                    if (!dayMatch) return false;
-
-                    if (r.startTime <= r.endTime) {
-                        return currentHourStr >= r.startTime && currentHourStr < r.endTime;
-                    } else {
-                        return currentHourStr >= r.startTime || currentHourStr < r.endTime;
-                    }
-                });
-
-                const isNight = currentHour >= 18 || currentHour < 4;
-                const fallbackRate = isMember ? (isNight ? 35000 : 25000) : (isNight ? 45000 : 35000);
-
-                let hourlyRate = rule
-                    ? (isMember && rule.memberRatePerHour ? rule.memberRatePerHour : rule.ratePerHour)
-                    : fallbackRate;
-
-                if (hourlyRate < 1000) {
-                    hourlyRate = hourlyRate * 1000;
-                }
-
-                totalAmount += hourlyRate;
+            if (hourlyRate < 1000) {
+                hourlyRate = hourlyRate * 1000;
             }
+
+            // Tambahkan fraksi per-menit ke total tagihan
+            totalAmount += (hourlyRate / 60);
         }
 
         return Math.round(totalAmount);
