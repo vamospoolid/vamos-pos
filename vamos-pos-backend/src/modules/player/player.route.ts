@@ -28,6 +28,7 @@ router.put('/profile', PlayerController.updateProfile);
 // Match Challenges
 router.post('/challenge', PlayerController.createChallenge);
 router.put('/challenge/:id/respond', PlayerController.respondToChallenge);
+router.post('/challenge/:id/respond', PlayerController.respondToChallenge);
 router.put('/challenge/:id/link-session', PlayerController.linkSession);
 router.put('/challenge/:id/claim-victory', PlayerController.claimVictory);
 

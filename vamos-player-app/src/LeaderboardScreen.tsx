@@ -262,7 +262,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8">
                     <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" onClick={() => setSelectedRival(null)} />
                     <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-2 border-primary/20 text-center fade-in overflow-hidden shadow-[0_0_100px_rgba(31,34,255,0.2)]">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
 
                         <div className="flex justify-between items-center mb-12">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Statistik Tanding</span>

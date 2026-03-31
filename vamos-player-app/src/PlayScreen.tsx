@@ -152,7 +152,7 @@ export function PlayScreen({ member }: { member: any }) {
   const respondToChallenge = async (id: string, status: 'ACCEPTED' | 'DECLINED') => {
     if (!id) return alert("PROTOCOL ERROR: MISSING CHALLENGE ID.");
     try {
-        const res = await api.post(`/player/challenge/${id}/respond`, { status });
+        const res = await api.put(`/player/challenge/${id}/respond`, { status });
         if (res.data.success) {
             setIncomingChallenge(null);
             // Wait slightly for DB to propagate before fetching
@@ -355,7 +355,7 @@ export function PlayScreen({ member }: { member: any }) {
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8">
             <div className="absolute inset-0 bg-[#0a0d18]/98 backdrop-blur-3xl animate-pulse" />
             <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-4 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_150px_rgba(31,34,255,0.4)]">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px]" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
                 
                 <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center mx-auto mb-8 fiery-glow">
                     <ShieldAlert size={40} className="text-white" />
@@ -392,7 +392,7 @@ export function PlayScreen({ member }: { member: any }) {
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8">
           <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" onClick={() => setShowMyQR(false)} />
           <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-2 border-primary/20 text-center fade-in overflow-hidden shadow-[0_0_100px_rgba(31,34,255,0.2)]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
             <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">IDENTITY PROTOCOL</h3>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-10 italic">Show to rival for fast pairing</p>
             
@@ -476,7 +476,7 @@ export function PlayScreen({ member }: { member: any }) {
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-8">
             <div className="absolute inset-0 bg-[#0a0d18]/98 backdrop-blur-3xl" onClick={() => setIsChoosingStake(false)} />
             <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-10 border-2 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_120px_rgba(31,34,255,0.3)]">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
                 
                 <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">ARENA STAKE</h3>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8 italic">Pilih jumlah poin yang ditaruhkan</p>
