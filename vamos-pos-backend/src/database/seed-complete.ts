@@ -46,6 +46,8 @@ async function main() {
                 closeTime: '07:00',
                 relayComPort: 'COM4',
                 printerPath: 'USB001',
+                taxPercent: 11,
+                servicePercent: 5
             }
         });
     }
@@ -81,10 +83,10 @@ async function main() {
     if (existingRules === 0) {
         await prisma.pricingRule.createMany({
             data: [
-                { name: 'Dini Hari Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '02:00', endTime: '07:00', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
-                { name: 'Malam Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:00', endTime: '02:00', ratePerHour: 35000, memberRatePerHour: 35000, isActive: true },
-                { name: 'Siang Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00', ratePerHour: 25000, memberRatePerHour: 22000, isActive: true },
-                { name: 'EXEBITION', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:00', endTime: '04:59', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
+                { name: 'Dini Hari Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '02:01', endTime: '07:00', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
+                { name: 'Malam Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:01', endTime: '02:00', ratePerHour: 35000, memberRatePerHour: 35000, isActive: true },
+                { name: 'Siang Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00', ratePerHour: 25000, memberRatePerHour: 25000, isActive: true },
+                { name: 'EXEBITION', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:01', endTime: '04:59', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
             ]
         });
     }
@@ -157,6 +159,12 @@ async function main() {
             streakThreshold: 5,
             streakWindowDays: 30,
             streakBonusPoints: 100,
+            silverThreshold: 1000,
+            goldThreshold: 2500,
+            platinumThreshold: 5000,
+            silverMultiplier: 1.1,
+            goldMultiplier: 1.25,
+            platinumMultiplier: 1.5
         }
     });
     console.log('✅ Loyalty config seeded');
