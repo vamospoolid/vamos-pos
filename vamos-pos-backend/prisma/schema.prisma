@@ -529,6 +529,8 @@ model MatchChallenge {
   pointsStake     Int      @default(50)
   status          String   @default("PENDING")
   winnerId        String?
+  score1          Int      @default(0)
+  score2          Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   isFightForTable Boolean  @default(false)

@@ -144,13 +144,15 @@ export class PlayerController {
     static async claimVictory(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: challengeId } = req.params;
-            const { winnerId } = req.body;
+            const { winnerId, score1, score2 } = req.body;
 
-            const challenge = await prisma.matchChallenge.update({
+            const challenge = await (prisma.matchChallenge as any).update({
                 where: { id: challengeId },
                 data: {
                     status: 'WAITING_VERIFICATION',
-                    winnerId: winnerId
+                    winnerId: winnerId,
+                    score1: score1 || 0,
+                    score2: score2 || 0
                 }
             });
 
@@ -170,7 +172,7 @@ export class PlayerController {
     static async completeChallenge(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: challengeId } = req.params;
-            const { action, winnerId: manualWinnerId } = req.body; // 'APPROVE' or 'REJECT'
+            const { action, winnerId: manualWinnerId, score1, score2 } = req.body; // 'APPROVE' or 'REJECT'
 
             const challenge = await prisma.matchChallenge.findUnique({
                 where: { id: challengeId },
@@ -353,9 +355,14 @@ export class PlayerController {
                     }
                 });
 
-                const updatedChallenge = await tx.matchChallenge.update({
+                const updatedChallenge = await (tx.matchChallenge as any).update({
                     where: { id: challengeId },
-                    data: { status: 'COMPLETED', winnerId },
+                    data: { 
+                        status: 'COMPLETED', 
+                        winnerId,
+                        score1: score1 !== undefined ? score1 : (challenge as any).score1,
+                        score2: score2 !== undefined ? score2 : (challenge as any).score2
+                    },
                     include: { challenger: true, opponent: true }
                 });
 
@@ -370,8 +377,8 @@ export class PlayerController {
             });
 
             // WA Notifications
-            const winObj = result.challengerId === winnerId ? result.challenger : result.opponent;
-            const lossObj = result.challengerId === winnerId ? result.opponent : result.challenger;
+            const winObj = (result as any).challengerId === winnerId ? (result as any).challenger : (result as any).opponent;
+            const lossObj = (result as any).challengerId === winnerId ? (result as any).opponent : (result as any).challenger;
 
             let winMsg = `🏆 *CHALLENGE SELESAI*\n\nSelamat! Kemenangan Anda melawan *${lossObj.name}* telah diverifikasi.\n\n⭐ *XP:* +${winReputation} XP`;
             if (challenge.isFightForTable && challenge.sessionId) {
