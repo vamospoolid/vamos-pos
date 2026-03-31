@@ -352,9 +352,9 @@ export default function Members() {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '50px', position: 'relative', zIndex: 10 }}>
                                                         <div style={{ width: '220px', height: '220px', borderRadius: '60px', backgroundColor: '#0a0d18', border: '4px solid rgba(59,130,246,0.2)', padding: '5px', overflow: 'hidden' }}>
                                                             {m.photo ? (
-                                                                <img src={m.photo} style={{ width: '100%', height: '100%', objectCover: 'cover', borderRadius: '55px' }} />
+                                                                <img src={m.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '55px' }} />
                                                             ) : (
-                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justify: 'center', background: '#1a1f35' }}>
+                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1f35' }}>
                                                                     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                                                                 </div>
                                                             )}
