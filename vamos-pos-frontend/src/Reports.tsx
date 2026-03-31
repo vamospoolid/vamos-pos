@@ -85,8 +85,17 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
 
     useEffect(() => {
         if (timeFilter === 'daily') {
+            const now = new Date();
+            const openHour = 9; // Should ideally come from venue state, but 9 is current db value
+            const reportDate = new Date();
+            
+            // If it's before open hour, the operational day is still "yesterday"
+            if (now.getHours() < openHour) {
+                reportDate.setDate(reportDate.getDate() - 1);
+            }
+            
+            const start = reportDate.toISOString().split('T')[0];
             const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             setStartDate(start);
             setEndDate(end);
         } else if (timeFilter === 'weekly') {
@@ -137,8 +146,16 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
             if (filter === 'custom') {
                 query = `?startDate=${sd}&endDate=${ed}`;
             } else {
+                let startStr = '';
+                if (filter === 'daily') {
+                    const now = new Date();
+                    const reportDate = new Date();
+                    // Operational day reset logic (9 AM)
+                    if (now.getHours() < 9) reportDate.setDate(reportDate.getDate() - 1);
+                    startStr = reportDate.toISOString().split('T')[0];
+                }
                 const days = filter === 'daily' ? 1 : filter === 'weekly' ? 7 : 30;
-                query = `?days=${days}`;
+                query = `?days=${days}${startStr ? `&startDate=${startStr}&endDate=${new Date().toISOString().split('T')[0]}` : ''}`;
             }
             const res = await api.get(`/reports/transactions${query}`);
             setTransactions(res.data.data || []);
@@ -554,7 +571,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
 
             {/* ─── Private Live Stats (moved from dashboard for privacy) ──── */}
             <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
-                INFO: Rekap Harian dihitung per Siklus Operasional (10:00 Pagi s/d 09:59 Pagi berikutnya)
+                INFO: Rekap Harian dihitung per Siklus Operasional (09:00 Pagi s/d 08:59 Pagi berikutnya)
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                 {[
