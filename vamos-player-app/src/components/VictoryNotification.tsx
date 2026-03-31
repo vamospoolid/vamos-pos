@@ -30,10 +30,14 @@ export function VictoryNotification({ challenge, currentMemberId, onClose }: Vic
                 <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] opacity-20" />
 
                 <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 p-2.5 rounded-2xl bg-white/5 text-slate-500 hover:text-white transition-all active:scale-90 border border-white/5"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                    }}
+                    className="absolute top-6 right-6 p-2.5 rounded-2xl bg-white/5 text-slate-500 hover:text-white transition-all active:scale-95 border border-white/10 z-[10001] cursor-pointer"
+                    aria-label="Close"
                 >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5 pointer-events-none" />
                 </button>
 
                 <div className="flex items-center gap-8 relative z-10">

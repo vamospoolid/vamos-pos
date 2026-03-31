@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
+import html2canvas from 'html2canvas';
 
 export default function Members() {
     const [members, setMembers] = useState<any[]>([]);
@@ -13,6 +14,7 @@ export default function Members() {
     const [editingMember, setEditingMember] = useState<any>(null);
     const [formData, setFormData] = useState({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isPrinting, setIsPrinting] = useState<string | null>(null);
 
     const [pointsModal, setPointsModal] = useState<{ id: string, name: string, points: number } | null>(null);
 
@@ -116,6 +118,34 @@ export default function Members() {
         } catch (err) {
             vamosAlert('Failed to verify WhatsApp');
         }
+    };
+
+    const downloadMemberCard = async (member: any) => {
+        setIsPrinting(member.id);
+        // Wait for next tick to ensure template is rendered
+        setTimeout(async () => {
+            try {
+                const element = document.getElementById(`card-template-${member.id}`);
+                if (!element) throw new Error("Template not found");
+
+                const canvas = await html2canvas(element, {
+                    scale: 3, // High resolution
+                    backgroundColor: null,
+                    useCORS: true,
+                    logging: false
+                });
+
+                const link = document.createElement('a');
+                link.download = `MemberCard_${member.name.replace(/\s+/g, '_')}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error(err);
+                vamosAlert('Gagal menghasilkan gambar kartu.');
+            } finally {
+                setIsPrinting(null);
+            }
+        }, 500);
     };
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,13 +297,93 @@ export default function Members() {
                                             </div>
                                         </td>
                                         <td className="py-4 px-4 text-right">
-                                            <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => downloadMemberCard(m)} 
+                                                    className={`p-2 rounded-lg transition-colors ${isPrinting === m.id ? 'text-[#00ff66]' : 'text-gray-400 hover:text-[#00ff66] hover:bg-white/10'}`} 
+                                                    title="Print Member Card"
+                                                    disabled={isPrinting === m.id}
+                                                >
+                                                    {isPrinting === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                                                </button>
                                                 <button onClick={() => { setEditingMember(m); setFormData({ name: m.name, phone: m.phone, photo: m.photo || '', handicap: m.handicap || 4, handicapLabel: m.handicapLabel || 'Entry Fragger' }); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors" title="Edit">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button onClick={() => handleDelete(m.id)} className="p-2 hover:bg-[#ff3333]/20 rounded-lg text-gray-400 hover:text-[#ff3333] transition-colors" title="Delete">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
+
+                                                {/* HIDDEN PRINT TEMPLATE (Landscape Platinum) */}
+                                                <div id={`card-template-${m.id}`} style={{
+                                                    width: '1011px',
+                                                    height: '638px',
+                                                    position: 'fixed',
+                                                    left: '-9999px',
+                                                    top: '-9999px',
+                                                    backgroundColor: '#1a1f35',
+                                                    backgroundImage: 'linear-gradient(135deg, #1e243d 0%, #1a1f35 100%)',
+                                                    borderRadius: '40px',
+                                                    overflow: 'hidden',
+                                                    padding: '60px',
+                                                    fontFamily: "'Inter', sans-serif",
+                                                    color: 'white',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'space-between',
+                                                    border: '4px solid rgba(255,255,255,0.05)'
+                                                }}>
+                                                    {/* Decorative Elements */}
+                                                    <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'rgba(59,130,246,0.05)', borderRadius: '50%', filter: 'blur(80px)' }} />
+                                                    <div style={{ position: 'absolute', bottom: '20px', left: '60px', width: '120px', height: '4px', background: '#ff7e33', borderRadius: '2px' }} />
+                                                    
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 10 }}>
+                                                        <div>
+                                                            <p style={{ fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '8px', color: '#ff7e33', marginBottom: '10px', fontStyle: 'italic' }}>Official Member</p>
+                                                            <h1 style={{ fontSize: '72px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-2px', fontStyle: 'italic', margin: 0, lineHeight: 0.9 }}>
+                                                                VAMOS<span style={{ color: '#ff7e33' }}>POOL</span>
+                                                            </h1>
+                                                        </div>
+                                                        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '32px', padding: '15px 30px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <p style={{ fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px' }}>Tier Standing</p>
+                                                            <p style={{ fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', color: 'white', fontStyle: 'italic' }}>EXECUTIVE ELITE</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '50px', position: 'relative', zIndex: 10 }}>
+                                                        <div style={{ width: '220px', height: '220px', borderRadius: '60px', backgroundColor: '#0a0d18', border: '4px solid rgba(59,130,246,0.2)', padding: '5px', overflow: 'hidden' }}>
+                                                            {m.photo ? (
+                                                                <img src={m.photo} style={{ width: '100%', height: '100%', objectCover: 'cover', borderRadius: '55px' }} />
+                                                            ) : (
+                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justify: 'center', background: '#1a1f35' }}>
+                                                                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <h2 style={{ fontSize: '64px', fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', color: 'white', margin: 0, letterSpacing: '-1px' }}>{m.name}</h2>
+                                                            <div style={{ display: 'flex', gap: '30px', marginTop: '10px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff7e33' }} />
+                                                                    <p style={{ fontSize: '16px', fontWeight: 900, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', letterSpacing: '2px' }}>HC Level: {m.handicap || 4}</p>
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3b82f6' }} />
+                                                                    <p style={{ fontSize: '16px', fontWeight: 900, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', letterSpacing: '2px' }}>Status: {m.identityStatus || 'ACTIVE'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
+                                                        <div style={{ paddingBottom: '10px' }}>
+                                                            <p style={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', letterSpacing: '4px', marginBottom: '5px' }}>Official Comm ID</p>
+                                                            <p style={{ fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', color: 'white', fontStyle: 'italic', letterSpacing: '2px' }}>{m.id.substring(0, 18).toUpperCase()}</p>
+                                                        </div>
+                                                        <div style={{ width: '160px', height: '160px', background: 'white', padding: '15px', borderRadius: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }}>
+                                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${m.id}`} style={{ width: '100%', height: '100%' }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
