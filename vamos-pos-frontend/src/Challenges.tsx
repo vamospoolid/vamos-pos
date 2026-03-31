@@ -419,7 +419,13 @@ export default function Challenges() {
             {isCompleteModalOpen && selectedChallenge && (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-[#141414] border border-orange-500/30 rounded-[40px] w-full max-w-sm overflow-hidden shadow-[0_0_50px_rgba(249,115,22,0.15)]">
-                        <div className="p-8 border-b border-[#222] text-center">
+                        <div className="p-8 border-b border-[#222] text-center relative">
+                            <button 
+                                onClick={() => setIsCompleteModalOpen(false)}
+                                className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 text-gray-500 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                             <div className="w-20 h-20 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-6">
                                 <Trophy className="w-10 h-10 text-orange-500" />
                             </div>
