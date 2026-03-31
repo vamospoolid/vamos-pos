@@ -136,11 +136,13 @@ export function PlayScreen({ member }: { member: any }) {
       } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
   };
 
-  const reportVictory = async (challengeId: string) => {
+  const reportVictory = async (challengeId: string, s1: number = 0, s2: number = 0) => {
     if (!window.confirm("ARE YOU SURE YOU WON THIS MATCH? Lying will result in account suspension.")) return;
     try {
         const res = await api.put(`/player/challenge/${challengeId}/claim-victory`, {
-            winnerId: member.id
+            winnerId: member.id,
+            score1: s1,
+            score2: s2
         });
         if (res.data.success) {
             fetchChallenges();
@@ -329,17 +331,48 @@ export function PlayScreen({ member }: { member: any }) {
                 </div>
 
                 {chal.status === 'ACCEPTED' && (
-                    <button 
-                        onClick={() => reportVictory(chal.id)}
-                        className="w-full py-4 fiery-btn-primary flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] italic"
-                    >
-                        <CheckCircle2 size={16} /> LAPORKAN KEMENANGAN (CLAIM)
-                    </button>
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3 mb-2">
+                             <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
+                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-1">SCORE {member.name.split(' ')[0]}</p>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    id={`score1-${chal.id}`}
+                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-lg"
+                                />
+                             </div>
+                             <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
+                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-1">SCORE RIVAL</p>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    id={`score2-${chal.id}`}
+                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-lg"
+                                />
+                             </div>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const s1 = parseInt((document.getElementById(`score1-${chal.id}`) as HTMLInputElement)?.value) || 0;
+                                const s2 = parseInt((document.getElementById(`score2-${chal.id}`) as HTMLInputElement)?.value) || 0;
+                                reportVictory(chal.id, s1, s2);
+                            }}
+                            className="w-full py-4 fiery-btn-primary flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] italic"
+                        >
+                            <CheckCircle2 size={16} /> LAPORKAN KEMENANGAN (CLAIM)
+                        </button>
+                    </div>
                 )}
 
                 {chal.status === 'WAITING_VERIFICATION' && (
                      <div className="w-full py-4 text-center rounded-xl bg-yellow-400/10 border border-yellow-400/20">
-                        <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest italic">Wait for cashier verification...</p>
+                        <div className="flex items-center justify-center gap-3 mb-1">
+                            <span className="text-lg font-black text-white italic tracking-tighter">{chal.score1}</span>
+                            <span className="text-slate-600">:</span>
+                            <span className="text-lg font-black text-white italic tracking-tighter">{chal.score2}</span>
+                        </div>
+                        <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest italic leading-none">Wait for cashier verification...</p>
                      </div>
                 )}
               </div>

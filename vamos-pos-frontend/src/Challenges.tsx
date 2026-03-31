@@ -36,6 +36,8 @@ export default function Challenges() {
     const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
     const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
     const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
+    const [score1, setScore1] = useState(0);
+    const [score2, setScore2] = useState(0);
 
     // Create Match Modal
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -126,7 +128,9 @@ export default function Challenges() {
         try {
             await api.put(`/player/challenge/${selectedChallenge.id}/complete`, { 
                 action,
-                winnerId: selectedWinnerId 
+                winnerId: selectedWinnerId,
+                score1,
+                score2
             });
             vamosAlert(action === 'APPROVE' ? 'Match verified! XP has been awarded.' : 'Verification rejected.');
             setIsCompleteModalOpen(false);
@@ -282,6 +286,8 @@ export default function Challenges() {
                                     onClick={() => {
                                         setSelectedChallenge(c);
                                         setSelectedWinnerId(c.winnerId || null);
+                                        setScore1((c as any).score1 || 0);
+                                        setScore2((c as any).score2 || 0);
                                         setIsCompleteModalOpen(true);
                                     }}
                                     className={`w-full border py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
@@ -426,6 +432,40 @@ export default function Challenges() {
                         </div>
 
                         <div className="p-8 space-y-4">
+                             <div className="space-y-3">
+                                <p className="text-[10px] uppercase font-black text-gray-500 ml-2">Score Recap:</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                                        <p className="text-[8px] font-black text-gray-500 uppercase mb-1">{selectedChallenge.challenger.name}</p>
+                                        <input 
+                                            type="number" 
+                                            value={score1}
+                                            onChange={e => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setScore1(val);
+                                                if (val > score2) setSelectedWinnerId(selectedChallenge.challengerId);
+                                                else if (score2 > val) setSelectedWinnerId(selectedChallenge.opponentId);
+                                            }}
+                                            className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-2 text-white font-black text-center focus:border-orange-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                                        <p className="text-[8px] font-black text-gray-500 uppercase mb-1">{selectedChallenge.opponent.name}</p>
+                                        <input 
+                                            type="number" 
+                                            value={score2}
+                                            onChange={e => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setScore2(val);
+                                                if (score1 > val) setSelectedWinnerId(selectedChallenge.challengerId);
+                                                else if (val > score1) setSelectedWinnerId(selectedChallenge.opponentId);
+                                            }}
+                                            className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-2 text-white font-black text-center focus:border-orange-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+ 
                             <div className="space-y-3">
                                 <p className="text-[10px] uppercase font-black text-gray-500 ml-2">Select Victor:</p>
                                 <div className="grid grid-cols-1 gap-2">
