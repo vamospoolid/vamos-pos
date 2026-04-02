@@ -6,8 +6,15 @@ import { AppError } from '../../utils/errors';
 import { getIO } from '../../socket';
 
 export const getExpenses = catchAsync(async (req: Request, res: Response) => {
+    const { memberId, status, isDebt } = req.query;
+    const where: any = { deletedAt: null };
+
+    if (memberId) where.memberId = memberId as string;
+    if (status) where.status = status as string;
+    if (isDebt === 'true') where.isDebt = true;
+
     const expenses = await prisma.expense.findMany({
-        where: { deletedAt: null },
+        where,
         include: { member: { select: { name: true } } },
         orderBy: { date: 'desc' }
     });
@@ -73,13 +80,13 @@ export const payDebt = catchAsync(async (req: AuthRequest, res: Response) => {
         // Buat record pembayaran agar masuk ke saldo/shift
         await tx.payment.create({
             data: {
-                sessionId: expense.sessionId!,
+                sessionId: expense.sessionId,
                 amount: expense.amount,
                 method: method || 'CASH',
                 status: 'SUCCESS',
                 cashierId: userId,
-                shiftId: activeShift ? activeShift.id : null
-            }
+                shiftId: activeShift ? activeShift.id : undefined
+            } as any
         });
 
         // Update status expense piutang jadi PAID

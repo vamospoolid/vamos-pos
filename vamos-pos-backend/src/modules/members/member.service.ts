@@ -58,11 +58,32 @@ export class MemberService {
     }
 
     static async getMembers() {
-        return prisma.member.findMany({
+        const members = await prisma.member.findMany({
             where: { deletedAt: null },
+            include: {
+                expenses: {
+                    where: {
+                        isDebt: true,
+                        status: 'PENDING',
+                        deletedAt: null
+                    },
+                    select: {
+                        amount: true
+                    }
+                }
+            },
             orderBy: {
-                loyaltyPoints: 'desc' // Order by points by default to show top members
+                loyaltyPoints: 'desc'
             }
+        });
+
+        return members.map(m => {
+            const totalDebt = (m as any).expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+            const { expenses, ...memberData } = m as any;
+            return {
+                ...memberData,
+                totalDebt
+            };
         });
     }
 

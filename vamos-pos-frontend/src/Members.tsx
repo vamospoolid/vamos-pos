@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer, TrendingUp, AlertCircle } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import html2canvas from 'html2canvas';
@@ -15,6 +15,8 @@ export default function Members() {
     const [formData, setFormData] = useState({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isPrinting, setIsPrinting] = useState<string | null>(null);
+    const [showOnlyDebt, setShowOnlyDebt] = useState(false);
+    const [debtMemberDetail, setDebtMemberDetail] = useState<any>(null);
 
     const [pointsModal, setPointsModal] = useState<{ id: string, name: string, points: number } | null>(null);
 
@@ -159,10 +161,11 @@ export default function Members() {
         }
     };
 
-    const filteredMembers = members.filter(m =>
-        m.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.phone.includes(search)
-    );
+    const filteredMembers = members.filter(m => {
+        const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
+        const matchesDebtFilter = showOnlyDebt ? (m.totalDebt || 0) > 0 : true;
+        return matchesSearch && matchesDebtFilter;
+    });
 
     return (
         <div className="fade-in">
@@ -187,15 +190,24 @@ export default function Members() {
 
             <div className="bg-[#141414] border border-[#222222] rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-6">
-                    <div className="relative w-full max-w-md">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                            type="text"
-                            placeholder="Search by name or phone number..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-[#00ff66] transition-colors"
-                        />
+                    <div className="flex items-center space-x-4">
+                        <div className="relative w-full max-w-sm">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Search by name or phone number..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-[#00ff66] transition-colors"
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowOnlyDebt(!showOnlyDebt)}
+                            className={`px-4 py-3 rounded-xl border font-bold text-xs transition-all flex items-center ${showOnlyDebt ? 'bg-[#ff3333]/10 border-[#ff3333] text-[#ff3333] shadow-[0_0_10px_rgba(255,51,51,0.1)]' : 'bg-[#0a0a0a] border-[#222222] text-gray-400 hover:border-gray-600'}`}
+                        >
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            {showOnlyDebt ? 'MENAMPILKAN PIUTANG Saja' : 'FILTER PIUTANG'}
+                        </button>
                     </div>
                 </div>
 
@@ -221,6 +233,7 @@ export default function Members() {
                                     <th className="pb-4 font-semibold text-center">Loyalty Points</th>
                                     <th className="pb-4 font-semibold text-center">Play Time</th>
                                     <th className="pb-4 font-semibold text-center">Tournament Stats</th>
+                                    <th className="pb-4 font-semibold text-center">Outstanding Debt</th>
                                     <th className="pb-4 font-semibold text-center">Rewards</th>
                                     <th className="pb-4 font-semibold text-right px-4">Actions</th>
                                 </tr>
@@ -292,6 +305,21 @@ export default function Members() {
                                                 {!m.isWaVerified && (
                                                     <button onClick={() => verifyWaStatus(m.id)} className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded font-bold hover:bg-emerald-500/20 transition-all">
                                                         Verify WA
+                                                    </button>
+                                                )}
+                                                {(m.totalDebt || 0) > 0 && (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await api.get(`/expenses?memberId=${m.id}&status=PENDING&isDebt=true`);
+                                                                setDebtMemberDetail({ name: m.name, debts: res.data.data });
+                                                            } catch (err) {
+                                                                vamosAlert('Gagal memuat detail piutang');
+                                                            }
+                                                        }} 
+                                                        className="text-[10px] bg-[#ff3333]/10 border border-[#ff3333]/30 text-[#ff3333] px-2 py-1 rounded font-bold hover:bg-[#ff3333]/20 transition-all"
+                                                    >
+                                                        Detail Bon
                                                     </button>
                                                 )}
                                             </div>
@@ -508,6 +536,55 @@ export default function Members() {
                     </div>
                 </div>
             )}
+            {/* Debt Detail Modal */}
+            {debtMemberDetail && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-lg overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                        <div className="p-6 border-b border-[#222222] flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-bold text-white">Detail Piutang (BON)</h2>
+                                <p className="text-sm text-red-500 font-bold uppercase tracking-widest mt-1">{debtMemberDetail.name}</p>
+                            </div>
+                            <button onClick={() => setDebtMemberDetail(null)} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            <div className="space-y-3">
+                                {debtMemberDetail.debts.map((d: any) => (
+                                    <div key={d.id} className="bg-[#0a0a0a] border border-[#222222] p-4 rounded-xl flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{d.description}</p>
+                                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">
+                                                {new Date(d.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-lg font-black font-mono text-red-500">Rp {d.amount.toLocaleString('id-ID')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-[#222222] bg-[#0a0a0a] flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Total Akumulasi</p>
+                                <p className="text-2xl font-black font-mono text-[#ff3333]">
+                                    Rp {debtMemberDetail.debts.reduce((s: number, d: any) => s + d.amount, 0).toLocaleString('id-ID')}
+                                </p>
+                            </div>
+                            <button onClick={() => setDebtMemberDetail(null)} className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+
+// Ensure X is available from lucide-react if needed (already in imports usually)
+const X = (props: any) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+);

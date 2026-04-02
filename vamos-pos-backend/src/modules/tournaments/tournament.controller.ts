@@ -1,99 +1,101 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
+import { AuthRequest } from '../../middleware/auth';
 import { TournamentService } from './tournament.service';
 import { catchAsync } from '../../utils/catchAsync';
 import { getIO } from '../../socket';
+import { AppError } from '../../utils/errors';
 
-export const createTournament = catchAsync(async (req: Request, res: Response) => {
+export const createTournament = catchAsync(async (req: AuthRequest, res: Response) => {
     const tournament = await TournamentService.createTournament(req.body);
     getIO().emit('tournaments:updated');
     res.status(201).json({ success: true, data: tournament });
 });
 
-export const getTournaments = catchAsync(async (req: Request, res: Response) => {
+export const getTournaments = catchAsync(async (req: AuthRequest, res: Response) => {
     const tournaments = await TournamentService.getTournaments();
     res.json({ success: true, data: tournaments });
 });
 
-export const getTournamentById = catchAsync(async (req: Request, res: Response) => {
+export const getTournamentById = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const tournament = await TournamentService.getTournamentById(id);
-    if (!tournament) res.status(404).json({ success: false, message: 'Tournament not found' });
-    else res.json({ success: true, data: tournament });
+    if (!tournament) throw new AppError('Tournament not found', 404);
+    res.json({ success: true, data: tournament });
 });
 
-export const updateTournament = catchAsync(async (req: Request, res: Response) => {
+export const updateTournament = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const tournament = await TournamentService.updateTournament(id, req.body);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: tournament });
 });
 
-export const registerParticipant = catchAsync(async (req: Request, res: Response) => {
+export const registerParticipant = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { memberId, name, handicap } = req.body;
-    const pt = await TournamentService.registerParticipant(id, memberId, name, handicap);
+    const { memberId, name, handicap, paymentMethod, status } = req.body;
+    const pt = await TournamentService.registerParticipant(id, req.user!.id, memberId, name, handicap, undefined, status, paymentMethod);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: pt });
 });
 
-export const updateParticipantStatus = catchAsync(async (req: Request, res: Response) => {
+export const updateParticipantStatus = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id, participantId } = req.params;
-    const { paymentStatus } = req.body;
-    const pt = await TournamentService.updateParticipantStatus(id, participantId, paymentStatus);
+    const { paymentStatus, paymentMethod } = req.body;
+    const pt = await TournamentService.updateParticipantStatus(id, participantId, paymentStatus, req.user!.id, paymentMethod);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: pt });
 });
 
-export const generateBracket = catchAsync(async (req: Request, res: Response) => {
+export const generateBracket = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const br = await TournamentService.generateBracket(id);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: br });
 });
 
-export const updateMatchResult = catchAsync(async (req: Request, res: Response) => {
+export const updateMatchResult = catchAsync(async (req: AuthRequest, res: Response) => {
     const { matchId } = req.params;
-    const dt = await TournamentService.updateMatchResult(matchId, req.body);
+    const dt = await TournamentService.updateMatchResult(matchId, req.body as any);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const updateMatchPlayers = catchAsync(async (req: Request, res: Response) => {
+export const updateMatchPlayers = catchAsync(async (req: AuthRequest, res: Response) => {
     const { matchId } = req.params;
-    const dt = await TournamentService.updateMatchPlayers(matchId, req.body);
+    const dt = await TournamentService.updateMatchPlayers(matchId, req.body as any);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const finishTournament = catchAsync(async (req: Request, res: Response) => {
+export const finishTournament = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const dt = await TournamentService.finishTournament(id, req.body);
+    const dt = await TournamentService.finishTournament(id, req.body as any);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const deleteTournament = catchAsync(async (req: Request, res: Response) => {
+export const deleteTournament = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const dt = await TournamentService.deleteTournament(id);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const resetBracket = catchAsync(async (req: Request, res: Response) => {
+export const resetBracket = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const dt = await TournamentService.resetBracket(id);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const removeParticipant = catchAsync(async (req: Request, res: Response) => {
+export const removeParticipant = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id, participantId } = req.params;
     const dt = await TournamentService.removeParticipant(id, participantId);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: dt });
 });
 
-export const purgeParticipants = catchAsync(async (req: Request, res: Response) => {
+export const purgeParticipants = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const dt = await TournamentService.purgeParticipants(id);
     getIO().emit('tournaments:updated');

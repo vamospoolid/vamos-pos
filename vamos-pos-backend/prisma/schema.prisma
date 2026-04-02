@@ -247,7 +247,7 @@ model Order {
 
 model Payment {
   id        String        @id @default(uuid())
-  sessionId String
+  sessionId String?
   amount    Float
   discount  Float         @default(0)
   received  Float         @default(0)
@@ -261,7 +261,7 @@ model Payment {
   cashierId String?
   shiftId   String?
   cashier   User?         @relation("PaymentCashier", fields: [cashierId], references: [id])
-  session   Session       @relation(fields: [sessionId], references: [id])
+  session   Session?      @relation(fields: [sessionId], references: [id])
   shift     CashierShift? @relation(fields: [shiftId], references: [id])
 
   @@index([sessionId])  // laporan per sesi

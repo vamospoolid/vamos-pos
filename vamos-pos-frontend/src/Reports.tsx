@@ -18,6 +18,7 @@ interface ReportsProps {
     todayRevenue?: number;
     todayQrisRevenue?: number;
     todayCashRevenue?: number;
+    todayOtherRevenue?: number;
     pendingBillsAmount?: number;
     pendingBillsCount?: number;
     todayExpenses?: number;
@@ -25,7 +26,17 @@ interface ReportsProps {
     venue?: any;
 }
 
-export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayCashRevenue = 0, todayExpenses = 0, pendingBillsAmount = 0, pendingBillsCount = 0, utilizationSplit = { dayHours: '0.0', nightHours: '0.0' }, venue }: ReportsProps) {
+export default function Reports({ 
+    todayRevenue = 0, 
+    todayQrisRevenue = 0, 
+    todayCashRevenue = 0, 
+    todayOtherRevenue = 0,
+    todayExpenses = 0, 
+    pendingBillsAmount = 0, 
+    pendingBillsCount = 0, 
+    utilizationSplit = { dayHours: '0.0', nightHours: '0.0' }, 
+    venue 
+}: ReportsProps) {
     const [revenue30, setRevenue30] = useState<any[]>([]);
     const [utilization, setUtilization] = useState<any[]>([]);
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
@@ -293,7 +304,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
         const todayData = revenue30[revenue30.length - 1];
         const yesterdayData = revenue30.length > 1 ? revenue30[revenue30.length - 2] : null;
 
-        let monthTable = 0, monthFnb = 0, monthNet = 0, monthExpenses = 0, monthQrisCount = 0, monthQrisRevenue = 0;
+        let monthTable = 0, monthFnb = 0, monthOther = 0, monthNet = 0, monthExpenses = 0, monthQrisCount = 0, monthQrisRevenue = 0;
         
         const periodStartIdx = timeFilter === 'daily' && revenue30.length > 1 ? revenue30.length - 1 : 0;
         
@@ -301,6 +312,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
             const r = revenue30[i];
             monthTable += Number(r.tableRevenue || 0);
             monthFnb += Number(r.fnbRevenue || 0);
+            monthOther += Number(r.otherRevenue || 0);
             monthNet += Number(r.totalRevenue || 0);
             monthExpenses += Number(r.totalExpenses || 0);
             monthQrisCount += Number(r.qrisCount || 0);
@@ -318,11 +330,13 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
         return {
             todayTable: todayData?.tableRevenue || 0,
             todayFnb: todayData?.fnbRevenue || 0,
+            todayOther: todayData?.otherRevenue || 0,
             todayNet,
             todayExpenses,
             todayProfit,
             monthTable,
             monthFnb,
+            monthOther,
             monthNet,
             monthExpenses,
             monthQrisCount,
@@ -377,6 +391,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                 [`${timeFilter === 'custom' ? 'Custom Period' : timeFilter.charAt(0).toUpperCase() + timeFilter.slice(1)} Total Revenue`, `Rp ${Math.round(kpis.monthNet).toLocaleString('id-ID')}`],
                 ['Table Revenue', `Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')}`],
                 ['F&B Revenue', `Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')}`],
+                ['Other Income (Tournament/Misc)', `Rp ${Math.round(kpis.monthOther).toLocaleString('id-ID')}`],
                 ["Today's Revenue", `Rp ${Math.round(kpis.todayNet).toLocaleString('id-ID')}`],
                 ["Today's Expenses", `Rp ${Math.round(kpis.todayExpenses).toLocaleString('id-ID')}`],
                 ["Today's Physical Cash (Laci)", `Rp ${Math.round(todayCashRevenue).toLocaleString('id-ID')}`],
@@ -634,6 +649,13 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                         accent: '#00aaff',
                     },
                     {
+                        label: 'Pemasukan Lain (Turnamen)',
+                        value: `Rp ${Math.round(todayOtherRevenue).toLocaleString('id-ID')}`,
+                        sub: 'Pemasukan manual/turnamen hari ini',
+                        icon: <TrendingUp className="w-5 h-5" />,
+                        accent: '#ff9900',
+                    },
+                    {
                         label: 'Transaksi QRIS',
                         value: `Rp ${Math.round(todayQrisRevenue).toLocaleString('id-ID')}`,
                         sub: 'Pemasukan hari ini via QRIS',
@@ -730,7 +752,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                     {
                         label: `${getPeriodLabel()} Total Revenue`,
                         value: `Rp ${Math.round(kpis.monthNet).toLocaleString('id-ID')}`,
-                        sub: `Table: Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')} · F&B: Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')}`,
+                        sub: `Tab: Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')} · F&B: Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')} · Other: Rp ${Math.round(kpis.monthOther).toLocaleString('id-ID')}`,
                         icon: <DollarSign className="w-7 h-7 text-[#00ff66]" />,
                         accent: '#00ff66',
                         targetId: 'revenue-trend-section'

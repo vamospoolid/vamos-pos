@@ -97,7 +97,16 @@ export class TournamentService {
         });
     }
 
-    static async registerParticipant(tournamentId: string, memberId?: string, name?: string, handicap?: string, paymentNotes?: string, status?: string) {
+    static async registerParticipant(
+        tournamentId: string, 
+        userId: string,
+        memberId?: string, 
+        name?: string, 
+        handicap?: string, 
+        paymentNotes?: string, 
+        status?: string,
+        paymentMethod: string = 'CASH'
+    ) {
         const tournament = await prisma.tournament.findUnique({
             where: { id: tournamentId },
             include: { _count: { select: { participants: true } } }
@@ -114,16 +123,40 @@ export class TournamentService {
             if (exists) throw new AppError('Member already registered', 400);
         }
 
-        const participant = await prisma.tournamentParticipant.create({
-            data: {
-                tournamentId,
-                memberId: memberId || null,
-                name: memberId ? null : name,
-                handicap,
-                paymentNotes,
-                paymentStatus: status || (tournament.entryFee > 0 ? 'UNPAID' : 'PAID')
-            },
-            include: { member: true }
+        const finalStatus = status || (tournament.entryFee > 0 ? 'UNPAID' : 'PAID');
+
+        const result = await prisma.$transaction(async (tx) => {
+            const participant = await tx.tournamentParticipant.create({
+                data: {
+                    tournamentId,
+                    memberId: memberId || null,
+                    name: memberId ? null : name,
+                    handicap,
+                    paymentNotes,
+                    paymentStatus: finalStatus
+                },
+                include: { member: true }
+            });
+
+            // Create Payment record if paid immediately
+            if (finalStatus === 'PAID' && tournament.entryFee > 0) {
+                const activeShift = await tx.cashierShift.findFirst({
+                    where: { userId, status: 'OPEN' }
+                });
+
+                await tx.payment.create({
+                    data: {
+                        amount: tournament.entryFee,
+                        method: paymentMethod,
+                        status: 'SUCCESS',
+                        cashierId: userId,
+                        shiftId: activeShift ? activeShift.id : undefined,
+                        sessionId: undefined
+                    } as any
+                });
+            }
+
+            return participant;
         });
 
         // LOYALTY & XP INTEGRATION: Dynamic based on entry fee
@@ -136,10 +169,10 @@ export class TournamentService {
             }
         }
 
-        return participant;
+        return result;
     }
 
-    static async updateParticipantStatus(tournamentId: string, participantId: string, paymentStatus: string) {
+    static async updateParticipantStatus(tournamentId: string, participantId: string, paymentStatus: string, userId: string, paymentMethod: string = 'CASH') {
         const tournament = await prisma.tournament.findUnique({
             where: { id: tournamentId }
         });
@@ -152,9 +185,29 @@ export class TournamentService {
 
         if (!participant) throw new AppError('Participant not found', 404);
 
-        return prisma.tournamentParticipant.update({
-            where: { id: participantId },
-            data: { paymentStatus }
+        // If status changes to PAID, create a Payment record
+        return prisma.$transaction(async (tx) => {
+            if (paymentStatus === 'PAID' && participant.paymentStatus !== 'PAID' && tournament.entryFee > 0) {
+                const activeShift = await tx.cashierShift.findFirst({
+                    where: { userId, status: 'OPEN' }
+                });
+
+                await tx.payment.create({
+                    data: {
+                        amount: tournament.entryFee,
+                        method: paymentMethod,
+                        status: 'SUCCESS',
+                        cashierId: userId,
+                        shiftId: activeShift ? activeShift.id : undefined,
+                        sessionId: undefined
+                    } as any
+                });
+            }
+
+            return tx.tournamentParticipant.update({
+                where: { id: participantId },
+                data: { paymentStatus }
+            });
         });
     }
 

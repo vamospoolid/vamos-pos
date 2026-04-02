@@ -157,6 +157,7 @@ export class ReportService {
 
             let tableRevenue = 0;
             let fnbRevenue = 0;
+            let otherRevenue = 0;
             let totalRevenue = 0;
             let totalExpenses = 0;
             const expenseDistribution: Record<string, number> = {};
@@ -176,19 +177,19 @@ export class ReportService {
 
                 if (p.session) {
                     const sessionRec = p.session as any;
-                    // Proportional split for table vs fnb revenue based on the final paid amount
+                    // Proportional split for table vs fnb revenue
                     const sessionTotalRaw = (sessionRec.tableAmount || 0) + (sessionRec.fnbAmount || 0) + (sessionRec.taxAmount || 0) + (sessionRec.serviceAmount || 0);
                     
                     if (sessionTotalRaw > 0) {
                         const tableRatio = (sessionRec.tableAmount || 0) / sessionTotalRaw;
                         tableRevenue += p.amount * tableRatio;
-                        fnbRevenue += p.amount * (1 - tableRatio); // The rest belongs to FNB, tax, and service
+                        fnbRevenue += p.amount * (1 - tableRatio);
                     } else {
-                        // If no session totals, it might be a direct payment for an expense or generic
                         fnbRevenue += p.amount;
                     }
                 } else {
-                    fnbRevenue += p.amount;
+                    // Payment without session (e.g., Tournament entry, Misc, or manual Debt payment)
+                    otherRevenue += p.amount;
                 }
             });
 
@@ -203,6 +204,7 @@ export class ReportService {
                 operationalEnd: end.toISOString(),
                 tableRevenue,
                 fnbRevenue,
+                otherRevenue,
                 qrisRevenue,
                 qrisCount,
                 cardRevenue,
@@ -211,7 +213,7 @@ export class ReportService {
                 cashRevenue: totalRevenue - qrisRevenue - cardRevenue - totalExpenses,
                 expenseDistribution,
                 netRevenue: totalRevenue - totalExpenses,
-                sessionCount: payments.length
+                sessionCount: payments.filter(p => !!p.session).length
             });
         }
         return result;
@@ -247,6 +249,7 @@ export class ReportService {
         let revenue = 0;
         let fnbRevenue = 0;
         let tableRevenue = 0;
+        let otherRevenue = 0;
         let totalExpenses = 0;
         let qrisRevenue = 0;
         let cardRevenue = 0;
@@ -272,7 +275,7 @@ export class ReportService {
                     fnbRevenue += p.amount;
                 }
             } else {
-                fnbRevenue += p.amount;
+                otherRevenue += p.amount;
             }
         });
 
@@ -287,13 +290,14 @@ export class ReportService {
             revenue,
             tableRevenue,
             fnbRevenue,
+            otherRevenue,
             qrisRevenue,
             cardRevenue,
             qrisCount,
             totalExpenses,
-            cashRevenue: revenue - qrisRevenue - cardRevenue - totalExpenses, // Total Fisik di Laci = (Omzet - QRIS - CARD) - Pengeluaran
+            cashRevenue: revenue - qrisRevenue - cardRevenue - totalExpenses,
             netRevenue: revenue - totalExpenses,
-            sessionCount: payments.length,
+            sessionCount: payments.filter(p => !!p.session).length,
             activeSessions: activeSessions.length,
             minutesSinceOpen: opensSince,
             openHour: await ReportService.getOpenHour()
@@ -372,19 +376,28 @@ export class ReportService {
     }
 
     static async getTopPlayers(days = 30, startDateStr?: string, endDateStr?: string) {
-        let dateFilter = {};
+        let start: Date;
+        let end: Date;
+
         if (startDateStr && endDateStr) {
-            const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(endDateStr);
-            endDate.setHours(23, 59, 59, 999);
-            dateFilter = { endTime: { gte: startDate, lte: endDate } };
-        } else if (days > 0) {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - days);
-            startDate.setHours(0, 0, 0, 0);
-            dateFilter = { endTime: { gte: startDate } };
+            const rangeStart = await ReportService.getOperationalDayBounds(0); // Dummy call to get openHour
+            const openHour = await ReportService.getOpenHour();
+            
+            start = new Date(startDateStr);
+            start.setHours(openHour, 0, 0, 0);
+
+            end = new Date(endDateStr);
+            end.setDate(end.getDate() + 1);
+            end.setHours(openHour, 0, 0, 0);
+            end.setMilliseconds(end.getMilliseconds() - 1);
+        } else {
+            const today = await ReportService.getOperationalDayBounds(0);
+            const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
+            start = oldest.start;
+            end = today.end;
         }
+
+        const dateFilter = { endTime: { gte: start, lte: end } };
 
         const members = await prisma.member.findMany({
             include: {
@@ -433,19 +446,26 @@ export class ReportService {
     }
 
     static async getTopProducts(days = 30, startDateStr?: string, endDateStr?: string) {
-        let dateFilter = {};
+        let start: Date;
+        let end: Date;
+
         if (startDateStr && endDateStr) {
-            const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(endDateStr);
-            endDate.setHours(23, 59, 59, 999);
-            dateFilter = { createdAt: { gte: startDate, lte: endDate } };
-        } else if (days > 0) {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - days);
-            startDate.setHours(0, 0, 0, 0);
-            dateFilter = { createdAt: { gte: startDate } };
+            const openHour = await ReportService.getOpenHour();
+            start = new Date(startDateStr);
+            start.setHours(openHour, 0, 0, 0);
+
+            end = new Date(endDateStr);
+            end.setDate(end.getDate() + 1);
+            end.setHours(openHour, 0, 0, 0);
+            end.setMilliseconds(end.getMilliseconds() - 1);
+        } else {
+            const today = await ReportService.getOperationalDayBounds(0);
+            const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
+            start = oldest.start;
+            end = today.end;
         }
+
+        const dateFilter = { createdAt: { gte: start, lte: end } };
 
         const orders = await prisma.order.findMany({
             where: {
