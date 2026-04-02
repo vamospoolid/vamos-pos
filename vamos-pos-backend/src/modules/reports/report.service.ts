@@ -301,49 +301,74 @@ export class ReportService {
     }
 
     static async getTableUtilization(days = 30, startDateStr?: string, endDateStr?: string) {
-        let dateFilter = {};
+        const openHour = await ReportService.getOpenHour();
+        let gteDate: Date;
+        let lteDate: Date;
+
         if (startDateStr && endDateStr) {
-            const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(endDateStr);
-            endDate.setHours(23, 59, 59, 999);
-            dateFilter = { endTime: { gte: startDate, lte: endDate } };
-        } else if (days > 0) {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - days);
-            startDate.setHours(0, 0, 0, 0);
-            dateFilter = { endTime: { gte: startDate } };
+            // Use same operational-day boundary as getDailyRevenue for consistency
+            gteDate = new Date(startDateStr);
+            gteDate.setHours(openHour, 0, 0, 0);
+            const endParam = new Date(endDateStr);
+            endParam.setDate(endParam.getDate() + 1);
+            endParam.setHours(openHour, 0, 0, 0);
+            endParam.setMilliseconds(endParam.getMilliseconds() - 1);
+            lteDate = endParam;
+        } else {
+            const today = await ReportService.getOperationalDayBounds(0);
+            const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
+            gteDate = oldest.start;
+            lteDate = today.end;
         }
 
-        const tables = await prisma.table.findMany({
-            include: {
-                sessions: {
-                    where: {
-                        status: { in: ['FINISHED', 'PAID'] },
-                        ...dateFilter
-                    }
+        // --- Base: all tables (include zero-revenue tables) ---
+        const allTables = await prisma.table.findMany();
+
+        // --- Use Payment as source of truth (same as getDailyRevenue) ---
+        const payments = await prisma.payment.findMany({
+            where: { createdAt: { gte: gteDate, lte: lteDate }, status: 'SUCCESS' },
+            include: { session: { include: { table: true } } }
+        });
+
+        // Build stats map, initialised for all tables
+        const statsMap: Record<string, {
+            tableName: string; type: string;
+            totalMinutes: number; totalRevenue: number;
+            sessionIds: Set<string>;
+        }> = {};
+
+        allTables.forEach(t => {
+            statsMap[t.id] = { tableName: t.name, type: t.type, totalMinutes: 0, totalRevenue: 0, sessionIds: new Set() };
+        });
+
+        payments.forEach(p => {
+            const s = p.session as any;
+            if (!s || !s.tableId) return;
+            const stat = statsMap[s.tableId];
+            if (!stat) return;
+
+            // Proportional table revenue — mirrors getDailyRevenue logic (post-discount)
+            const sessionTotalRaw = (s.tableAmount || 0) + (s.fnbAmount || 0) + (s.taxAmount || 0) + (s.serviceAmount || 0);
+            if (sessionTotalRaw > 0) {
+                stat.totalRevenue += p.amount * ((s.tableAmount || 0) / sessionTotalRaw);
+            }
+
+            // Duration: count each unique session once
+            if (!stat.sessionIds.has(s.id)) {
+                stat.sessionIds.add(s.id);
+                if (s.startTime && s.endTime) {
+                    stat.totalMinutes += (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
                 }
             }
         });
 
-        return tables.map(t => {
-            let totalMinutes = 0;
-            let totalRevenue = 0;
-            t.sessions.forEach(s => {
-                if (s.endTime && s.startTime) {
-                    totalMinutes += (s.endTime.getTime() - s.startTime.getTime()) / 60000;
-                }
-                totalRevenue += (s.tableAmount || 0); // revenue specifically from table rental
-            });
-
-            return {
-                tableName: t.name,
-                type: t.type,
-                totalMinutes,
-                totalRevenue,
-                sessionCount: t.sessions.length
-            };
-        });
+        return allTables.map(t => ({
+            tableName: t.name,
+            type: t.type,
+            totalMinutes: statsMap[t.id]?.totalMinutes || 0,
+            totalRevenue: statsMap[t.id]?.totalRevenue || 0,
+            sessionCount: statsMap[t.id]?.sessionIds.size || 0,
+        }));
     }
 
     static async getTopPlayers(days = 30, startDateStr?: string, endDateStr?: string) {
@@ -462,8 +487,11 @@ export class ReportService {
             endDate.setMilliseconds(endDate.getMilliseconds() - 1);
             lteDate = endDate;
         } else {
+            // Always set both bounds to prevent unbounded queries
             const { start } = await ReportService.getOperationalDayBounds(days - 1);
+            const { end } = await ReportService.getOperationalDayBounds(0);
             gteDate = start;
+            lteDate = end;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

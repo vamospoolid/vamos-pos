@@ -1,0 +1,117 @@
+{
+  "rules": [
+    {
+      "id": "40b09f05-358a-492e-ace1-6604923de4ed",
+      "name": "Malam Regular",
+      "tableType": "REGULAR",
+      "dayOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "17:00",
+      "endTime": "02:00",
+      "ratePerHour": 35000,
+      "memberRatePerHour": 35000,
+      "isActive": true,
+      "createdAt": "2026-03-28T08:54:56.856Z",
+      "updatedAt": "2026-03-28T08:54:56.856Z",
+      "deletedAt": null
+    },
+    {
+      "id": "e789f514-7db8-41f3-92a1-84bc3ae2ef00",
+      "name": "Siang Regular",
+      "tableType": "REGULAR",
+      "dayOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "09:00",
+      "endTime": "17:00",
+      "ratePerHour": 25000,
+      "memberRatePerHour": 25000,
+      "isActive": true,
+      "createdAt": "2026-03-28T08:54:56.854Z",
+      "updatedAt": "2026-03-28T08:54:56.854Z",
+      "deletedAt": null
+    },
+    {
+      "id": "575eba02-64d8-4dba-9340-9fb5e4e13733",
+      "name": "Dini Hari Regular",
+      "tableType": "REGULAR",
+      "dayOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "02:00",
+      "endTime": "07:00",
+      "ratePerHour": 30000,
+      "memberRatePerHour": 30000,
+      "isActive": true,
+      "createdAt": "2026-03-28T08:54:56.858Z",
+      "updatedAt": "2026-03-28T08:54:56.858Z",
+      "deletedAt": null
+    }
+  ],
+  "packages": [
+    {
+      "id": "8d11cda5-567d-47f4-95de-598860986994",
+      "name": "Paket Siang 2 Jam",
+      "tableType": "REGULAR",
+      "duration": 120,
+      "price": 40000,
+      "memberPrice": 35000,
+      "isActive": true,
+      "createdAt": "2026-03-28T08:54:56.859Z",
+      "updatedAt": "2026-03-28T08:54:56.859Z",
+      "deletedAt": null,
+      "dayOfWeek": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "endTime": "17:00",
+      "fnbItems": null,
+      "startTime": "09:00"
+    },
+    {
+      "id": "92951c54-1eac-4095-a11d-fc09dd62342e",
+      "name": "Paket Malam 2 Jam",
+      "tableType": "REGULAR",
+      "duration": 120,
+      "price": 50000,
+      "memberPrice": 45000,
+      "isActive": true,
+      "createdAt": "2026-03-28T08:54:56.860Z",
+      "updatedAt": "2026-03-28T08:54:56.860Z",
+      "deletedAt": null,
+      "dayOfWeek": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "endTime": "02:00",
+      "fnbItems": null,
+      "startTime": "17:00"
+    }
+  ]
+}

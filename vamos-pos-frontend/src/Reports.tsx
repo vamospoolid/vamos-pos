@@ -48,20 +48,11 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const reportRef = useRef<HTMLDivElement>(null);
 
-    const fetchReports = async () => {
+    const fetchReports = async (sd = startDate, ed = endDate) => {
         try {
             setLoading(true);
-            let query = '';
-
-            if (timeFilter === 'custom') {
-                query = `?startDate=${startDate}&endDate=${endDate}`;
-            } else {
-                let days = 30;
-                if (timeFilter === 'daily') days = 2;
-                else if (timeFilter === 'weekly') days = 7;
-                else if (timeFilter === 'monthly') days = 30;
-                query = `?days=${days}`;
-            }
+            // Always use startDate/endDate for consistent operational-day boundaries
+            const query = `?startDate=${sd}&endDate=${ed}`;
 
             const [revRes, utilRes, topRes, prodRes] = await Promise.all([
                 api.get(`/reports/daily-revenue${query}`),
@@ -85,36 +76,43 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
     };
 
     useEffect(() => {
+        const now = new Date();
+        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+        const todayStr = now.toISOString().split('T')[0];
+
+        let newStart = todayStr;
+        let newEnd = todayStr;
+
         if (timeFilter === 'daily') {
-            const now = new Date();
-            const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
-            const reportDate = new Date();
-            
+            // Operational day pivot: if before openHour, we're still in yesterday's cycle
+            const operationalDate = new Date(now);
             if (now.getHours() < openHour) {
-                reportDate.setDate(reportDate.getDate() - 1);
+                operationalDate.setDate(operationalDate.getDate() - 1);
             }
-            
-            const start = reportDate.toISOString().split('T')[0];
-            const end = new Date().toISOString().split('T')[0];
-            setStartDate(start);
-            setEndDate(end);
+            // Include yesterday so growth (vs yesterday) can be calculated
+            const yesterday = new Date(operationalDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            newStart = yesterday.toISOString().split('T')[0];
+            newEnd = operationalDate.toISOString().split('T')[0];
         } else if (timeFilter === 'weekly') {
-            const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            setStartDate(start);
-            setEndDate(end);
+            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            newEnd = todayStr;
         } else if (timeFilter === 'monthly') {
-            const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            setStartDate(start);
-            setEndDate(end);
+            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            newEnd = todayStr;
         }
-        fetchReports();
+        // For 'custom', dates are already set by user — don't overwrite
+
+        if (timeFilter !== 'custom') {
+            setStartDate(newStart);
+            setEndDate(newEnd);
+            fetchReports(newStart, newEnd); // pass directly to avoid stale state
+        }
     }, [timeFilter]);
 
     const handleApplyCustomFilter = () => {
         setTimeFilter('custom');
-        fetchReports();
+        fetchReports(startDate, endDate);
     };
 
     useEffect(() => {
@@ -122,8 +120,10 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
         const socket = io(socketUrl);
 
         const handleUpdate = () => {
-            fetchReports();
-            fetchTransactions();
+            // Pass dates explicitly — socket useEffect re-mounts when dates change,
+            // so startDate/endDate captured here are always fresh
+            fetchReports(startDate, endDate);
+            fetchTransactions(txFilter, txStartDate, txEndDate);
         };
 
         socket.on('sessions:updated', handleUpdate);
@@ -143,19 +143,25 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
         setTxLoading(true);
         try {
             let query = '';
+            const todayStr = new Date().toISOString().split('T')[0];
+
             if (filter === 'custom') {
                 query = `?startDate=${sd}&endDate=${ed}`;
             } else {
-                let startStr = '';
+                let startStr: string;
                 if (filter === 'daily') {
                     const now = new Date();
-                    const reportDate = new Date();
                     const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+                    const reportDate = new Date();
                     if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
                     startStr = reportDate.toISOString().split('T')[0];
+                } else if (filter === 'weekly') {
+                    startStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                } else {
+                    startStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 }
-                const days = filter === 'daily' ? 1 : filter === 'weekly' ? 7 : 30;
-                query = `?days=${days}${startStr ? `&startDate=${startStr}&endDate=${new Date().toISOString().split('T')[0]}` : ''}`;
+                // Always include endDate so backend always sets lteDate
+                query = `?startDate=${startStr}&endDate=${todayStr}`;
             }
             const res = await api.get(`/reports/transactions${query}`);
             setTransactions(res.data.data || []);
@@ -171,8 +177,25 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
     }, []);
 
     const handleTxFilterChange = (f: 'daily' | 'weekly' | 'monthly' | 'custom') => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let newStart = todayStr;
+
+        if (f === 'daily') {
+            const now = new Date();
+            const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+            const reportDate = new Date();
+            if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
+            newStart = reportDate.toISOString().split('T')[0];
+        } else if (f === 'weekly') {
+            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        } else if (f === 'monthly') {
+            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        }
+
         setTxFilter(f);
-        if (f !== 'custom') fetchTransactions(f, txStartDate, txEndDate);
+        setTxStartDate(newStart);
+        setTxEndDate(todayStr);
+        if (f !== 'custom') fetchTransactions(f, newStart, todayStr);
     };
 
     const exportTransactionPDF = () => {
@@ -599,7 +622,7 @@ export default function Reports({ todayRevenue = 0, todayQrisRevenue = 0, todayC
                     {
                         label: 'Total Cash Hari Ini',
                         value: `Rp ${Math.round(todayCashRevenue).toLocaleString('id-ID')}`,
-                        sub: 'Revenue – QRIS – Pengeluaran (Uang Fisik)',
+                        sub: 'Revenue – QRIS – CARD – Pengeluaran (Est. Fisik di Laci)',
                         icon: <DollarSign className="w-5 h-5" />,
                         accent: '#ff9900',
                     },

@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const p = await prisma.pricingRule.findMany(); const pk = await prisma.package.findMany(); require('fs').writeFileSync('pricing_output.json', JSON.stringify({ rules: p, packages: pk }, null, 2)); } main().finally(() => prisma.$disconnect());

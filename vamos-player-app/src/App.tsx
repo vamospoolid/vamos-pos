@@ -9,7 +9,6 @@ import { VictoryNotification } from './components/VictoryNotification';
 import { LeaderboardScreen } from './LeaderboardScreen';
 import { PlayScreen } from './PlayScreen';
 import { HistoryScreen } from './HistoryScreen';
-import { Gamepad2, Signal } from 'lucide-react';
 import { LiveTableScreen } from './LiveTableScreen';
 
 // ═══════════════════════════════════════════════
@@ -1187,19 +1186,18 @@ function MainApp() {
 
   if (!member) return <LoginScreen onLogin={setMember} />;
 
+  // Updated Nav Items directly aligned with E-Sports theme & Native Feel
   const navItems = [
     { id: 'home', icon: LayoutGrid, label: 'ARENA' },
-    ...(member.tier !== 'BRONZE' ? [{ id: 'live-table', icon: Signal, label: 'LIVE' }] : []),
-    { id: 'play', icon: Gamepad2, label: 'PLAY' },
-    { id: 'leaderboard', icon: Trophy, label: 'HALL' },
-    { id: 'tournaments', icon: Medal, label: 'EVENTS' },
+    { id: 'ledger', icon: Swords, label: 'HISTORY' },
+    { id: 'leaderboard', icon: Trophy, label: 'RANK' },
     { id: 'profile', icon: User, label: 'PROFILE' },
   ];
 
   return (
-    <div className="min-h-screen bg-[#101423] text-white flex flex-col relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-white/5">
-      <div className="absolute top-[-20%] right-[-20%] w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none opacity-20 bg-primary/20" />
-      <div className="absolute bottom-[-20%] left-[-20%] w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none opacity-20 bg-accent/10" />
+    <div className="min-h-screen bg-[#070b14] text-white flex flex-col relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-white/5">
+      <div className="absolute top-[-20%] right-[-20%] w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none opacity-[0.15] bg-primary/20" />
+      <div className="absolute bottom-[-20%] left-[-20%] w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none opacity-[0.15] bg-accent/10" />
 
       {activeNotification && (
         <VictoryNotification
@@ -1209,34 +1207,32 @@ function MainApp() {
         />
       )}
 
-      {/* Unified Header */}
-      <div className="flex justify-between items-center px-6 pt-12 pb-6 relative z-30 bg-[#101423]/40 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <VamosLogo className="w-8 h-8" color="#3b82f6" glowing />
-          <h1 onClick={() => setActiveTab('home')} className="text-xl font-black tracking-tighter italic uppercase cursor-pointer">
-            VAMOS<span className="text-primary"> POOL</span>
-          </h1>
+      {/* ─── DYNAMIC TOP BAR ─── */}
+      <div className="flex justify-between items-center px-6 pt-12 pb-4 relative z-30 bg-gradient-to-b from-[#070b14] to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-[14px] flex items-center justify-center border border-primary/20 shadow-inner">
+             <VamosLogo className="w-6 h-6" color="#3b82f6" glowing />
+          </div>
+          <div>
+            <h1 onClick={() => setActiveTab('home')} className="text-xl font-black tracking-tighter italic uppercase cursor-pointer leading-none">
+              VAMOS<span className="text-primary">POOL</span>
+            </h1>
+            <p className="text-[8px] font-black text-slate-500 tracking-[0.3em] uppercase italic mt-1">E-Sports Arena</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="bg-[#1a1f35] pl-2 pr-1 py-1 rounded-full flex items-center gap-2 border border-white/5 shadow-inner">
-            <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center border border-yellow-500/30">
-              <Star className="w-3 h-3 text-yellow-500" fill="currentColor" />
-            </div>
-            <span className="text-sm font-black text-white px-1">{member.loyaltyPoints ?? 0}</span>
-            <div 
-              onClick={() => setActiveTab('rewards')}
-              className="w-6 h-6 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all"
-            >
-              <Plus className="w-4 h-4 text-white font-bold" />
-            </div>
+          <div className="bg-[#101423]/80 backdrop-blur-md px-3 py-1.5 rounded-[12px] flex items-center gap-2 border border-white/10 shadow-inner cursor-pointer hover:border-primary/50 transition-colors"
+               onClick={() => setActiveTab('rewards')}>
+            <Star className="w-3.5 h-3.5 text-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" fill="currentColor" />
+            <span className="text-xs font-black text-white pt-0.5">{member.loyaltyPoints ?? 0}</span>
           </div>
 
-          <button onClick={() => setActiveTab('profile')} className="w-9 h-9 rounded-full bg-[#1a1f35] overflow-hidden border-2 border-primary/30 p-0.5">
+          <button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10 p-[2px] shadow-inner active:scale-90 transition-transform">
             {member.photo ? (
-              <img src={member.photo} alt="P" className="w-full h-full rounded-full object-cover" />
+              <img src={member.photo} alt="P" className="w-full h-full rounded-[10px] object-cover" />
             ) : (
-              <div className="w-full h-full rounded-full bg-[#1a1f35] flex items-center justify-center text-xs font-black text-primary">
+              <div className="w-full h-full rounded-[10px] bg-[#1a1f35] flex items-center justify-center text-sm font-black text-primary">
                 {member.name?.[0].toUpperCase()}
               </div>
             )}
@@ -1244,8 +1240,8 @@ function MainApp() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-hide relative z-10">
+      {/* ─── MAIN SCROLLABLE CONTENT ─── */}
+      <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 scrollbar-hide relative z-10 transition-all duration-300">
         {activeTab === 'home' && <DashboardScreen member={member} />}
         {activeTab === 'live-table' && <LiveTableScreen member={member} />}
         {activeTab === 'play' && <PlayScreen member={member} />}
@@ -1259,25 +1255,39 @@ function MainApp() {
         {activeTab === 'ledger' && <HistoryScreen member={member} onBack={() => setActiveTab('home')} />}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 w-full px-6 pb-6 pt-4 z-50 pointer-events-none">
-        <div className="max-w-md mx-auto px-4">
-          <div className="fiery-nav flex justify-between items-center px-4 py-3 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] pointer-events-auto">
-            {navItems.map(item => {
+      {/* ─── NATIVE STICKY BOTTOM NAVIGATION ─── */}
+      <div className="fixed bottom-0 top-auto left-0 w-full z-50 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+        {/* Glow effect matching the selected active tab */}
+        <div className="absolute bottom-0 left-0 w-full h-[100px] bg-gradient-to-t from-[#070b14] to-transparent pointer-events-none" />
+        
+        <div className="max-w-md mx-auto w-full pointer-events-auto bg-[#101423]/95 backdrop-blur-2xl border-t border-white/5 relative shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+          <div className="flex justify-around items-center px-2 py-4 relative">
+            {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id as any)}
-                  className={`relative flex flex-col items-center justify-center w-12 h-12 transition-all duration-300 ${isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`relative flex flex-col items-center justify-center w-[20%] transition-all duration-300 ease-out group ${isActive ? 'text-primary scale-110 -translate-y-2' : 'text-slate-500 hover:text-white'}`}
                 >
+                  {/* Glowing active indicator dot */}
                   {isActive && (
-                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full scale-125" />
+                    <div className="absolute -top-3 w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,1)]" />
                   )}
+                  
+                  {/* Active backdrop highlight */}
                   {isActive && (
-                    <div className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full" />
+                    <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full scale-[2]" />
                   )}
-                  <item.icon className={`w-6 h-6 relative z-10 ${isActive ? 'text-primary' : 'stroke-[2]'}`} />
+                  
+                  <item.icon 
+                     className={`w-6 h-6 mb-1 relative z-10 transition-colors ${isActive ? 'text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'stroke-[2] opacity-70 group-hover:opacity-100'}`} 
+                     fill={isActive ? 'currentColor' : 'none'} 
+                  />
+                  
+                  <span className={`text-[8px] font-black uppercase tracking-widest transition-all ${isActive ? 'text-primary opacity-100' : 'opacity-0 scale-75'}`}>
+                    {item.label}
+                  </span>
                 </button>
               );
             })}
