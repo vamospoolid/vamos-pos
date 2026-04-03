@@ -6,6 +6,22 @@ dist/
 build/
 out/
 
+# Electron Build Output
+vamos-pos-backend/public/win-unpacked/
+vamos-pos-backend/public/mac/
+vamos-pos-backend/public/linux/
+vamos-pos-backend/public/*.blockmap
+vamos-pos-backend/public/builder-debug.yml
+vamos-pos-backend/public/builder-effective-config.yaml
+vamos-pos-backend/public/.icon-ico/
+
+# Large Binary / DLL / Native modules
+*.dll
+*.node
+*.pak
+*.bin
+*.dat
+
 # Ignore Executables and Packages
 *.exe
 *.msi

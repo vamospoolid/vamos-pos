@@ -194,11 +194,11 @@ model Session {
   package         Package?         @relation(fields: [packageId], references: [id])
   table           Table?           @relation(fields: [tableId], references: [id])
 
-  @@index([status])                // getActiveSessions, getPendingSessions
-  @@index([tableId])               // session per meja
-  @@index([memberId])              // riwayat member
-  @@index([status, durationOpts])  // checkExpiredSessions
-  @@index([createdAt])             // laporan harian/bulanan
+  @@index([status]) // getActiveSessions, getPendingSessions
+  @@index([tableId]) // session per meja
+  @@index([memberId]) // riwayat member
+  @@index([status, durationOpts]) // checkExpiredSessions
+  @@index([createdAt]) // laporan harian/bulanan
   @@index([syncStatus])
 }
 
@@ -228,45 +228,46 @@ model StockHistory {
 }
 
 model Order {
-  id        String    @id @default(uuid())
-  sessionId String
-  productId String
-  quantity  Int
-  price     Float
-  total     Float
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id         String    @id @default(uuid())
+  sessionId  String
+  productId  String
+  quantity   Int
+  price      Float
+  total      Float
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
   syncStatus SyncState @default(PENDING)
-  product   Product   @relation(fields: [productId], references: [id])
-  session   Session   @relation(fields: [sessionId], references: [id])
+  product    Product   @relation(fields: [productId], references: [id])
+  session    Session   @relation(fields: [sessionId], references: [id])
 
-  @@index([sessionId])  // getActiveSessions bulk order fetch
+  @@index([sessionId]) // getActiveSessions bulk order fetch
   @@index([syncStatus])
 }
 
 model Payment {
-  id        String        @id @default(uuid())
-  sessionId String?
-  amount    Float
-  discount  Float         @default(0)
-  received  Float         @default(0)
-  change    Float         @default(0)
-  method    String
-  status    String        @default("SUCCESS")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  deletedAt DateTime?
-  syncStatus SyncState    @default(PENDING)
-  cashierId String?
-  shiftId   String?
-  cashier   User?         @relation("PaymentCashier", fields: [cashierId], references: [id])
-  session   Session?      @relation(fields: [sessionId], references: [id])
-  shift     CashierShift? @relation(fields: [shiftId], references: [id])
+  id         String        @id @default(uuid())
+  sessionId  String?
+  amount     Float
+  discount   Float         @default(0)
+  received   Float         @default(0)
+  change     Float         @default(0)
+  method     String
+  status     String        @default("SUCCESS")
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+  syncStatus SyncState     @default(PENDING)
+  cashierId  String?
+  shiftId    String?
+  cashier    User?         @relation("PaymentCashier", fields: [cashierId], references: [id])
+  session    Session?      @relation(fields: [sessionId], references: [id])
+  shift      CashierShift? @relation(fields: [shiftId], references: [id])
 
-  @@index([sessionId])  // laporan per sesi
-  @@index([shiftId])    // laporan per shift kasir
-  @@index([createdAt])  // laporan harian
+  @@index([sessionId]) // laporan per sesi
+  @@index([shiftId]) // laporan per shift kasir
+  @@index([createdAt]) // laporan harian
   @@index([syncStatus])
 }
 
@@ -297,7 +298,7 @@ model AuditLog {
   details   String?
   createdAt DateTime @default(now())
 
-  @@index([createdAt])  // cleanup job (hapus log > 90 hari)
+  @@index([createdAt]) // cleanup job (hapus log > 90 hari)
 }
 
 model Tournament {
@@ -381,8 +382,8 @@ model Expense {
   session     Session?      @relation(fields: [sessionId], references: [id])
   shift       CashierShift? @relation(fields: [shiftId], references: [id])
 
-  @@index([memberId, isDebt])  // piutang per member
-  @@index([date])              // laporan harian
+  @@index([memberId, isDebt]) // piutang per member
+  @@index([date]) // laporan harian
   @@index([syncStatus])
 }
 
@@ -457,7 +458,7 @@ model PointLog {
   member       Member      @relation(fields: [memberId], references: [id])
   session      Session?    @relation(fields: [sessionId], references: [id])
 
-  @@index([memberId])  // riwayat poin member
+  @@index([memberId]) // riwayat poin member
 }
 
 /// Global config store for loyalty settings (double-point toggle, etc.)
@@ -473,16 +474,16 @@ model LoyaltyConfig {
   updatedAt          DateTime  @updatedAt
   updatedBy          String?
   pointsExpiryDays   Int       @default(180)
-  
+
   // Tier Thresholds (Experience/XP)
-  silverThreshold    Int       @default(1000)
-  goldThreshold      Int       @default(2500)
-  platinumThreshold  Int       @default(5000)
-  
+  silverThreshold   Int @default(1000)
+  goldThreshold     Int @default(2500)
+  platinumThreshold Int @default(5000)
+
   // Tier Multipliers (Earn Rates)
-  silverMultiplier   Float     @default(1.1)
-  goldMultiplier     Float     @default(1.25)
-  platinumMultiplier Float     @default(1.5)
+  silverMultiplier   Float @default(1.1)
+  goldMultiplier     Float @default(1.25)
+  platinumMultiplier Float @default(1.5)
 }
 
 model Waitlist {

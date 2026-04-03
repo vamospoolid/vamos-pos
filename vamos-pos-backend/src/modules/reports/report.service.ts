@@ -540,7 +540,7 @@ export class ReportService {
                 return {
                     id: p.id,
                     date: p.createdAt.toISOString(),
-                    memberName: 'Debt Payment / Custom',
+                    memberName: p.notes || 'Debt Payment / Custom',
                     totalAmount: p.amount,
                     paymentMethod: p.method,
                     tableName: '-',

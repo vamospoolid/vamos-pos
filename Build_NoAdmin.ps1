@@ -8,12 +8,12 @@
 $ErrorActionPreference = "Stop"
 
 # --- RUN AS ADMINISTRATOR ---
-# $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-# if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-#     Write-Host "Please run this script as Administrator to ensure PostgreSQL and permissions are correct." -ForegroundColor Red
-#     pause
-#     exit
-# }
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if ($false) {([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "Please run this script as Administrator to ensure PostgreSQL and permissions are correct." -ForegroundColor Red
+    pause
+    exit
+}
 
 Write-Host "######################################################" -ForegroundColor Cyan
 Write-Host "#          VAMOS POOL & CAFE - BUILD SYSTEM         #" -ForegroundColor Cyan
@@ -24,7 +24,7 @@ Write-Host ""
 Write-Host "[1/6] Checking for PostgreSQL service..." -ForegroundColor Yellow
 $pgService = Get-Service -Name "postgresql*"
 if ($pgService) {
-    # Set-Service -Name $pgService.Name -StartupType Automatic
+    Set-Service -Name $pgService.Name -StartupType Automatic
     # Start-Service -Name $pgService.Name -ErrorAction SilentlyContinue
     Write-Host "   -> PostgreSQL service ($($pgService.Name)) is active." -ForegroundColor Green
 } else {

@@ -26,9 +26,12 @@ import shiftRoutes from './modules/shifts/shift.route';
 import whatsappRoutes from './modules/whatsapp/whatsapp.route';
 import licenseRoutes from './modules/license/license.route';
 
+import paymentRoutes from './modules/payments/payment.route';
+
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/payments', paymentRoutes);
 router.use('/whatsapp', whatsappRoutes);
 router.use('/sessions', sessionRoutes);
 router.use('/orders', orderRoutes);

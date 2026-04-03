@@ -11,6 +11,7 @@ import Settings from './Settings';
 import Competitions from './Competitions';
 import Challenges from './Challenges';
 import Expenses from './Expenses';
+import Incomes from './Incomes';
 import FnBOrder from './FnBOrder';
 import Employees from './Employees';
 import Rewards from './Rewards';
@@ -934,6 +935,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Analytics</p>
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<BarChart3 />} label="Reports" />
           <NavItem active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Wallet />} label="Expenses" badge={unpaidDebtCount > 0 ? unpaidDebtCount : null} badgeColor="orange" />
+          <NavItem active={activeTab === 'incomes'} onClick={() => setActiveTab('incomes')} icon={<ArrowRightLeft />} label="Other Incomes" accent="gold" />
           {user?.role !== 'KASIR' && (
             <NavItem active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy />} label="Competitions" />
           )}
@@ -1029,8 +1031,9 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                   : activeTab === 'employees' ? 'Employees'
                                     : activeTab === 'rewards' ? 'Rewards & Loyalty'
                                       : activeTab === 'competitions' ? 'Competitions'
-                                        : activeTab === 'settings' ? 'System Settings'
-                                          : 'Vamos POS'}
+                                        : activeTab === 'incomes' ? 'Other Incomes'
+                                          : activeTab === 'settings' ? 'System Settings'
+                                            : 'Vamos POS'}
               </h1>
               <p className="text-[10px] text-gray-600 font-mono">
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -1377,6 +1380,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               />
             )}
             {activeTab === 'expenses' && <Expenses />}
+            {activeTab === 'incomes' && <Incomes />}
             {activeTab === 'employees' && <Employees />}
             {activeTab === 'competitions' && <Competitions />}
             {activeTab === 'rewards' && <Rewards />}
