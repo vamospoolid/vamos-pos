@@ -299,7 +299,7 @@ export default function Reports({
     };
 
     const kpis = useMemo(() => {
-        if (!revenue30.length) return { todayTotal: 0, todayNet: 0, todayTable: 0, todayFnb: 0, monthTable: 0, monthFnb: 0, monthNet: 0, monthQrisCount: 0, monthQrisRevenue: 0, growth: 0, todayExpenses: 0, todayProfit: 0, monthExpenses: 0 };
+        if (!revenue30.length) return { todayTotal: 0, todayNet: 0, todayTable: 0, todayFnb: 0, todayOther: 0, monthTable: 0, monthFnb: 0, monthOther: 0, monthNet: 0, monthQrisCount: 0, monthQrisRevenue: 0, growth: 0, todayExpenses: 0, todayProfit: 0, monthExpenses: 0 };
 
         const todayData = revenue30[revenue30.length - 1];
         const yesterdayData = revenue30.length > 1 ? revenue30[revenue30.length - 2] : null;

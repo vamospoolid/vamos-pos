@@ -62,6 +62,7 @@ const getDefaultDateTime = () => {
 
 export default function Expenses() {
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [venue, setVenue] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -100,29 +101,56 @@ export default function Expenses() {
         }
     };
 
+    const fetchVenue = async () => {
+        try {
+            const res = await api.get('/venues');
+            if (res.data.data && res.data.data.length > 0) {
+                setVenue(res.data.data[0]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch venue', error);
+        }
+    };
+
     useEffect(() => { 
         fetchExpenses(); 
         fetchMembers();
+        fetchVenue();
     }, []);
 
     useEffect(() => {
-        if (timeFilter === 'daily') {
-            const end = new Date().toISOString().split('T')[0];
-            const start = end;
-            setStartDate(start);
-            setEndDate(end);
-        } else if (timeFilter === 'weekly') {
-            const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            setStartDate(start);
-            setEndDate(end);
-        } else if (timeFilter === 'monthly') {
-            const end = new Date().toISOString().split('T')[0];
-            const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            setStartDate(start);
-            setEndDate(end);
+        if (timeFilter === 'custom') return;
+
+        const getLocalDateStr = (d: Date) => {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        const now = new Date();
+        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
+        
+        const targetDate = new Date(now);
+        if (now.getHours() < openHour) {
+            targetDate.setDate(targetDate.getDate() - 1);
         }
-    }, [timeFilter]);
+
+        if (timeFilter === 'daily') {
+            const str = getLocalDateStr(targetDate);
+            setStartDate(str);
+            setEndDate(str);
+        } else if (timeFilter === 'weekly') {
+            const endStr = getLocalDateStr(targetDate);
+            const start = new Date(targetDate);
+            start.setDate(start.getDate() - 7);
+            setStartDate(getLocalDateStr(start));
+            setEndDate(endStr);
+        } else if (timeFilter === 'monthly') {
+            const endStr = getLocalDateStr(targetDate);
+            const start = new Date(targetDate);
+            start.setDate(start.getDate() - 30);
+            setStartDate(getLocalDateStr(start));
+            setEndDate(endStr);
+        }
+    }, [timeFilter, venue?.openTime]);
 
     useEffect(() => {
         const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
@@ -227,8 +255,9 @@ export default function Expenses() {
         list = list.filter(e => {
             if (!e.date) return false;
             const d = new Date(e.date);
-            // OPERATIONAL CYCLE: 10:00 AM -> 09:59 AM NEXT DAY
-            const OPEN_HOUR = 10;
+            // OPERATIONAL CYCLE: Fetch from Venue Settings (e.g. 10:00 AM)
+            const openHourStr = venue?.openTime?.split(':')[0] || '10';
+            const OPEN_HOUR = parseInt(openHourStr, 10);
             const opDate = new Date(d);
             if (opDate.getHours() < OPEN_HOUR) {
                 opDate.setDate(opDate.getDate() - 1);
@@ -266,11 +295,11 @@ export default function Expenses() {
 
     const categorySummary = useMemo(() => {
         const summary: Record<string, number> = {};
-        expenses.forEach(e => {
+        filteredExpenses.forEach(e => {
             summary[e.category] = (summary[e.category] || 0) + (e.amount || 0);
         });
         return summary;
-    }, [expenses]);
+    }, [filteredExpenses]);
 
     // ─── PDF Export ──────────────────────────────────────────────────────────
     const exportPDF = () => {
@@ -490,8 +519,8 @@ export default function Expenses() {
                 </div>
             </div>
 
-            <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#ff3333]/30">
-                INFO: Laporan Pengeluaran mengikuti Siklus Operasional (10:00 Pagi s/d 09:59 Pagi berikutnya)
+            <div className="mb-4 text-xs font-mono text-gray-400 uppercase tracking-widest pl-4 border-l-2 border-[#ff3333]/30">
+                INFO: Rekap di atas ({timeFilter === 'daily' ? 'Hari Ini' : 'Periode Terpilih'}) mengikuti Siklus Operasional ({venue?.openTime || '10:00'})
             </div>
 
             {memberSummary && (
