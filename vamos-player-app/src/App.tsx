@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, ArrowLeft, CheckCircle2, ShieldCheck, X, RefreshCw, LayoutGrid, Medal, Flame, Target, Gift, Trophy, Swords, Calendar, Camera, Zap, Star, Users, Crown, ArrowRight, TrendingUp } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp } from 'lucide-react';
 import { api } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -26,10 +26,6 @@ const MOCK_TOURNAMENT = {
   venue: 'Vamos Billiard Club',
   description: 'Turnamen billiard tahunan terbesar di Vamos!',
 };
-
-const MOCK_MATCHES = [
-  { id: 'M001', round: 'Quarter Final', player1: 'Fajar Nugroho', player2: 'Hendra Setiawan', winner: 'Fajar Nugroho', score: '4-2', date: '2026-02-24' },
-];
 
 // ═══════════════════════════════════════════════
 // SCREENS
@@ -159,16 +155,11 @@ function DashboardScreen({ member }: { member: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const [showMasteryInfo, setShowMasteryInfo] = useState(false);
   const [showRankHistory, setShowRankHistory] = useState(false);
-  const [rankHistory, setRankHistory] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const { setActiveTab } = useAppStore();
 
   useEffect(() => {
     if (showRankHistory) {
-      setLoadingHistory(true);
-      api.get(`/player/${member.id}/rank-history`).then(res => {
-          setRankHistory(res.data.data);
-      }).catch(() => {}).finally(() => setLoadingHistory(false));
+      // Mock loading history
     }
   }, [showRankHistory, member.id]);
 
@@ -265,10 +256,10 @@ function DashboardScreen({ member }: { member: any }) {
   );
 }
 
-function TournamentScreen({ member, activeTournaments, leaderboard }: { member: any, activeTournaments: any[], leaderboard: any }) {
-  const [tournament, setTournament] = useState<any>(activeTournaments[0] || MOCK_TOURNAMENT);
+function TournamentScreen({ activeTournaments, leaderboard }: { member: any, activeTournaments: any[], leaderboard: any }) {
+  const tournament = activeTournaments[0] || MOCK_TOURNAMENT;
   const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>('info');
-  const [lbSubView, setLbSubView] = useState<'legends' | 'kings' | 'hall'>('legends');
+  let lbSubView = 'legends';
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
@@ -489,7 +480,7 @@ function MainApp() {
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
         {activeTab === 'dashboard' && <DashboardScreen member={member} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
-        {activeTab === 'tournaments' && <TournamentScreen member={member} activeTournaments={tournaments} leaderboard={leaderboard} />}
+        {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} leaderboard={leaderboard} member={member} />}
         {activeTab === 'rewards' && <RewardsScreen />}
         {activeTab === 'booking' && <BookingScreen />}
         {activeTab === 'active-session' && <ActiveSessionScreen />}
