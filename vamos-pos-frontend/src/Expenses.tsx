@@ -129,6 +129,7 @@ export default function Expenses() {
         const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
         
         const targetDate = new Date(now);
+        // Operational day pivot: if before openHour, we are still on the previous operational day
         if (now.getHours() < openHour) {
             targetDate.setDate(targetDate.getDate() - 1);
         }
@@ -256,8 +257,7 @@ export default function Expenses() {
             if (!e.date) return false;
             const d = new Date(e.date);
             // OPERATIONAL CYCLE: Fetch from Venue Settings (e.g. 10:00 AM)
-            const openHourStr = venue?.openTime?.split(':')[0] || '10';
-            const OPEN_HOUR = parseInt(openHourStr, 10);
+            const OPEN_HOUR = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
             const opDate = new Date(d);
             if (opDate.getHours() < OPEN_HOUR) {
                 opDate.setDate(opDate.getDate() - 1);

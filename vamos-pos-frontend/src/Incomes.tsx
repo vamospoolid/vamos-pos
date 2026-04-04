@@ -44,6 +44,7 @@ const PAYMENT_METHODS = ['CASH', 'QRIS', 'TRANSFER', 'CARD'];
 
 export default function Incomes() {
     const [incomes, setIncomes] = useState<any[]>([]);
+    const [venue, setVenue] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -57,6 +58,17 @@ export default function Incomes() {
     const [method, setMethod] = useState('CASH');
     const [notes, setNotes] = useState('');
     const [category, setCategory] = useState('OTHER');
+
+    const fetchVenue = async () => {
+        try {
+            const res = await api.get('/venues');
+            if (res.data.data && res.data.data.length > 0) {
+                setVenue(res.data.data[0]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch venue', error);
+        }
+    };
 
     const fetchIncomes = async () => {
         try {
@@ -74,32 +86,39 @@ export default function Incomes() {
     // Compute operational day start / end dates
     useEffect(() => {
         if (timeFilter === 'custom') return;
-        const getLocalDate = (d: Date) =>
+        const getLocalDateStr = (d: Date) =>
             `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
         const now = new Date();
-        const openHour = 10; // Can be fetched from Venue if needed, matching Expenses
-        const target = new Date(now);
-        if (now.getHours() < openHour) target.setDate(target.getDate() - 1);
+        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
+        
+        const targetDate = new Date(now);
+        // Operational day pivot: if before openHour, we are still on the previous operational day
+        if (now.getHours() < openHour) {
+            targetDate.setDate(targetDate.getDate() - 1);
+        }
 
         if (timeFilter === 'daily') {
-            const s = getLocalDate(target);
-            setStartDate(s);
-            setEndDate(s);
+            const str = getLocalDateStr(targetDate);
+            setStartDate(str);
+            setEndDate(str);
         } else if (timeFilter === 'weekly') {
-            const start = new Date(target);
+            const endStr = getLocalDateStr(targetDate);
+            const start = new Date(targetDate);
             start.setDate(start.getDate() - 7);
-            setStartDate(getLocalDate(start));
-            setEndDate(getLocalDate(target));
+            setStartDate(getLocalDateStr(start));
+            setEndDate(endStr);
         } else if (timeFilter === 'monthly') {
-            const start = new Date(target);
+            const endStr = getLocalDateStr(targetDate);
+            const start = new Date(targetDate);
             start.setDate(start.getDate() - 30);
-            setStartDate(getLocalDate(start));
-            setEndDate(getLocalDate(target));
+            setStartDate(getLocalDateStr(start));
+            setEndDate(endStr);
         }
-    }, [timeFilter]);
+    }, [timeFilter, venue?.openTime]);
 
     useEffect(() => {
+        fetchVenue();
         fetchIncomes();
     }, []);
 
@@ -113,13 +132,13 @@ export default function Incomes() {
     }, []);
 
     const filteredIncomes = useMemo(() => {
-        const openHour = 10;
+        const OPEN_HOUR = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
         let list = incomes.filter(p => {
             const d = new Date(p.createdAt);
             const opDate = new Date(d);
             
-            // Shift to operational day: if before openHour, it belongs to previous calendar day
-            if (opDate.getHours() < openHour) {
+            // Shift to operational day: if before OPEN_HOUR, it belongs to previous calendar day
+            if (opDate.getHours() < OPEN_HOUR) {
                 opDate.setDate(opDate.getDate() - 1);
             }
             
@@ -307,6 +326,10 @@ export default function Incomes() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            <div className="mb-4 text-xs font-mono text-gray-400 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
+                INFO: Rekap di atas ({timeFilter === 'daily' ? 'Hari Ini' : 'Periode Terpilih'}) mengikuti Siklus Operasional ({venue?.openTime || '10:00'})
             </div>
 
             {/* Table */}

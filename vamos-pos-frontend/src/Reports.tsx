@@ -88,7 +88,7 @@ export default function Reports({
 
     useEffect(() => {
         const now = new Date();
-        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
         const todayStr = now.toISOString().split('T')[0];
 
         let newStart = todayStr;
@@ -162,7 +162,7 @@ export default function Reports({
                 let startStr: string;
                 if (filter === 'daily') {
                     const now = new Date();
-                    const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
+                    const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
                     const reportDate = new Date();
                     if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
                     startStr = reportDate.toISOString().split('T')[0];
@@ -609,7 +609,7 @@ export default function Reports({
 
             {/* ─── Private Live Stats (moved from dashboard for privacy) ──── */}
             <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
-                INFO: Rekap Harian dihitung per Siklus Operasional ({venue?.openTime || '09:00'})
+                INFO: Rekap Harian dihitung per Siklus Operasional ({venue?.openTime || '10:00'})
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                 {[

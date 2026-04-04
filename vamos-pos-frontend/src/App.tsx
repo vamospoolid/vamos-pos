@@ -937,7 +937,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Analytics</p>
           <NavItem active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<BarChart3 />} label="Reports" />
           <NavItem active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Wallet />} label="Expenses" badge={unpaidDebtCount > 0 ? unpaidDebtCount : null} badgeColor="orange" />
-          <NavItem active={activeTab === 'incomes'} onClick={() => setActiveTab('incomes')} icon={<ArrowRightLeft />} label="Other Incomes" accent="gold" />
+          <NavItem active={activeTab === 'incomes'} onClick={() => setActiveTab('incomes')} icon={<ArrowRightLeft />} label="Incomes" accent="gold" />
           {user?.role !== 'KASIR' && (
             <NavItem active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy />} label="Competitions" />
           )}
