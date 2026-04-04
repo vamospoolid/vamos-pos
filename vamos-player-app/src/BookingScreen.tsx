@@ -3,7 +3,11 @@ import { ArrowLeft, Loader2, CheckCircle2, ArrowRight, Crown, Box } from 'lucide
 import { useAppStore } from './store/appStore';
 import { api } from './api';
 
-const TIME_SLOTS = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:30", "21:00", "22:30", "00:00"];
+const TIME_SLOTS = [
+    "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", 
+    "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", 
+    "22:00", "23:00", "00:00"
+];
 const TABLE_TYPES = [
     { id: 'REGULAR', name: 'REGULAR', fullName: 'Elite Regular', capacity: 'Max 4', icon: <Box className="w-5 h-5" />, price: 35 },
     { id: 'VIP', name: 'VIP', fullName: 'Champions VIP', capacity: 'Max 8', icon: <Crown className="w-5 h-5" />, price: 70 },
@@ -81,7 +85,6 @@ export function BookingScreen() {
                 return false;
             }
 
-            // Time filtering removed to show all available packages defined in Pricing menu
             return true;
         });
     }, [packages]);
@@ -94,9 +97,17 @@ export function BookingScreen() {
         return TIME_SLOTS.filter(slot => {
             const [h, m] = slot.split(':').map(Number);
             const slotTime = new Date(selectedDate);
-            slotTime.setHours(h, m, 0, 0);
+            
+            // Midnight conceptually means 24:00 (start of next day) when placed at the end of the day
+            if (h === 0) {
+                slotTime.setDate(slotTime.getDate() + 1);
+                slotTime.setHours(0, m, 0, 0);
+            } else {
+                slotTime.setHours(h, m, 0, 0);
+            }
 
             // 1. Time filter (Never show past slots for today)
+            // If it's today, we don't allow selecting times that have passed
             if (isToday && slotTime <= now) return false;
 
             // 2. Granular Slot Occupancy filter
@@ -112,7 +123,8 @@ export function BookingScreen() {
                     const [startH, startM] = pkg.startTime.split(':').map(Number);
                     const [endH, endM] = pkg.endTime.split(':').map(Number);
                     
-                    const slotMins = h * 60 + m;
+                    // Treat 00:00 as 24:00 for the slot calculation to match package logic
+                    const slotMins = (h === 0 ? 24 : h) * 60 + m;
                     const startMins = startH * 60 + startM;
                     let endMins = endH * 60 + endM;
                     
@@ -133,7 +145,7 @@ export function BookingScreen() {
 
             return true;
         });
-    }, [selectedDate, now, availability, selectedTableType]);
+    }, [selectedDate, now, availability, selectedTableType, selectedPackageId, packages]);
 
     // Generate next 7 dates
     const dates = useMemo(() => {
