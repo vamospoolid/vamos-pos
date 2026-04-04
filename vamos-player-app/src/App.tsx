@@ -418,29 +418,54 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-2 leading-relaxed">Operasi sedang dikalkulasi markas utama.<br />Harap bersiaga.</p>
                     <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Bagan Sedang Disusun</h3>
                  </div>
-             ) : (
-                 tournament.matches.map((m: any, idx: number) => {
-                    const p1 = tournament.participants?.find((p: any) => p.id === m.player1Id);
-                    const p2 = tournament.participants?.find((p: any) => p.id === m.player2Id);
-                    const p1Name = p1 ? (p1.member?.name || p1.name) : 'TBD';
-                    const p2Name = p2 ? (p2.member?.name || p2.name) : 'TBD';
+             ) : (() => {
+                 const matchesByRound = tournament.matches.reduce((acc: any, m: any) => {
+                     if (!acc[m.round]) acc[m.round] = [];
+                     acc[m.round].push(m);
+                     return acc;
+                 }, {});
+                 const sortedRounds = Object.keys(matchesByRound).map(Number).sort((a, b) => a - b);
 
-                    return (
-                        <div key={m.id || idx} className="fiery-card p-5 flex justify-between items-center rounded-[32px] bg-[#1a1f35]/50 border border-white/5 shadow-lg">
-                            <div className="flex-1 text-center font-black uppercase text-white tracking-widest text-sm italic truncate px-2">{p1Name}</div>
-                            <div className="flex flex-col items-center gap-1.5 px-4">
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[9px] font-black text-primary italic tracking-widest border border-primary/20 shadow-inner">
-                                    VS
-                                </div>
-                                {m.status === 'COMPLETED' || m.score1 > 0 || m.score2 > 0 ? (
-                                    <span className="text-[11px] font-black italic text-white tracking-widest px-2">{m.score1 || 0} - {m.score2 || 0}</span>
-                                ) : null}
-                            </div>
-                            <div className="flex-1 text-center font-black uppercase text-white tracking-widest text-sm italic truncate px-2">{p2Name}</div>
-                        </div>
-                    );
-                 })
-             )}
+                 return (
+                     <div className="flex overflow-x-auto snap-x space-x-6 pb-6 hide-scrollbar items-stretch min-h-[400px]">
+                         {sortedRounds.map((roundNum) => {
+                             const roundMatches = matchesByRound[roundNum].sort((a: any, b: any) => a.matchNumber - b.matchNumber);
+                             return (
+                                 <div key={roundNum} className="flex flex-col justify-around min-w-[260px] space-y-6 snap-center py-2">
+                                     <h4 className="text-center text-[10px] text-slate-500 font-black uppercase mb-2 italic tracking-[0.2em]">ROUND {roundNum}</h4>
+                                     {roundMatches.map((m: any) => {
+                                         const p1 = tournament.participants?.find((p: any) => p.id === m.player1Id);
+                                         const p2 = tournament.participants?.find((p: any) => p.id === m.player2Id);
+                                         const p1Name = p1 ? (p1.member?.name || p1.name) : 'TBD';
+                                         const p2Name = p2 ? (p2.member?.name || p2.name) : 'TBD';
+                                         const isP1Winner = m.score1 !== null && m.score1 > m.score2;
+                                         const isP2Winner = m.score2 !== null && m.score2 > m.score1;
+
+                                         return (
+                                             <div key={m.id} className="fiery-card rounded-3xl bg-[#1a1f35]/50 border border-white/5 shadow-lg relative z-10 w-full overflow-hidden">
+                                                 <div className={`p-4 flex justify-between items-center border-b border-white/5 ${isP1Winner ? 'bg-primary/10' : ''}`}>
+                                                     <div className="flex flex-col truncate pr-4">
+                                                         <span className={`font-black uppercase tracking-widest text-[11px] italic truncate ${isP1Winner ? 'text-primary' : 'text-white'}`}>{p1Name}</span>
+                                                         {p1?.handicap && <span className="text-[8px] text-primary/70 font-black uppercase mt-0.5">HC: {p1.handicap}</span>}
+                                                     </div>
+                                                     <span className={`font-black text-sm italic ${isP1Winner ? 'text-primary' : 'text-slate-500'}`}>{m.score1 !== null ? m.score1 : '-'}</span>
+                                                 </div>
+                                                 <div className={`p-4 flex justify-between items-center ${isP2Winner ? 'bg-primary/10' : ''}`}>
+                                                     <div className="flex flex-col truncate pr-4">
+                                                         <span className={`font-black uppercase tracking-widest text-[11px] italic truncate ${isP2Winner ? 'text-primary' : 'text-white'}`}>{p2Name}</span>
+                                                         {p2?.handicap && <span className="text-[8px] text-primary/70 font-black uppercase mt-0.5">HC: {p2.handicap}</span>}
+                                                     </div>
+                                                     <span className={`font-black text-sm italic ${isP2Winner ? 'text-primary' : 'text-slate-500'}`}>{m.score2 !== null ? m.score2 : '-'}</span>
+                                                 </div>
+                                             </div>
+                                         );
+                                     })}
+                                 </div>
+                             );
+                         })}
+                     </div>
+                 );
+             })()}
           </div>
         )}
         {activeView === 'rankings' && (
