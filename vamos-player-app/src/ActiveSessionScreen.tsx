@@ -34,7 +34,7 @@ export function ActiveSessionScreen() {
             setWasActive(false); // Reset so it doesn't trigger repeatedly
             setTimeout(() => {
                 setShowMissionAccomplished(false);
-                setActiveTab('home');
+                setActiveTab('dashboard');
             }, 6000); // Show for 6 seconds
         }
     }, [activeSession, wasActive, setActiveTab]);
@@ -109,7 +109,7 @@ export function ActiveSessionScreen() {
                 <button
                     onClick={() => {
                         setShowMissionAccomplished(false);
-                        setActiveTab('home');
+                        setActiveTab('dashboard');
                     }}
                     className="flex items-center gap-2 px-10 py-4 border border-blue-500/30 text-blue-500 hover:bg-blue-500/10 transition-colors rounded-2xl text-xs font-black uppercase tracking-widest"
                 >
@@ -129,7 +129,7 @@ export function ActiveSessionScreen() {
                 <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-3">No Active Protocol</h2>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed mb-12 italic opacity-60">Authorize a mission at any arena sector to begin live tracking.</p>
                 <button
-                    onClick={() => setActiveTab('home')}
+                    onClick={() => setActiveTab('dashboard')}
                     className="fiery-btn-secondary px-10 py-4 text-xs font-black uppercase tracking-widest"
                 >
                     Return to HQ
@@ -150,7 +150,7 @@ export function ActiveSessionScreen() {
         <div className="fade-in pb-40 text-white px-1">
             {/* Header Container */}
             <header className="flex justify-between items-center pt-6 pb-6 bg-[#101423]/90 backdrop-blur-xl sticky top-0 z-50 -mx-6 px-10 border-b border-white/5">
-                <button onClick={() => setActiveTab('home')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
+                <button onClick={() => setActiveTab('dashboard')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="text-center">
