@@ -12,7 +12,7 @@ export default function Members() {
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<any>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' });
+    const [formData, setFormData] = useState({ name: '', phone: '', photo: '', handicap: '3', handicapLabel: 'PROVISIONAL' });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isPrinting, setIsPrinting] = useState<string | null>(null);
     const [showOnlyDebt, setShowOnlyDebt] = useState(false);
@@ -181,7 +181,7 @@ export default function Members() {
                     )}
                 </div>
                 <button
-                    onClick={() => { setEditingMember(null); setFormData({ name: '', phone: '', photo: '', handicap: '4', handicapLabel: 'Entry Fragger' }); setIsModalOpen(true); }}
+                    onClick={() => { setEditingMember(null); setFormData({ name: '', phone: '', photo: '', handicap: '3', handicapLabel: 'PROVISIONAL' }); setIsModalOpen(true); }}
                     className="bg-[#00ff66] text-[#0a0a0a] px-5 py-3 rounded-xl font-bold flex items-center hover:bg-[#00e65c] shadow-[0_0_15px_rgba(0,255,102,0.2)] transition-all"
                 >
                     <Plus className="w-5 h-5 mr-2" /> Register Member
@@ -270,6 +270,13 @@ export default function Members() {
                                                         <Clock className="w-3 h-3 text-gray-600" />
                                                     )}
                                                 </div>
+                                                {m.handicapLabel === 'PROVISIONAL' && (
+                                                    <div className="mt-1">
+                                                        <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest italic animate-pulse">
+                                                            NEED HC VERIFICATION
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="py-4 text-center">
@@ -334,7 +341,7 @@ export default function Members() {
                                                 >
                                                     {isPrinting === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
                                                 </button>
-                                                <button onClick={() => { setEditingMember(m); setFormData({ name: m.name, phone: m.phone, photo: m.photo || '', handicap: m.handicap || 4, handicapLabel: m.handicapLabel || 'Entry Fragger' }); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors" title="Edit">
+                                                <button onClick={() => { setEditingMember(m); setFormData({ name: m.name, phone: m.phone, photo: m.photo || '', handicap: m.handicap || '3', handicapLabel: m.handicapLabel || 'PROVISIONAL' }); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors" title="Edit">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button onClick={() => handleDelete(m.id)} className="p-2 hover:bg-[#ff3333]/20 rounded-lg text-gray-400 hover:text-[#ff3333] transition-colors" title="Delete">

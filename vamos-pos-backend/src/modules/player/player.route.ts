@@ -55,5 +55,6 @@ router.post('/tournaments/:id/register', PlayerController.registerTournament);
 router.get('/:id/transactions', PlayerController.getTransactions);
 router.get('/:id/unpaid-bills', PlayerController.getUnpaidBills);
 router.get('/:id/challenges', PlayerController.getChallenges);
+router.get('/:id/rank-history', PlayerController.getRankHistory);
 
 export default router;

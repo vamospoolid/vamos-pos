@@ -154,6 +154,7 @@ model Member {
   sessions                    Session[]
   tournamentParticipant       TournamentParticipant[]
   waitlist                    Waitlist[]
+  rankHistory                 RankHistory[]
 
   @@index([syncStatus])
 }
@@ -658,4 +659,20 @@ enum SyncState {
   PENDING
   SYNCED
   FAILED
+}
+
+model RankHistory {
+  id           String   @id @default(uuid())
+  memberId     String
+  oldHandicap  String?
+  newHandicap  String
+  oldRating    Int?
+  newRating    Int
+  reason       String? // E.g., "MATCH_RESULT", "ADMIN_VERIFIED", "MONTHLY_RESET"
+  matchId      String? // Reference to the match that caused the change
+  createdAt    DateTime @default(now())
+  member       Member   @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([createdAt])
 }

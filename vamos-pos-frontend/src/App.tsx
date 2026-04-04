@@ -322,6 +322,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string>('');
   const [todayRevenue, setTodayRevenue] = useState<number>(0);
+  const [todayOtherRevenue, setTodayOtherRevenue] = useState<number>(0);
   const [todayQrisRevenue, setTodayQrisRevenue] = useState<number>(0);
   const [todayCashRevenue, setTodayCashRevenue] = useState<number>(0);
   const [todayExpenses, setTodayExpenses] = useState<number>(0);
@@ -439,6 +440,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       if (revRes.status === 'fulfilled' && revRes.value.data.data?.[0]) {
         const revData = revRes.value.data.data[0];
         setTodayRevenue(revData.totalRevenue);
+        setTodayOtherRevenue(revData.otherRevenue || 0);
         setTodayQrisRevenue(revData.qrisRevenue || 0);
         // Gunakan cashRevenue dari backend yang sudah dipotong Expense
         setTodayCashRevenue(revData.cashRevenue ?? (revData.totalRevenue - (revData.qrisRevenue || 0)));
@@ -1371,6 +1373,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 user={user}
                 venue={venueConfig}
                 todayRevenue={todayRevenue}
+                todayOtherRevenue={todayOtherRevenue}
                 todayQrisRevenue={todayQrisRevenue}
                 todayCashRevenue={todayCashRevenue}
                 todayExpenses={todayExpenses}

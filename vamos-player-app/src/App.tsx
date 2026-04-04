@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, ArrowLeft, CheckCircle2, ShieldCheck, X, RefreshCw, LayoutGrid, Medal, Flame, Target, Gift, Trophy, Swords, Calendar, Camera, Zap, Star, Users, Crown, Plus, ArrowRight } from 'lucide-react';
+import { User, ChevronRight, Loader2, ArrowLeft, CheckCircle2, ShieldCheck, X, RefreshCw, LayoutGrid, Medal, Flame, Target, Gift, Trophy, Swords, Calendar, Camera, Zap, Star, Users, Crown, Plus, ArrowRight, TrendingUp } from 'lucide-react';
 import { api } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -163,9 +163,97 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
 function DashboardScreen({ member }: { member: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const [showMasteryInfo, setShowMasteryInfo] = useState(false);
+  const [showRankHistory, setShowRankHistory] = useState(false);
+  const [rankHistory, setRankHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (showRankHistory) {
+      setLoadingHistory(true);
+      api.get(`/player/${member.id}/rank-history`).then(res => {
+          setRankHistory(res.data.data);
+      }).catch(() => {}).finally(() => setLoadingHistory(false));
+    }
+  }, [showRankHistory]);
 
   return (
     <div className="fade-in space-y-8 pb-32">
+      {/* ─── RANK HISTORY MODAL ────────────────────────────────────────────── */}
+      {showRankHistory && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-[#0a0f1d]/95 backdrop-blur-xl" onClick={() => setShowRankHistory(false)} />
+          <div className="relative w-full max-w-sm fiery-card p-10 text-left scale-in border-2 border-primary/20 overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-8 shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Riwayat Progres</h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Evolusi Keahlian Anda</p>
+              </div>
+              <button onClick={() => setShowRankHistory(false)} className="text-slate-500 hover:text-white p-2">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar no-scrollbar">
+              {loadingHistory ? (
+                  <div className="py-20 text-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest italic">Synchronizing Protocols...</p>
+                  </div>
+              ) : rankHistory.length > 0 ? rankHistory.map((log: any, i: number) => (
+                  <div key={log.id} className="relative pl-8 pb-2">
+                      {/* Timeline Line */}
+                      {i < rankHistory.length - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-[1px] bg-white/5" />}
+                      {/* Dot */}
+                      <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-[#101423] border border-white/10 flex items-center justify-center">
+                          <div className={`w-2 h-2 rounded-full ${log.reason === 'MATCH_RESULT' ? 'bg-primary shadow-[0_0_10px_rgba(31,34,255,0.5)]' : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'}`} />
+                      </div>
+                      
+                      <div className="flex justify-between items-start gap-4">
+                          <div>
+                              <p className="text-xs font-black text-white uppercase italic">{log.reason === 'MATCH_RESULT' ? 'HASIL TANDING' : 'VERIFIKASI ADMIN'}</p>
+                              <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-widest leading-none font-mono">
+                                  {new Date(log.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(log.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                          </div>
+                          {(log.newRating - (log.oldRating || 150)) !== 0 && (
+                             <div className={`px-2 py-0.5 rounded text-[10px] font-black italic ${log.newRating > (log.oldRating || 150) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                {log.newRating > (log.oldRating || 150) ? '▲' : '▼'} {Math.abs(log.newRating - (log.oldRating || 150))}
+                             </div>
+                          )}
+                      </div>
+
+                      <div className="mt-4 bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                             <p className="text-[8px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1 italic">Handicap</p>
+                             <div className="flex items-center gap-2">
+                                <span className="text-slate-500 text-xs font-black italic">{log.oldHandicap || '-'}</span>
+                                <ArrowRight className="w-3 h-3 text-slate-800" />
+                                <span className="text-white text-xs font-black italic">HC {log.newHandicap}</span>
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <p className="text-[8px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1 italic">Elo Rating</p>
+                             <div className="flex items-center justify-end gap-2">
+                                <span className="text-slate-500 text-sm font-black italic">{log.oldRating || '-'}</span>
+                                <ArrowRight className="w-3 h-3 text-slate-800" />
+                                <span className="text-primary text-sm font-black italic">{log.newRating}</span>
+                             </div>
+                          </div>
+                      </div>
+                  </div>
+              )) : (
+                  <div className="py-20 text-center opacity-40">
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] italic leading-loose">Data riwayat belum mencukupi.<br/>Mainkan pertandingan untuk membangun profil!</p>
+                  </div>
+              )}
+            </div>
+
+            <button onClick={() => setShowRankHistory(false)} className="w-full mt-6 py-5 fiery-btn-primary text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shrink-0">
+               Tutup Perjalanan
+            </button>
+          </div>
+        </div>
+      )}
       {/* ─── MASTERY INTEL MODAL ────────────────────────────────────────────── */}
       {showMasteryInfo && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
@@ -396,15 +484,20 @@ function DashboardScreen({ member }: { member: any }) {
         </div>
       </div>
 
-      <div className="fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between">
-         <div>
+      <button 
+        onClick={() => setShowRankHistory(true)}
+        className="w-full fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between group active:scale-95 transition-all"
+      >
+         <div className="text-left">
             <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] mb-2 italic">Official Handicap</p>
-            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">ELITE FRAGGER</h3>
+            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate max-w-[200px]">
+                {member.handicapLabel || 'ELITE FRAGGER'}
+            </h3>
          </div>
-         <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-            <Star className="w-7 h-7 text-amber-500 fill-amber-500" />
+         <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-secondary transition-all">
+            <TrendingUp className="w-7 h-7 text-amber-500 group-hover:text-secondary" />
          </div>
-      </div>
+      </button>
 
     </div>
   );

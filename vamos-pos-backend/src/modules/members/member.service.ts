@@ -39,7 +39,7 @@ export class MemberService {
                     name: newMember.name,
                     venue: venueName,
                 });
-                
+
                 if (waTemplate) {
                     const { waService } = await import('../whatsapp/wa.service');
                     if (waService.isReady) {

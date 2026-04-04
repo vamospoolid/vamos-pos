@@ -78,8 +78,9 @@ export default function Incomes() {
             `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
         const now = new Date();
+        const openHour = 10; // Can be fetched from Venue if needed, matching Expenses
         const target = new Date(now);
-        if (now.getHours() < 10) target.setDate(target.getDate() - 1);
+        if (now.getHours() < openHour) target.setDate(target.getDate() - 1);
 
         if (timeFilter === 'daily') {
             const s = getLocalDate(target);
@@ -112,9 +113,17 @@ export default function Incomes() {
     }, []);
 
     const filteredIncomes = useMemo(() => {
+        const openHour = 10;
         let list = incomes.filter(p => {
             const d = new Date(p.createdAt);
-            const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const opDate = new Date(d);
+            
+            // Shift to operational day: if before openHour, it belongs to previous calendar day
+            if (opDate.getHours() < openHour) {
+                opDate.setDate(opDate.getDate() - 1);
+            }
+            
+            const ds = `${opDate.getFullYear()}-${String(opDate.getMonth() + 1).padStart(2, '0')}-${String(opDate.getDate()).padStart(2, '0')}`;
             return ds >= startDate && ds <= endDate;
         });
         if (search.trim()) {

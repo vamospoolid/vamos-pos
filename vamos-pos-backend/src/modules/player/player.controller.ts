@@ -373,6 +373,32 @@ export class PlayerController {
                     getIO().emit('king:updated', { tableId: challenge.session.tableId, winnerId });
                 }
 
+                // Log Rank History for Winner
+                await tx.rankHistory.create({
+                    data: {
+                        memberId: winnerId,
+                        oldHandicap: winner?.handicap,
+                        newHandicap: winner?.handicap || "3",
+                        oldRating: winner?.skillRating,
+                        newRating: winnerNewRating,
+                        reason: "MATCH_RESULT",
+                        matchId: challengeId
+                    }
+                });
+
+                // Log Rank History for Loser
+                await tx.rankHistory.create({
+                    data: {
+                        memberId: loserId,
+                        oldHandicap: loser?.handicap,
+                        newHandicap: loser?.handicap || "3",
+                        oldRating: loser?.skillRating,
+                        newRating: loserNewRating,
+                        reason: "MATCH_RESULT",
+                        matchId: challengeId
+                    }
+                });
+
                 return updatedChallenge;
             });
 
@@ -462,10 +488,10 @@ export class PlayerController {
                     name: name.toUpperCase(),
                     password: hashedPassword,
                     tier: 'BRONZE',
-                    handicap: "4",
-                    handicapLabel: 'Entry Fragger',
+                    handicap: "3",
+                    handicapLabel: 'PROVISIONAL',
                     loyaltyPoints: 0, // Points will be added by log
-                    skillRating: getInitialRatingFromHC("4"),
+                    skillRating: getInitialRatingFromHC("3"),
                     deviceId: deviceId || null,
                     lastLoginAt: new Date()
                 } as any
@@ -1442,6 +1468,18 @@ export class PlayerController {
                 select: { id: true, name: true, address: true }
             });
             res.json({ success: true, data: venues });
+        } catch (error) { next(error); }
+    }
+
+    static async getRankHistory(req: Request, res: Response, next: NextFunction) {
+        try {
+            const memberId = req.params.id;
+            const history = await prisma.rankHistory.findMany({
+                where: { memberId },
+                orderBy: { createdAt: 'desc' },
+                take: 50
+            });
+            res.json({ success: true, data: history });
         } catch (error) { next(error); }
     }
 }
