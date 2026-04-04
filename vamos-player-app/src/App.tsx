@@ -238,10 +238,10 @@ function DashboardScreen({ member, tournaments = [] }: { member: any, tournament
       </div>
 
       {activeSession && (
-        <button onClick={() => setActiveTab('active-session')} className="fiery-card-highlight p-6 flex items-center justify-between fiery-glow">
+        <button onClick={() => setActiveTab('active-session')} className="w-full fiery-card-highlight p-6 flex items-center justify-between fiery-glow mt-4">
           <div className="flex items-center gap-5">
              <Flame className="w-6 h-6 text-primary animate-pulse" fill="currentColor" />
-             <div className="text-left font-black text-white uppercase italic">Sesi Aktif: {activeSession?.table?.name}</div>
+             <div className="text-left font-black text-white uppercase italic text-lg">Sesi Aktif: {activeSession?.table?.name}</div>
           </div>
           <ChevronRight className="w-5 h-5 text-white" />
         </button>
