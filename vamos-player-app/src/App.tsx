@@ -427,12 +427,16 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                  const sortedRounds = Object.keys(matchesByRound).map(Number).sort((a, b) => a - b);
 
                  return (
-                     <div className="flex overflow-x-auto snap-x space-x-6 pb-6 hide-scrollbar items-stretch min-h-[400px]">
+                     <div className="flex overflow-x-auto snap-x space-x-8 pb-6 hide-scrollbar items-stretch min-h-[450px]">
                          {sortedRounds.map((roundNum) => {
                              const roundMatches = matchesByRound[roundNum].sort((a: any, b: any) => a.matchNumber - b.matchNumber);
                              return (
-                                 <div key={roundNum} className="flex flex-col justify-around min-w-[260px] space-y-6 snap-center py-2">
-                                     <h4 className="text-center text-[10px] text-slate-500 font-black uppercase mb-2 italic tracking-[0.2em]">ROUND {roundNum}</h4>
+                                 <div key={roundNum} className="flex flex-col min-w-[280px] snap-center py-2 shrink-0">
+                                     <h4 className="text-center text-[10px] text-slate-500 font-black uppercase mb-6 italic tracking-[0.2em] relative">
+                                        <span className="bg-[#0a0d18] px-3 relative z-10">ROUND {roundNum}</span>
+                                        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/5 z-0"></div>
+                                     </h4>
+                                     <div className="flex flex-col justify-around flex-1 space-y-6 relative">
                                      {roundMatches.map((m: any) => {
                                          const p1 = tournament.participants?.find((p: any) => p.id === m.player1Id);
                                          const p2 = tournament.participants?.find((p: any) => p.id === m.player2Id);
@@ -460,6 +464,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                                              </div>
                                          );
                                      })}
+                                     </div>
                                  </div>
                              );
                          })}
