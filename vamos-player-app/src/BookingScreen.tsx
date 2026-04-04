@@ -119,16 +119,32 @@ export function BookingScreen() {
             // 3. Package Time Restriction (Siang / Malam lock)
             if (selectedPackageId) {
                 const pkg = packages.find(p => p.id === selectedPackageId);
-                if (pkg && pkg.startTime && pkg.endTime) {
-                    const [startH, startM] = pkg.startTime.split(':').map(Number);
-                    const [endH, endM] = pkg.endTime.split(':').map(Number);
+                
+                if (pkg) {
+                    let startH = 0, startM = 0;
+                    let endH = 23, endM = 59;
                     
+                    if (pkg.startTime && pkg.endTime && pkg.startTime !== '00:00' && pkg.startTime !== pkg.endTime) {
+                        [startH, startM] = pkg.startTime.split(':').map(Number);
+                        [endH, endM] = pkg.endTime.split(':').map(Number);
+                    } else {
+                        // SMART FALLBACK: Jika admin lupa mengatur jam di POS, baca dari nama paket!
+                        const pkgName = pkg.name.toUpperCase();
+                        if (pkgName.includes('MALAM')) {
+                            startH = 18; startM = 0;
+                            endH = 3; endM = 0; // 03:00
+                        } else if (pkgName.includes('SIANG')) {
+                            startH = 9; startM = 0;
+                            endH = 18; endM = 0; // 18:00
+                        }
+                    }
+
                     // Treat 00:00 as 24:00 for the slot calculation to match package logic
                     const slotMins = (h === 0 ? 24 : h) * 60 + m;
                     const startMins = startH * 60 + startM;
                     let endMins = endH * 60 + endM;
                     
-                    // Handle overnight package (e.g. 18:00 to 02:00)
+                    // Handle overnight package (e.g. 18:00 to 03:00)
                     if (endMins <= startMins) endMins += 24 * 60;
                     
                     let adjustedSlotMins = slotMins;

@@ -181,9 +181,15 @@ export class PricingService {
         // Loop per-menit untuk mengakomodir perubahan tarif per jam ganjil (pergantian waktu)
         for (let i = 0; i < totalMinutes; i++) {
             const minToCheck = new Date(startTime.getTime() + i * 60000);
-            const currentDay = minToCheck.getDay();
-            const currentHour = minToCheck.getHours();
-            const currentMin = minToCheck.getMinutes();
+            
+            // MEMENANGKAN TARIF: Paksa semua kalkulasi membaca waktu lokal Makassar (WITA / UTC+8)
+            // VPS di Linux mungkin menggunakan kalender UTC, jadi kita tidak bisa pakai getHours() biasa.
+            const localMs = minToCheck.getTime() + (8 * 60 * 60 * 1000);
+            const localDate = new Date(localMs);
+            
+            const currentDay = localDate.getUTCDay();
+            const currentHour = localDate.getUTCHours();
+            const currentMin = localDate.getUTCMinutes();
             const currentHourStr = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
 
             const rule = rules.find(r => {
