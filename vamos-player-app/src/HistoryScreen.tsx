@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Clock, CreditCard, ChevronRight, AlertCircle, CheckCircle2, DollarSign, ArrowLeft, Swords } from 'lucide-react';
+import { Receipt, Clock, CreditCard, ChevronRight, AlertCircle, CheckCircle2, DollarSign, ArrowLeft, Swords, Trophy } from 'lucide-react';
 import { api } from './api';
 
 export function HistoryScreen({ member, onBack }: { member: any, onBack: () => void }) {
@@ -123,30 +123,69 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
         <div className="space-y-4">
             {matches.length > 0 ? (
                 matches.map(match => (
-                    <div key={match.id} className={`fiery-card p-6 border-2 transition-all ${match.isWinner ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/10 bg-rose-500/5'}`}>
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${match.isWinner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                                    <Swords size={20} className={match.isWinner ? 'text-emerald-500' : 'text-rose-500'} />
+                    <div key={match.id} className={`glass-card-deep p-6 border-2 transition-all relative overflow-hidden group ${match.isWinner ? 'border-primary/30 bg-gradient-to-br from-primary/10 to-transparent' : 'border-white/5 bg-white/[0.01]'}`}>
+                        
+                        {/* Elite Shimmer & Breathing Light Indicator */}
+                        {match.isWinner && <div className="elite-shimmer opacity-40" />}
+                        <div className={`absolute top-0 left-0 w-1.5 h-full ${match.isWinner ? 'bg-primary animate-breathing shadow-[0_0_15px_rgba(255,87,34,0.5)]' : 'bg-slate-800'} z-20`} />
+                        
+                        <div className="flex justify-between items-center mb-6 relative z-10">
+                            <div className="flex items-center gap-5">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${match.isWinner ? 'bg-primary/10 border-primary/40 shadow-[0_0_40px_rgba(255,87,34,0.2)]' : 'bg-slate-800/40 border-white/5'}`}>
+                                    <Swords size={26} className={match.isWinner ? 'text-primary drop-shadow-[0_0_10px_rgba(255,87,34,0.5)]' : 'text-slate-600'} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{new Date(match.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} • {match.type}</p>
-                                    <h4 className="text-lg font-black text-white uppercase italic tracking-tighter">VS {match.opponentName}</h4>
+                                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-1.5 opacity-60">
+                                        {new Date(match.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} • {match.tournamentName || 'ARENA PROTOCOL'}
+                                    </p>
+                                    <h4 className="text-xl font-black text-white uppercase italic tracking-tighter leading-none group-hover:text-primary transition-colors">
+                                        VS {match.opponentName}
+                                    </h4>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase italic ${match.isWinner ? 'bg-emerald-500 text-secondary' : 'bg-rose-500 text-white'}`}>
-                                    {match.isWinner ? 'VICTORY' : 'DEFEAT'}
-                                </div>
+                                {match.isWinner ? (
+                                    <div className="relative group/badge">
+                                        {/* Premium Championship Emblem Style */}
+                                        <div className="absolute -inset-1 bg-emerald-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <div className="relative bg-gradient-to-b from-[#00d184] via-[#00a368] to-[#00704a] text-[#070b14] px-6 py-2.5 rounded-xl text-[11px] font-black uppercase italic tracking-[0.25em] shadow-[0_15px_35px_rgba(0,209,132,0.3)] border-x border-t border-white/20 border-b-4 border-emerald-950 flex items-center gap-3">
+                                            <Trophy className="w-4 h-4 text-emerald-950" fill="currentColor" />
+                                            VICTORY
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-[#0a0d18] border border-white/5 text-slate-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase italic tracking-widest opacity-40">
+                                        DEFEAT
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
-                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                            <div className="text-[10px] font-black text-slate-500 uppercase italic opacity-60">
-                                {match.tournamentName}
+                        <div className="flex items-center justify-between pt-5 border-t border-white/5 relative z-10">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${match.isWinner ? 'bg-primary' : 'bg-slate-800'}`} />
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{match.type || 'RANKED PIT'}</p>
                             </div>
-                            <div className="text-sm font-black text-white italic tracking-tighter">
-                                {match.myScore} — {match.opponentScore}
+                            
+                            {/* Technical Result Box */}
+                            <div className="bg-[#0a0f1d] border border-white/5 rounded-2xl px-6 py-3 flex items-center gap-6 shadow-inner">
+                                <div className="text-center">
+                                    <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">SCORES</p>
+                                    <div className="flex items-center font-black italic tracking-tighter leading-none">
+                                        <span className={match.isWinner ? 'text-emerald-400 text-3xl' : 'text-white text-2xl'}>{match.myScore}</span>
+                                        <span className="text-slate-800 mx-3 text-xl">—</span>
+                                        <span className="text-slate-500 text-2xl">{match.opponentScore}</span>
+                                    </div>
+                                </div>
+                                {match.isWinner && (
+                                    <div className="w-px h-8 bg-white/5 mx-1" />
+                                )}
+                                {match.isWinner && (
+                                    <div className="text-right">
+                                        <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1 italic">STATUS</p>
+                                        <div className="text-[10px] font-black text-emerald-500 italic uppercase">WINNER</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

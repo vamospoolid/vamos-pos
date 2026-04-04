@@ -96,7 +96,7 @@ export function RewardsScreen() {
             {/* Header */}
             <div className="pt-6 pb-6 flex justify-between items-center bg-[#101423]/90 backdrop-blur-xl sticky top-0 z-50 -mx-6 px-10 border-b border-white/5">
                 <div className="flex items-center gap-6">
-                    <button onClick={() => setActiveTab('home')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center active:scale-90 transition-all text-white border border-white/5">
+                    <button onClick={() => setActiveTab('dashboard')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center active:scale-90 transition-all text-white border border-white/5">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
@@ -191,41 +191,44 @@ export function RewardsScreen() {
                                 const isRedeeming = redeemingId === reward.id;
                                 return (
                                     <div key={reward.id}
-                                        className={`group fiery-card overflow-hidden border-2 transition-all duration-500 ${isLocked ? 'border-transparent bg-[#1a1f35]/30' : 'border-white/5 bg-[#1a1f35]/50 hover:border-primary/40 hover:bg-[#1a1f35]/80 shadow-[0_20px_50px_rgba(0,0,0,0.2)]'}`}>
-                                        <div className="flex p-6 gap-6 items-center">
-                                            <div className="w-28 h-28 rounded-[32px] overflow-hidden shrink-0 relative bg-[#101423] border border-white/5">
+                                        className={`group fiery-card overflow-hidden border transition-all duration-300 ${isLocked ? 'border-transparent bg-[#1a1f35]/20' : 'border-white/5 bg-[#1a1f35]/40 hover:border-primary/30 shadow-lg'}`}>
+                                        <div className="flex p-3.5 gap-4 items-center">
+                                            {/* Compact Image Container */}
+                                            <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 relative bg-[#101423] border border-white/5">
                                                 {reward.imageUrl
-                                                    ? <img src={reward.imageUrl} alt={reward.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                                    : <div className="w-full h-full flex items-center justify-center bg-primary/5"><Gift className="w-10 h-10 text-primary/20" /></div>
+                                                    ? <img src={reward.imageUrl} alt={reward.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                                    : <div className="w-full h-full flex items-center justify-center bg-primary/5"><Gift className="w-6 h-6 text-primary/20" /></div>
                                                 }
                                                 {isLocked && (
-                                                    <div className="absolute inset-0 bg-[#101423]/70 flex items-center justify-center backdrop-blur-[4px]">
-                                                        <Lock className="w-6 h-6 text-slate-500" />
+                                                    <div className="absolute inset-0 bg-[#0a0d18]/70 flex items-center justify-center backdrop-blur-[2px]">
+                                                        <Lock className="w-4 h-4 text-slate-500" />
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <div className="flex-1 flex flex-col min-w-0">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-black text-base text-white leading-tight truncate uppercase italic tracking-tighter">{reward.title}</h4>
-                                                    <Zap className={`w-4 h-4 shrink-0 mt-1 ${isLocked ? 'text-slate-700' : 'text-primary'}`} fill="currentColor" />
+                                            <div className="flex-1 min-w-0 flex flex-col h-20 justify-between">
+                                                <div>
+                                                    <div className="flex justify-between items-start mb-0.5">
+                                                        <h4 className="font-black text-sm text-white leading-none truncate uppercase italic tracking-tighter">{reward.title}</h4>
+                                                        <Zap className={`w-3 h-3 shrink-0 ${isLocked ? 'text-slate-800' : 'text-primary'}`} fill="currentColor" />
+                                                    </div>
+                                                    <p className="text-[9px] font-bold text-slate-600 line-clamp-2 leading-tight uppercase italic tracking-tight">{reward.description}</p>
                                                 </div>
-                                                <p className="text-[10px] font-bold text-slate-500 line-clamp-2 leading-relaxed italic mb-6">{reward.description}</p>
 
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-baseline gap-1.5">
-                                                        <span className={`text-2xl font-black italic tracking-tighter ${isLocked ? 'text-slate-700' : 'text-white'}`}>
+                                                <div className="flex items-end justify-between">
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className={`text-xl font-black italic tracking-tighter ${isLocked ? 'text-slate-800' : 'text-white'}`}>
                                                             {reward.pointsRequired}
                                                         </span>
-                                                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">PTS</span>
+                                                        <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">PTS</span>
                                                     </div>
 
                                                     <button
                                                         onClick={() => !isLocked && setConfirmReward(reward)}
                                                         disabled={isLocked || isRedeeming}
-                                                        className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all italic ${isLocked ? 'bg-white/5 text-slate-700' : 'fiery-btn-primary text-secondary shadow-primary/20 active:scale-95'}`}
+                                                        className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all italic ${isLocked ? 'bg-white/5 text-slate-700' : 'fiery-btn-primary text-secondary shadow-primary/10 active:scale-95'}`}
                                                     >
-                                                        {isRedeeming ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isLocked ? 'Locked' : 'Claim'}
+                                                        {isRedeeming ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : isLocked ? 'Locked' : 'Claim'}
                                                     </button>
                                                 </div>
                                             </div>

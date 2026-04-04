@@ -9,8 +9,8 @@ interface AppState {
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger';
-    setActiveTab: (tab: 'home' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger') => void;
+    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger';
+    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger') => void;
 
     rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
     setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;
@@ -34,10 +34,10 @@ export const useAppStore = create<AppState>()(
             setMember: (member) => set({ member }),
             logout: () => {
                 localStorage.removeItem('playerToken');
-                set({ member: null, activeSession: null, activeTab: 'home' });
+                set({ member: null, activeSession: null, activeTab: 'dashboard' });
             },
 
-            activeTab: 'home',
+            activeTab: 'dashboard',
             setActiveTab: (tab) => set({ activeTab: tab }),
 
             rewardsTab: 'catalog',
