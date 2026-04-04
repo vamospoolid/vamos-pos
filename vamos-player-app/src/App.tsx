@@ -151,8 +151,10 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
   );
 }
 
-function DashboardScreen({ member }: { member: any }) {
+function DashboardScreen({ member, tournaments = [] }: { member: any, tournaments?: any[] }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
+  const ongoingTournament = tournaments.find(t => t.status === 'ONGOING' || t.status === 'IN_PROGRESS');
+  const pendingTournament = tournaments.find(t => t.status === 'PENDING' || t.status === 'UPCOMING' || !t.status);
   const [showMasteryInfo, setShowMasteryInfo] = useState(false);
   const [showRankHistory, setShowRankHistory] = useState(false);
   const { setActiveTab } = useAppStore();
@@ -245,7 +247,38 @@ function DashboardScreen({ member }: { member: any }) {
         </button>
       )}
 
-      <div className="fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between group" onClick={() => setShowRankHistory(true)}>
+      {/* ─── DYNAMIC TOURNAMENT RADAR ─── */}
+      {ongoingTournament && (
+        <button onClick={() => setActiveTab('tournaments')} className="w-full fiery-card p-6 bg-blue-500/10 border-2 border-blue-500/30 rounded-[32px] flex items-center justify-between group fiery-glow mt-4">
+           <div className="flex items-center gap-5">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                  <Swords className="w-6 h-6 text-blue-500 animate-pulse" />
+              </div>
+              <div className="text-left">
+                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1 italic">Event Sedang Berlangsung</p>
+                  <p className="font-black text-white text-xl uppercase italic leading-none">{ongoingTournament.name}</p>
+              </div>
+           </div>
+           <ChevronRight className="w-6 h-6 text-white" />
+        </button>
+      )}
+
+      {!ongoingTournament && pendingTournament && (
+        <button onClick={() => setActiveTab('tournaments')} className="w-full fiery-card p-6 bg-orange-500/10 border-2 border-orange-500/30 rounded-[32px] flex items-center justify-between group fiery-glow mt-4">
+           <div className="flex items-center gap-5">
+              <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
+                  <Calendar className="w-6 h-6 text-orange-500 animate-bounce" />
+              </div>
+              <div className="text-left">
+                  <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1 italic">Pendaftaran Dibuka</p>
+                  <p className="font-black text-white text-xl uppercase italic leading-none">{pendingTournament.name}</p>
+              </div>
+           </div>
+           <ChevronRight className="w-6 h-6 text-white" />
+        </button>
+      )}
+
+      <div className="fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between group mt-4" onClick={() => setShowRankHistory(true)}>
          <div className="text-left">
             <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] mb-2 italic">Official Handicap</p>
             <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate max-w-[200px]">{member.handicapLabel || 'ELITE FRAGGER'}</h3>
@@ -258,7 +291,10 @@ function DashboardScreen({ member }: { member: any }) {
 
 function TournamentScreen({ activeTournaments }: { member: any, activeTournaments: any[] }) {
   const tournament = activeTournaments[0] || MOCK_TOURNAMENT;
-  const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>('info');
+  const isOngoing = tournament.status === 'ONGOING' || tournament.status === 'IN_PROGRESS';
+  const isPending = tournament.status === 'PENDING' || tournament.status === 'UPCOMING' || !tournament.status;
+  
+  const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>(isOngoing ? 'bracket' : 'info');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
@@ -287,11 +323,15 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   return (
     <div className="fade-in space-y-8 pb-32">
       <div className="text-center pt-8">
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white leading-none">MISSION <span className="text-primary italic">HUB</span></h1>
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white leading-none">PUSAT <span className="text-primary italic">TURNAMEN</span></h1>
       </div>
       <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-2xl border border-white/5 mx-2">
-        {['info', 'bracket', 'rankings'].map(tab => (
-          <button key={tab} onClick={() => setActiveView(tab as any)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeView === tab ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}>{tab}</button>
+        {[
+          { id: 'info', label: 'Info' },
+          { id: 'bracket', label: 'Bagan' },
+          { id: 'rankings', label: 'Peserta' }
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveView(tab.id as any)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeView === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}>{tab.label}</button>
         ))}
       </div>
       <div className="px-2 space-y-8">
@@ -308,7 +348,14 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                  <p className="text-lg font-black text-white italic tracking-tighter leading-none uppercase">{tournament.format || 'Single Elim'}</p>
                </div>
             </div>
-            <button onClick={() => setIsRegModalOpen(true)} className="w-full fiery-btn-primary py-5 rounded-[28px] text-[10px] font-black uppercase tracking-[0.3em] italic">REQUEST DEPLOYMENT</button>
+             {isPending && (
+                <button onClick={() => setIsRegModalOpen(true)} className="w-full fiery-btn-primary py-5 rounded-[28px] text-[10px] font-black uppercase tracking-[0.3em] italic">DAFTAR SEKARANG</button>
+             )}
+             {!isPending && (
+                <div className="w-full bg-white/5 border border-white/10 py-5 rounded-[28px] text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">
+                   PENDAFTARAN DITUTUP
+                </div>
+             )}
           </div>
         )}
 
@@ -319,8 +366,8 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
             <div className="relative w-full max-w-sm fiery-card p-10 text-left scale-in border-2 border-primary/20">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Mission Deployment</h3>
-                  <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Operative Registration Protocol</p>
+                  <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Pendaftaran Turnamen</h3>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Protokol Registrasi Peserta</p>
                 </div>
                 <button onClick={() => setIsRegModalOpen(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
@@ -356,24 +403,24 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                 onClick={handleRegister} 
                 className="w-full mt-10 py-5 fiery-btn-primary text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-[0_15px_30px_rgba(255,87,34,0.2)]"
               >
-                {loadingReg ? <Loader2 className="w-5 h-5 animate-spin" /> : <>CONFIRM DEPLOYMENT <ChevronRight className="w-4 h-4" /></>}
+                {loadingReg ? <Loader2 className="w-5 h-5 animate-spin" /> : <>KONFIRMASI PENDAFTARAN <ChevronRight className="w-4 h-4" /></>}
               </button>
             </div>
           </div>
         )}
         {activeView === 'rankings' && (
           <div className="space-y-6">
-            <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5"><input className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" placeholder="Search operatives..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+            <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5"><input className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" placeholder="Cari nama peserta..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             {filteredParticipants.length === 0 ? (
                 <div className="fiery-card py-20 text-center border-dashed border-white/10 opacity-70">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Belum ada Operative yang diterjunkan.</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Belum ada peserta yang mendaftar.</p>
                 </div>
             ) : (
                 filteredParticipants.map((p: any, i: number) => (
                   <div key={p.id || i} className="fiery-card p-6 rounded-3xl flex items-center justify-between border border-white/5 bg-[#1a1f35]/30">
-                    <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p?.name || 'UNKNOWN OPERATIVE'}</p></div></div>
+                    <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p?.name || 'PESERTA TIDAK DIKENAL'}</p></div></div>
                     <div className="text-right">
-                       <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full uppercase italic tracking-widest">DEPLOYED</span>
+                       <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full uppercase italic tracking-widest">TERDAFTAR</span>
                     </div>
                   </div>
                 ))
@@ -485,7 +532,7 @@ function MainApp() {
         <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{member.photo ? <img src={member.photo} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
-        {activeTab === 'dashboard' && <DashboardScreen member={member} />}
+        {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
         {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} member={member} />}
         {activeTab === 'rewards' && <RewardsScreen />}
