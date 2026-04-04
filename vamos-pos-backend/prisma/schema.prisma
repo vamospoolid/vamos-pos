@@ -669,6 +669,7 @@ model RankHistory {
   oldRating    Int?
   newRating    Int
   reason       String? // E.g., "MATCH_RESULT", "ADMIN_VERIFIED", "MONTHLY_RESET"
+  notes        String? // Optional notes about the change
   matchId      String? // Reference to the match that caused the change
   createdAt    DateTime @default(now())
   member       Member   @relation(fields: [memberId], references: [id])

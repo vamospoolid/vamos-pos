@@ -26,7 +26,7 @@ export const createManualIncome = catchAsync(async (req: AuthRequest, res: Respo
             status: 'SUCCESS',
             cashierId: userId,
             shiftId: activeShift ? activeShift.id : null,
-            sessionId: null // null means manual income / external revenue
+            // sessionId omitted implies null for manual income
         } as any
     });
 
@@ -39,7 +39,7 @@ export const createManualIncome = catchAsync(async (req: AuthRequest, res: Respo
 export const getManualIncomes = catchAsync(async (req: Request, res: Response) => {
     const payments = await prisma.payment.findMany({
         where: {
-            sessionId: null,
+            sessionId: null as any,
             status: 'SUCCESS'
         },
         orderBy: { createdAt: 'desc' }
