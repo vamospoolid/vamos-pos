@@ -95,11 +95,11 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
             {/* Header */}
             <div className="pt-16 pb-8 text-center relative z-10 px-4">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
-                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none glow-text">
-                    HALL OF<br />
-                    <span className="text-5xl text-primary transform -skew-x-12 inline-block mt-1">FAME</span>
+                <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none glow-text">
+                    HALL OF
+                    <span className="text-3xl text-primary transform -skew-x-12 inline-block mt-1"> FAME</span>
                 </h1>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-6 italic">Peringkat Elit • Musim {new Date().getFullYear()}</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-4 italic">Peringkat Elit • Musim {new Date().getFullYear()}</p>
             </div>
 
             {/* Category Tabs */}
@@ -257,13 +257,13 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                                         {p.photo ? <img src={p.photo} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-700" />}
                                     </div>
                                     <div className="min-w-0 max-w-[130px]">
-                                        <p className="font-black text-base text-white uppercase italic tracking-tighter truncate leading-tight mb-1">{p.name}</p>
-                                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-full italic border border-white/5">{p.tier || 'OPERATIVE'}</p>
+                                        <p className="font-black text-sm text-white uppercase italic tracking-tighter truncate leading-tight mb-1">{p.name}</p>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-full italic border border-white/5">{p.tier || 'OPERATIVE'}</p>
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <p className="text-xl font-black text-white italic tracking-tighter leading-none mb-1">{getPrimaryMetricValue(p)}</p>
-                                    <p className="text-[8px] text-primary font-black tracking-widest uppercase leading-none italic">{getPrimaryMetricLabel()}</p>
+                                    <p className="text-lg font-black text-white italic tracking-tighter leading-none mb-1">{getPrimaryMetricValue(p)}</p>
+                                    <p className="text-[9px] text-primary font-black tracking-widest uppercase leading-none italic">{getPrimaryMetricLabel()}</p>
                                 </div>
                             </div>
                         );

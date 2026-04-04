@@ -29,15 +29,15 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
 
   return (
     <div className="fade-in space-y-8 pb-40">
-      <div className="pt-8 flex items-center gap-4">
-        <button onClick={onBack} className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 active:scale-90 transition-all">
-            <ArrowLeft size={20} className="text-white" />
+      <div className="pt-6 flex items-center gap-4">
+        <button onClick={onBack} className="w-9 h-9 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 active:scale-90 transition-all shrink-0">
+            <ArrowLeft size={16} className="text-white" />
         </button>
-        <div>
-            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white">
+        <div className="min-w-0">
+            <h1 className="text-xl font-black italic tracking-tighter uppercase text-white truncate">
             LEDGER <span className="text-primary">&</span> HISTORY
             </h1>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mt-1 italic opacity-60">Financial Protocol & Session Records</p>
+            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-0.5 italic opacity-60">Financial Protocol & Session Records</p>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
                                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-1.5 opacity-60">
                                         {new Date(match.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} • {match.tournamentName || 'ARENA PROTOCOL'}
                                     </p>
-                                    <h4 className="text-xl font-black text-white uppercase italic tracking-tighter leading-none group-hover:text-primary transition-colors">
+                                    <h4 className="text-base font-black text-white uppercase italic tracking-tighter leading-none group-hover:text-primary transition-colors">
                                         VS {match.opponentName}
                                     </h4>
                                 </div>
@@ -172,9 +172,9 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
                                 <div className="text-center">
                                     <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">SCORES</p>
                                     <div className="flex items-center font-black italic tracking-tighter leading-none">
-                                        <span className={match.isWinner ? 'text-emerald-400 text-3xl' : 'text-white text-2xl'}>{match.myScore}</span>
-                                        <span className="text-slate-800 mx-3 text-xl">—</span>
-                                        <span className="text-slate-500 text-2xl">{match.opponentScore}</span>
+                                        <span className={match.isWinner ? 'text-emerald-400 text-xl' : 'text-white text-lg'}>{match.myScore}</span>
+                                        <span className="text-slate-800 mx-2 text-base">—</span>
+                                        <span className="text-slate-500 text-lg">{match.opponentScore}</span>
                                     </div>
                                 </div>
                                 {match.isWinner && (

@@ -427,7 +427,7 @@ export function BookingScreen() {
                                     </div>
                                     <div className="mt-1">
                                         <h4 className="font-black text-[9px] text-white leading-tight uppercase tracking-widest italic">{type.name}</h4>
-                                        <p className="text-[7px] text-slate-600 font-black uppercase tracking-widest italic mt-0.5">{isAvailable ? type.capacity : 'LOCKED'}</p>
+                                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest italic mt-0.5">{isAvailable ? type.capacity : 'LOCKED'}</p>
                                     </div>
                                 </button>
                             );
@@ -469,7 +469,7 @@ export function BookingScreen() {
                                                 <p className="text-sm font-black text-primary italic leading-none">
                                                     {(pkg.memberPrice || pkg.price).toLocaleString('id-ID')}
                                                 </p>
-                                                <span className="text-[7px] text-slate-600 font-bold uppercase tracking-tighter">IDR</span>
+                                                <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">IDR</span>
                                             </div>
                                         </div>
                                     </button>
@@ -501,7 +501,7 @@ export function BookingScreen() {
                     </div>
                     {filteredSlots.length === 0 && (
                         <div className="py-8 text-center bg-[#1a1f35]/20 rounded-[24px] border border-dashed border-white/5 opacity-50">
-                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest italic">Tidak Ada Jadwal Tersedia</p>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest italic">Tidak Ada Jadwal Tersedia</p>
                         </div>
                     )}
                 </div>

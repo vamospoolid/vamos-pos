@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;600;700;900&display=swap');
 @import "tailwindcss";
 
+html {
+  font-size: 13px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @theme {
   --color-primary: #ff5722;
   --color-secondary: #0d0f14;
@@ -28,9 +34,11 @@ body {
   color: #ffffff;
   font-family: 'Outfit', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 /* Fiery UI v2 - E-Sports Edition */
@@ -121,6 +129,13 @@ body {
 h1, h2, h3, h4 {
   font-family: 'Outfit', sans-serif;
   font-weight: 800;
+  line-height: 1.15;
+}
+
+/* Ensure minimum readable font sizes on Android */
+* {
+  min-height: 0;
+  min-width: 0;
 }
 
 .text-gradient {

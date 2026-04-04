@@ -181,11 +181,11 @@ export function PlayScreen({ member }: { member: any }) {
 
   return (
     <div className="fade-in space-y-10 pb-40">
-      <div className="pt-8">
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white">
+      <div className="pt-6">
+        <h1 className="text-xl font-black italic tracking-tighter uppercase text-white">
           PLAY <span className="text-primary">ARENA</span>
         </h1>
-        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mt-2 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
+        <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
       </div>
 
       <BulletinCarousel />
@@ -400,7 +400,7 @@ export function PlayScreen({ member }: { member: any }) {
                     <ShieldAlert size={40} className="text-white" />
                 </div>
 
-                <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2 leading-none">WAR PROTOCOL</h3>
+                <h3 className="text-xl font-black text-white italic tracking-tighter uppercase mb-2 leading-none">WAR PROTOCOL</h3>
                 <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-10 italic animate-pulse">Incoming Strike Detected</p>
                 
                 <div className="bg-white/5 p-6 rounded-3xl border border-white/10 mb-10">

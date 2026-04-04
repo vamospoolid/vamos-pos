@@ -172,7 +172,7 @@ export function ActiveSessionScreen() {
                             {activeSession?.durationOpts ? 'Waktu Misi Tersisa' : 'Durasi Sesi Biliar'}
                         </p>
 
-                        <h2 className={`text-7xl font-black italic tracking-tighter mt-2 mb-10 ${activeSession?.durationOpts && elapsedTime.startsWith('-')
+                        <h2 className={`text-5xl font-black italic tracking-tighter mt-2 mb-8 ${activeSession?.durationOpts && elapsedTime.startsWith('-')
                             ? 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
                             : 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]'
                             }`}>
@@ -202,7 +202,7 @@ export function ActiveSessionScreen() {
                                 <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic pt-1">Estimasi Total</span>
                             </div>
                             <div className="text-right">
-                                <span className="text-3xl font-black text-white italic tracking-tighter drop-shadow-md">
+                                <span className="text-xl font-black text-white italic tracking-tighter drop-shadow-md">
                                     {finalEstTotal.toLocaleString()} <span className="text-xs uppercase text-slate-500">Rp</span>
                                 </span>
                             </div>

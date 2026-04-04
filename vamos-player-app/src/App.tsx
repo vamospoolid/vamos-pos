@@ -71,7 +71,7 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
           <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-primary/20 shadow-[0_0_50px_rgba(255,87,34,0.3)]">
             <VamosLogo className="w-12 h-12" glowing />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white uppercase italic">VAMOS<span className="text-accent underline decoration-primary decoration-4 underline-offset-4 ml-1">POOL</span></h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white uppercase italic">VAMOS<span className="text-accent underline decoration-primary decoration-4 underline-offset-4 ml-1">POOL</span></h1>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-3">{isRegister ? 'Bergabung dengan liga juara' : 'Selamat datang kembali, legenda'}</p>
         </div>
 
@@ -206,7 +206,7 @@ function DashboardScreen({ member, tournaments = [] }: { member: any, tournament
             )}
           </div>
         </div>
-        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">{member.name || 'LEGEND PLAYER'}</h1>
+        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">{member.name || 'LEGEND PLAYER'}</h1>
         <div className="flex items-center gap-12 mt-6">
           <div className="text-center">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Balance</p>
@@ -324,7 +324,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   return (
     <div className="fade-in space-y-8 pb-32">
       <div className="text-center pt-8">
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white leading-none">PUSAT <span className="text-primary italic">TURNAMEN</span></h1>
+        <h1 className="text-xl font-black italic tracking-tighter uppercase text-white leading-none">PUSAT <span className="text-primary italic">TURNAMEN</span></h1>
       </div>
       <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-2xl border border-white/5 mx-2">
         {[
@@ -338,7 +338,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
       <div className="px-2 space-y-8">
         {activeView === 'info' && (
           <div className="fiery-card p-10 border-2 border-white/5">
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-8">{tournament.name}</h2>
+            <h2 className="text-lg font-black text-white uppercase italic tracking-tighter mb-8">{tournament.name}</h2>
             <div className="grid grid-cols-2 gap-3 mb-10 relative z-10">
                <div className="bg-[#101423] p-4 rounded-[24px] border border-white/5">
                  <p className="text-[8px] text-slate-600 font-extrabold uppercase tracking-[0.2em] italic mb-1">Prize Pool</p>
@@ -544,7 +544,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
   if (view !== 'main') return <HistoryScreen member={member} onBack={() => setView('main')} />;
   return (
     <div className="fade-in space-y-10 pb-32">
-      <div className="text-center pt-8"><h1 className="text-5xl font-black italic text-white uppercase">PROFIL</h1></div>
+      <div className="text-center pt-8"><h1 className="text-2xl font-black italic text-white uppercase">PROFIL</h1></div>
       <div className="flex flex-col items-center">
         <div className="relative mb-8"><div className="w-40 h-40 rounded-[48px] bg-[#1a1f35] p-1 border-4 border-white/5 shadow-2xl overflow-hidden">{member.photo ? <img src={member.photo} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><User className="w-16 h-16 text-slate-700" /></div>}</div><label className="absolute -bottom-2 -right-2 bg-primary p-3 rounded-2xl border-4 border-[#070b14] cursor-pointer"><Camera className="w-5 h-5 text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading}/></label></div>
         <h2 className="text-3xl font-black text-white italic uppercase">{member.name}</h2>
