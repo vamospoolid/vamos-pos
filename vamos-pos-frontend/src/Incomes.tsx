@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { api } from './api';
-import { vamosAlert, vamosConfirm } from './utils/dialog';
+import { vamosAlert } from './utils/dialog';
 import {
-    TrendingUp, Plus, Trash2, Loader2, Calendar, FileText,
+    TrendingUp, Plus, Loader2, Calendar, FileText,
     DollarSign, X, Download, ArrowRightLeft, CreditCard, Banknote, Search
 } from 'lucide-react';
 import jsPDF from 'jspdf';
