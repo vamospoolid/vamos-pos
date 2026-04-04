@@ -256,18 +256,17 @@ function DashboardScreen({ member }: { member: any }) {
   );
 }
 
-function TournamentScreen({ activeTournaments, leaderboard }: { member: any, activeTournaments: any[], leaderboard: any }) {
+function TournamentScreen({ activeTournaments }: { member: any, activeTournaments: any[] }) {
   const tournament = activeTournaments[0] || MOCK_TOURNAMENT;
   const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>('info');
-  let lbSubView = 'legends';
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
   const { refreshMemberData } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredLeaderboard = (lbSubView === 'hall' ? (leaderboard.hallOfFame || []) : (lbSubView === 'kings' ? (leaderboard.activeKings || []) : (leaderboard.allTime || [])))
-    .filter((p: any) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const participantList = (tournament?.participants || []).map((p: any) => p.member || p);
+  const filteredParticipants = participantList.filter((p: any) => (p?.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   const handleRegister = async () => {
     setLoadingReg(true);
@@ -365,12 +364,20 @@ function TournamentScreen({ activeTournaments, leaderboard }: { member: any, act
         {activeView === 'rankings' && (
           <div className="space-y-6">
             <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5"><input className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" placeholder="Search operatives..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
-            {filteredLeaderboard.map((p: any, i: number) => (
-              <div key={p.id} className="fiery-card p-6 rounded-3xl flex items-center justify-between border border-white/5 bg-[#1a1f35]/30">
-                <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p.name}</p></div></div>
-                <div className="text-right"><p className="text-xl font-black text-white italic">{p.totalWins || 0}W</p></div>
-              </div>
-            ))}
+            {filteredParticipants.length === 0 ? (
+                <div className="fiery-card py-20 text-center border-dashed border-white/10 opacity-70">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Belum ada Operative yang diterjunkan.</p>
+                </div>
+            ) : (
+                filteredParticipants.map((p: any, i: number) => (
+                  <div key={p.id || i} className="fiery-card p-6 rounded-3xl flex items-center justify-between border border-white/5 bg-[#1a1f35]/30">
+                    <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p?.name || 'UNKNOWN OPERATIVE'}</p></div></div>
+                    <div className="text-right">
+                       <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full uppercase italic tracking-widest">DEPLOYED</span>
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         )}
       </div>
@@ -480,7 +487,7 @@ function MainApp() {
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
         {activeTab === 'dashboard' && <DashboardScreen member={member} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
-        {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} leaderboard={leaderboard} member={member} />}
+        {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} member={member} />}
         {activeTab === 'rewards' && <RewardsScreen />}
         {activeTab === 'booking' && <BookingScreen />}
         {activeTab === 'active-session' && <ActiveSessionScreen />}

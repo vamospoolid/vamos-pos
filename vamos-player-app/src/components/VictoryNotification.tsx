@@ -21,13 +21,13 @@ export function VictoryNotification({ challenge, currentMemberId, onClose }: Vic
     }, [onClose]);
 
     return (
-        <div className="fixed inset-x-6 top-10 z-[10000] animate-bounce-in max-w-lg mx-auto">
-            <div className={`relative overflow-hidden rounded-[40px] border-2 p-8 shadow-[0_0_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl ${isWinner ? 'border-emerald-500/40 bg-[#0a0d18]/95' : 'border-rose-500/40 bg-[#0a0d18]/95'
+        <div className="fixed inset-x-6 top-1/2 -translate-y-1/2 z-[10000] animate-bounce-in max-w-lg mx-auto">
+            <div className={`relative overflow-hidden rounded-[40px] border-y-2 p-10 shadow-[0_30px_100px_rgba(0,0,0,0.8)] backdrop-blur-3xl ${isWinner ? 'border-emerald-500/40 bg-[#06100d]/95' : 'border-rose-900/40 bg-[#0a0d18]/95'
                 }`}>
                 {/* Background Tactical Glows */}
-                <div className={`absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[100px] opacity-30 ${isWinner ? 'bg-emerald-500' : 'bg-rose-500'
+                <div className={`absolute -top-32 -right-32 w-80 h-80 rounded-full blur-[120px] opacity-40 ${isWinner ? 'bg-emerald-500' : 'bg-rose-700'
                     }`} />
-                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] opacity-20" />
+                <div className={`absolute -bottom-32 -left-32 w-80 h-80 rounded-full blur-[100px] opacity-30 ${isWinner ? 'bg-[#00d184]' : 'bg-[#0a0d18]'}`} />
 
                 <button
                     onClick={(e) => {
@@ -40,62 +40,55 @@ export function VictoryNotification({ challenge, currentMemberId, onClose }: Vic
                     <X className="w-5 h-5 pointer-events-none" />
                 </button>
 
-                <div className="flex items-center gap-8 relative z-10">
-                    <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center shrink-0 border-2 relative ${isWinner ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_30px_rgba(244,63,94,0.2)]'
+                <div className="text-center relative z-10 mt-6">
+                    <div className={`mx-auto w-32 h-32 rounded-[2.5rem] flex items-center justify-center shrink-0 border-2 relative mb-8 transition-transform duration-700 hover:scale-110 ${isWinner ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_80px_rgba(16,185,129,0.3)]' : 'bg-rose-500/10 text-rose-500 border-rose-500/30 shadow-[0_0_60px_rgba(244,63,94,0.15)]'
                         }`}>
-                        {isWinner ? <Trophy className="w-10 h-10" strokeWidth={2.5} /> : <SkullIcon className="w-10 h-10" />}
-                        <div className={`absolute inset-0 rounded-[28px] animate-pulse ${isWinner ? 'bg-emerald-500/5' : 'bg-rose-500/5'}`} />
+                        {isWinner ? <Trophy className="w-16 h-16 drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]" strokeWidth={2.5} /> : <SkullIcon className="w-16 h-16 opacity-80 drop-shadow-[0_0_15px_rgba(244,63,94,0.5)]" />}
+                        <div className={`absolute inset-0 rounded-[2.5rem] animate-ping opacity-20 ${isWinner ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                        <p className={`text-[10px] font-black uppercase tracking-[0.4em] mb-2 italic ${isWinner ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            {isWinner ? 'Protocol: Victory' : 'Protocol: Defeat'}
-                        </p>
-                        <h3 className="text-3xl font-black text-white leading-none uppercase italic tracking-tighter mb-2">
-                            {isWinner ? 'WON' : 'LOST'}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-500 uppercase italic opacity-60">OPPONENT:</span>
-                            <span className="text-xs font-black text-white uppercase italic tracking-widest">{opponent?.name || 'UNKNOWN OPERATIVE'}</span>
-                        </div>
+                    <p className={`text-[11px] font-black uppercase tracking-[0.5em] mb-2 italic ${isWinner ? 'text-emerald-400' : 'text-rose-500/80'}`}>
+                        {isWinner ? 'CHAMPION PROTOCOL' : 'STEALTH DEFEAT PROTOCOL'}
+                    </p>
+                    <h3 className={`text-6xl font-black leading-none uppercase italic tracking-tighter mb-6 ${isWinner ? 'text-transparent bg-clip-text bg-gradient-to-b from-white via-emerald-200 to-emerald-600 filter drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'text-rose-100 opacity-90'}`}>
+                        {isWinner ? 'VICTORY' : 'DEFEAT'}
+                    </h3>
+                    
+                    <div className="inline-flex items-center gap-5 bg-black/40 px-6 py-3 rounded-2xl border border-white/5 mb-10 shadow-inner">
+                        <span className="text-[10px] font-black text-slate-600 uppercase italic tracking-widest">VS</span>
+                        <span className="text-base font-black text-white uppercase italic tracking-widest">{opponent?.name || 'UNKNOWN OPERATIVE'}</span>
                     </div>
                 </div>
 
-                <div className="mt-8 flex items-center justify-between bg-[#101423]/60 rounded-[32px] p-6 border border-white/5 relative z-10 overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-
+                <div className={`flex items-center justify-between rounded-[32px] p-6 border relative z-10 overflow-hidden ${isWinner ? 'bg-[#0a0f1d] border-emerald-500/20 shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]' : 'bg-[#101423]/60 border-white/5'}`}>
                     <div className="flex items-center gap-5">
-                        <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                            <Flame className="w-5 h-5 text-orange-500" fill="currentColor" />
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${isWinner ? 'bg-orange-500/10 border-orange-500/30' : 'bg-white/5 border-white/10'}`}>
+                            <Flame className={`w-6 h-6 ${isWinner ? 'text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]' : 'text-slate-500'}`} fill="currentColor" />
                         </div>
-                        <div>
-                            <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] mb-1 italic">XP GAINED</p>
-                            <p className={`text-xl font-black italic tracking-tighter text-white`}>
-                                +{xpReward} <span className="text-[10px] text-slate-500">XP</span>
+                        <div className="text-left">
+                            <p className="text-[9px] text-slate-500 font-extrabold uppercase tracking-[0.3em] mb-1 italic">XP GAINED</p>
+                            <p className={`text-3xl font-black italic tracking-tighter leading-none ${isWinner ? 'text-white' : 'text-slate-400'}`}>
+                                +{xpReward} <span className="text-xs text-slate-600">XP</span>
                             </p>
                         </div>
                     </div>
 
                     <div className="text-right">
-                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] mb-1 italic">BILLING STATUS</p>
-                        <p className="text-sm font-black text-slate-400 italic tracking-tighter">
+                        <p className="text-[9px] text-slate-500 font-extrabold uppercase tracking-[0.3em] mb-2 italic">BILLING STATUS</p>
+                        <span className={`text-[10px] px-4 py-2 rounded-xl font-black italic tracking-widest uppercase ${challenge.isFightForTable ? (isWinner ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/20 text-rose-400 border border-rose-500/20') : 'bg-white/5 text-slate-400 border border-white/10'}`}>
                             {challenge.isFightForTable ? (isWinner ? 'CLEARED' : 'TRANSFERRED') : 'UNCHANGED'}
-                        </p>
+                        </span>
                     </div>
                 </div>
 
-                <div className="mt-4 px-4">
-                    <p className="text-[8px] text-center text-slate-600 font-bold uppercase tracking-[0.2em] leading-relaxed">
-                        Match verification complete. Combat records updated in central server.
-                    </p>
+                <div className="mt-6">
+                    <button
+                        onClick={onClose}
+                        className="w-full py-5 rounded-[28px] bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] flex items-center justify-center gap-3 transition-all border border-white/10 active:scale-95 italic"
+                    >
+                        Dismiss Report <ArrowRight className="w-4 h-4" />
+                    </button>
                 </div>
-
-                <button
-                    onClick={onClose}
-                    className="mt-6 w-full py-4 rounded-[24px] bg-white/5 text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] flex items-center justify-center gap-3 hover:text-white transition-all border border-white/5 active:scale-95 italic"
-                >
-                    Dismiss Report <ArrowRight className="w-4 h-4" />
-                </button>
             </div>
         </div>
     );

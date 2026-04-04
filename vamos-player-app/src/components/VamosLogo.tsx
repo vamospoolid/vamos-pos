@@ -32,7 +32,7 @@ export const VamosLogo: React.FC<VamosLogoProps> = ({
                 aria-label="Vamos Logo"
             >
                 {/* Minimalist Sharp V */}
-                <path d="M 10,5 L 50,95 L 90,5 L 75,5 L 50,65 L 25,5 Z" />
+                <path d="M10,15 L50,95 L90,15 L60,15 L50,45 L40,15 Z" />
             </svg>
         </div>
     );
