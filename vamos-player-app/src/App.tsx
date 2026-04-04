@@ -8,6 +8,7 @@ import { MenuScreen } from './MenuScreen';
 import { VictoryNotification } from './components/VictoryNotification';
 import { LeaderboardScreen } from './LeaderboardScreen';
 import { HistoryScreen } from './HistoryScreen';
+import { PlayScreen } from './PlayScreen';
 import { useAppStore } from './store/appStore';
 import { VamosLogo } from './components/VamosLogo';
 
@@ -598,6 +599,7 @@ function MainApp() {
       </div>
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
         {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} />}
+        {activeTab === 'play' && <PlayScreen member={member} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
         {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} member={member} />}
         {activeTab === 'rewards' && <RewardsScreen />}
@@ -607,7 +609,13 @@ function MainApp() {
         {activeTab === 'menu' && <MenuScreen />}
       </div>
       <nav className="fiery-nav">
-        {[{id:'dashboard', icon:LayoutGrid, label:'Rating'}, {id:'leaderboard', icon:Swords, label:'Matches'}, {id:'tournaments', icon:Trophy, label:'Events'}, {id:'rewards', icon:Star, label:'Store'}, {id:'profile', icon:User, label:'Profile'}].map(item => (
+        {[
+          {id:'dashboard', icon:LayoutGrid, label:'Home'},
+          {id:'play',      icon:Swords,     label:'Arena'},
+          {id:'leaderboard', icon:Trophy,   label:'Ranking'},
+          {id:'rewards',   icon:Star,       label:'Store'},
+          {id:'profile',   icon:User,       label:'Profil'},
+        ].map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`nav-item ${activeTab === item.id ? 'active' : ''}`}><div className="icon-container"><item.icon className="w-6 h-6" /></div><span className="text-[8px] font-black uppercase tracking-widest">{item.label}</span></button>
         ))}
       </nav>
