@@ -14,8 +14,30 @@ export class MemberService {
         }
 
         const newMember = await prisma.member.create({
-            data
+            data: {
+                ...data,
+                handicap: data.handicap || "3",
+                handicapLabel: data.handicapLabel || "PROVISIONAL",
+                skillRating: 150, // Initial rating for new players
+            }
         });
+
+        // Log initial rank info
+        try {
+            await prisma.rankHistory.create({
+                data: {
+                    memberId: newMember.id,
+                    oldHandicap: "0",
+                    newHandicap: newMember.handicap || "3",
+                    oldRating: 0,
+                    newRating: 150,
+                    reason: 'INITIAL_REGISTRATION',
+                    notes: 'Pendaftaran member baru (HC 3 Provisional)'
+                }
+            });
+        } catch (error) {
+            console.error('Failed to log initial rank history:', error);
+        }
 
         // Award 50 bonus points for registration
         try {
