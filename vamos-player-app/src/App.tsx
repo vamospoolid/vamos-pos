@@ -419,13 +419,27 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                     <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Bagan Sedang Disusun</h3>
                  </div>
              ) : (
-                 tournament.matches.map((m: any, idx: number) => (
-                    <div key={m.id || idx} className="fiery-card p-6 flex justify-between items-center rounded-[32px] bg-[#1a1f35]/50 border border-white/5 shadow-lg">
-                        <div className="flex-1 text-center font-black uppercase text-white italic truncate px-2">{m.player1?.name || m.player1Name || 'TBD'}</div>
-                        <div className="px-4 py-2 bg-primary/10 rounded-xl text-[9px] font-black text-primary italic tracking-widest border border-primary/20 shadow-inner">VS</div>
-                        <div className="flex-1 text-center font-black uppercase text-white italic truncate px-2">{m.player2?.name || m.player2Name || 'TBD'}</div>
-                    </div>
-                 ))
+                 tournament.matches.map((m: any, idx: number) => {
+                    const p1 = tournament.participants?.find((p: any) => p.id === m.player1Id);
+                    const p2 = tournament.participants?.find((p: any) => p.id === m.player2Id);
+                    const p1Name = p1 ? (p1.member?.name || p1.name) : 'TBD';
+                    const p2Name = p2 ? (p2.member?.name || p2.name) : 'TBD';
+
+                    return (
+                        <div key={m.id || idx} className="fiery-card p-5 flex justify-between items-center rounded-[32px] bg-[#1a1f35]/50 border border-white/5 shadow-lg">
+                            <div className="flex-1 text-center font-black uppercase text-white tracking-widest text-sm italic truncate px-2">{p1Name}</div>
+                            <div className="flex flex-col items-center gap-1.5 px-4">
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[9px] font-black text-primary italic tracking-widest border border-primary/20 shadow-inner">
+                                    VS
+                                </div>
+                                {m.status === 'COMPLETED' || m.score1 > 0 || m.score2 > 0 ? (
+                                    <span className="text-[11px] font-black italic text-white tracking-widest px-2">{m.score1 || 0} - {m.score2 || 0}</span>
+                                ) : null}
+                            </div>
+                            <div className="flex-1 text-center font-black uppercase text-white tracking-widest text-sm italic truncate px-2">{p2Name}</div>
+                        </div>
+                    );
+                 })
              )}
           </div>
         )}
