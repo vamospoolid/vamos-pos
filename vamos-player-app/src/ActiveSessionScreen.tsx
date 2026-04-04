@@ -149,62 +149,60 @@ export function ActiveSessionScreen() {
     return (
         <div className="fade-in pb-40 text-white px-1">
             {/* Header Container */}
-            <header className="flex justify-between items-center pt-6 pb-6 bg-[#101423]/90 backdrop-blur-xl sticky top-0 z-50 -mx-6 px-10 border-b border-white/5">
-                <button onClick={() => setActiveTab('dashboard')} className="w-12 h-12 rounded-2xl bg-[#1a1f35] flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
+            <header className="flex justify-between items-center pt-6 pb-6 bg-[#0a0d18]/95 backdrop-blur-xl sticky top-0 z-50 -mx-6 px-10 border-b border-white/5 shadow-2xl">
+                <button onClick={() => setActiveTab('dashboard')} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white hover:text-primary transition-all border border-white/5 active:scale-95">
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="text-center">
-                    <h1 className="text-xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px]">{activeSession?.table?.name || 'F&B ONLY'}</h1>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Live Telemetry</p>
+                    <h1 className="text-xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px]">{activeSession?.table?.name || 'F&B SAJA'}</h1>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Pemantauan Langsung</p>
                 </div>
-                <div className="px-5 py-2 rounded-full bg-primary/10 border border-primary/20 flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse fiery-glow" />
-                    <span className="text-primary text-[9px] font-black uppercase tracking-[0.2em]">{activeSession ? 'ENGAGED' : 'F&B ACTIVE'}</span>
+                <div className="px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] italic">{activeSession ? 'ENGAGED' : 'F&B ACTIVE'}</span>
                 </div>
             </header>
 
             <div className="mt-8 space-y-10">
                 {/* Timer Card (Only if table session exists) */}
                 {activeSession ? (
-                    <div className="fiery-card p-12 text-center relative overflow-hidden flex flex-col items-center shadow-[0_30px_60px_rgba(0,0,0,0.3)] border-primary/5">
-                        <div className="absolute top-[-50px] right-[-50px] w-80 h-80 bg-primary/5 blur-[80px] rounded-full pointer-events-none" />
-                        <div className="absolute bottom-[-30px] left-[-30px] w-60 h-60 bg-[#1f22ff]/5 blur-[60px] rounded-full pointer-events-none" />
-
+                    <div className="bg-[#1a1f35]/30 p-12 rounded-[40px] text-center relative overflow-hidden flex flex-col items-center border border-white/5 shadow-lg">
+                        
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">
-                            {activeSession?.durationOpts ? 'Mission Time Remaining' : 'Active Engagement Duration'}
+                            {activeSession?.durationOpts ? 'Waktu Misi Tersisa' : 'Durasi Sesi Biliar'}
                         </p>
 
-                        <h2 className={`text-7xl font-black italic tracking-tighter mt-2 mb-10 fiery-glow ${activeSession?.durationOpts && elapsedTime.startsWith('-')
-                            ? 'text-red-500'
-                            : 'text-white'
+                        <h2 className={`text-7xl font-black italic tracking-tighter mt-2 mb-10 ${activeSession?.durationOpts && elapsedTime.startsWith('-')
+                            ? 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                            : 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]'
                             }`}>
                             {elapsedTime}
                         </h2>
 
                         <div className="grid grid-cols-2 gap-8 w-full mt-6 pt-10 border-t border-white/5">
                             <div className="text-left border-r border-white/5 pr-8">
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Initiated</p>
+                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest mb-1 italic">Waktu Mulai</p>
                                 <p className="text-2xl font-black text-white italic tracking-tighter">
                                     {new Date(activeSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             </div>
                             <div className="text-right pl-8">
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Arena Tax</p>
-                                <p className="text-2xl font-black text-primary italic tracking-tighter uppercase">
+                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest mb-1 italic">Billing Meja</p>
+                                <p className="text-2xl font-black text-[#00d084] italic tracking-tighter uppercase drop-shadow-[0_0_10px_rgba(0,208,132,0.3)]">
                                     {estimatedCost.toLocaleString()} <span className="text-sm">Rp</span>
                                 </p>
                             </div>
                         </div>
 
-                        <div className="mt-10 bg-white/5 rounded-[40px] p-8 w-full flex items-center justify-between border border-white/5 group active:bg-white/10 transition-colors">
+                        <div className="mt-10 bg-black/40 rounded-[40px] p-8 w-full flex items-center justify-between border border-white/5 shadow-inner">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-[#101423] flex items-center justify-center border border-white/5">
+                                <div className="w-12 h-12 rounded-full bg-[#101423] flex items-center justify-center border border-white/5">
                                     <Info className="w-5 h-5 text-slate-500" />
                                 </div>
-                                <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic pt-1">Projected Total</span>
+                                <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic pt-1">Estimasi Total</span>
                             </div>
                             <div className="text-right">
-                                <span className="text-3xl font-black text-white italic tracking-tighter">
+                                <span className="text-3xl font-black text-white italic tracking-tighter drop-shadow-md">
                                     {finalEstTotal.toLocaleString()} <span className="text-xs uppercase text-slate-500">Rp</span>
                                 </span>
                             </div>
