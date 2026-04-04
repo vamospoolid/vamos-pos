@@ -408,6 +408,27 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
             </div>
           </div>
         )}
+        {activeView === 'bracket' && (
+          <div className="space-y-4">
+             {(!tournament.matches || tournament.matches.length === 0) ? (
+                 <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-70">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                        <Swords className="w-8 h-8 text-primary opacity-50" />
+                    </div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-2 leading-relaxed">Operasi sedang dikalkulasi markas utama.<br />Harap bersiaga.</p>
+                    <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Bagan Sedang Disusun</h3>
+                 </div>
+             ) : (
+                 tournament.matches.map((m: any, idx: number) => (
+                    <div key={m.id || idx} className="fiery-card p-6 flex justify-between items-center rounded-[32px] bg-[#1a1f35]/50 border border-white/5 shadow-lg">
+                        <div className="flex-1 text-center font-black uppercase text-white italic truncate px-2">{m.player1?.name || m.player1Name || 'TBD'}</div>
+                        <div className="px-4 py-2 bg-primary/10 rounded-xl text-[9px] font-black text-primary italic tracking-widest border border-primary/20 shadow-inner">VS</div>
+                        <div className="flex-1 text-center font-black uppercase text-white italic truncate px-2">{m.player2?.name || m.player2Name || 'TBD'}</div>
+                    </div>
+                 ))
+             )}
+          </div>
+        )}
         {activeView === 'rankings' && (
           <div className="space-y-6">
             <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5"><input className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" placeholder="Cari nama peserta..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
