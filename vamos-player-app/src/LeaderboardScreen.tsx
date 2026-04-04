@@ -93,12 +93,13 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     return (
         <div className="fade-in space-y-10 pb-40 px-1">
             {/* Header */}
-            <div className="text-center pt-8 relative">
+            <div className="pt-16 pb-8 text-center relative z-10 px-4">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
-                <h1 className="text-5xl font-black italic tracking-tighter uppercase text-white leading-none">
-                    PAPAN <span className="text-primary italic">KLASEMEN</span>
+                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none glow-text">
+                    HALL OF<br />
+                    <span className="text-5xl text-primary transform -skew-x-12 inline-block mt-1">FAME</span>
                 </h1>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-4 italic opacity-60">Peringkat Elit • Musim 2026</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-6 italic">Peringkat Elit • Musim {new Date().getFullYear()}</p>
             </div>
 
             {/* Category Tabs */}
