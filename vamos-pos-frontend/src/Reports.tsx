@@ -56,8 +56,8 @@ export default function Reports({
     }, [transactions, txPaymentMethod]);
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
     const todayLocal = new Date().toLocaleDateString('en-CA');
-    const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA'));
-    const [endDate, setEndDate] = useState(todayLocal);
+    const [startDate, setStartDate] = useState(''); // Initialize empty to force update
+    const [endDate, setEndDate] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);
 
     const fetchReports = async (sd = startDate, ed = endDate) => {
@@ -92,7 +92,6 @@ export default function Reports({
              const now = new Date();
              const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
              
-             // Base date for "Today's" business cycle
              let todayOp = new Date();
              if (now.getHours() < openHour) {
                  todayOp.setDate(todayOp.getDate() - 1);
@@ -103,23 +102,25 @@ export default function Reports({
              tomorrowOp.setDate(tomorrowOp.getDate() + 1);
              const tomorrowStr = tomorrowOp.toLocaleDateString('en-CA');
 
-             if (timeFilter === 'daily') {
-                 setStartDate(todayStr); // Start from today's cycle
-                 setEndDate(tomorrowStr); // End on tomorrow's start to cover full cycle
-                 fetchReports(todayStr, tomorrowStr);
-             } else if (timeFilter === 'weekly') {
-                 const start = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-                 setStartDate(start);
-                 setEndDate(todayStr);
-                 fetchReports(start, todayStr);
+             let s = todayStr;
+             let e = tomorrowStr;
+
+             if (timeFilter === 'weekly') {
+                 s = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+                 e = todayStr;
              } else if (timeFilter === 'monthly') {
-                 const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-                 setStartDate(start);
-                 setEndDate(todayStr);
-                 fetchReports(start, todayStr);
+                 s = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+                 e = todayStr;
+             }
+
+             if (timeFilter !== 'custom') {
+                 setStartDate(s);
+                 setEndDate(e);
+                 fetchReports(s, e);
              }
         };
 
+        // Run if it's the first time (startDate empty) OR if trigger changed
         if (timeFilter !== 'custom' && (venue || timeFilter !== 'daily')) {
             calculateOperationalDates();
         }
