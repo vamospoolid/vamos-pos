@@ -99,14 +99,14 @@ export default function Reports({
              }
              
              const todayStr = todayOp.toLocaleDateString('en-CA');
-             const yesterdayOp = new Date(todayOp);
-             yesterdayOp.setDate(yesterdayOp.getDate() - 1);
-             const yesterdayStr = yesterdayOp.toLocaleDateString('en-CA');
+             const tomorrowOp = new Date(todayOp);
+             tomorrowOp.setDate(tomorrowOp.getDate() + 1);
+             const tomorrowStr = tomorrowOp.toLocaleDateString('en-CA');
 
              if (timeFilter === 'daily') {
-                 setStartDate(yesterdayStr);
-                 setEndDate(todayStr);
-                 fetchReports(yesterdayStr, todayStr);
+                 setStartDate(todayStr); // Start from today's cycle
+                 setEndDate(tomorrowStr); // End on tomorrow's start to cover full cycle
+                 fetchReports(todayStr, tomorrowStr);
              } else if (timeFilter === 'weekly') {
                  const start = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
                  setStartDate(start);
