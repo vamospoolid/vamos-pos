@@ -203,15 +203,20 @@ export class PricingService {
                 }
             });
 
-            // Default fallback
+            // Default fallback logic
             const isNight = currentHour >= 18 || currentHour < 4;
-            const fallbackRate = isMember ? (isNight ? 35000 : 25000) : (isNight ? 45000 : 35000);
+            let fallbackRate = isMember ? (isNight ? 35000 : 25000) : (isNight ? 45000 : 35000);
+
+            // Special case for Exhibition Area & Fight Mode (500/Min = 30k/Hour)
+            if (['EXEBITION', 'FIGHT'].includes(tableType.toUpperCase())) {
+                fallbackRate = 30000;
+            }
 
             let hourlyRate = rule
                 ? (isMember && rule.memberRatePerHour ? rule.memberRatePerHour : rule.ratePerHour)
                 : fallbackRate;
 
-            if (hourlyRate < 1000) {
+            if (hourlyRate > 0 && hourlyRate < 1000) {
                 hourlyRate = hourlyRate * 1000;
             }
 

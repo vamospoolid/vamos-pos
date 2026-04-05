@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { api } from './api';
-import { vamosAlert, vamosConfirm, vamosPaymentMethod } from './utils/dialog';
+import { vamosAlert, vamosConfirm } from './utils/dialog';
 import {
     Wallet, Plus, Trash2, Loader2, Calendar, FileText,
     ShoppingCart, Zap, DollarSign, Tag, X, Download, Filter, Users, Search
@@ -80,6 +80,12 @@ export default function Expenses() {
     const [date, setDate] = useState(getDefaultDateTime());
     const [members, setMembers] = useState<any[]>([]);
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+    
+    // Settlement Debt Modal
+    const [showSettlementModal, setShowSettlementModal] = useState(false);
+    const [settlementExpense, setSettlementExpense] = useState<any>(null);
+    const [settlementMethod, setSettlementMethod] = useState<string>('CASH');
+    const [settlementDiscount, setSettlementDiscount] = useState<string>('');
 
     const fetchExpenses = async () => {
         try {
@@ -234,16 +240,33 @@ export default function Expenses() {
         }
     };
 
-    const handlePayDebt = async (id: string) => {
-        const method = await vamosPaymentMethod('Pilih metode pembayaran untuk piutang ini. Saldo kasir akan bertambah sesuai metode yang dipilih.');
-        if (!method) return;
+    const handlePayDebt = (expense: any) => {
+        setSettlementExpense(expense);
+        setSettlementMethod('CASH');
+        setSettlementDiscount('');
+        setShowSettlementModal(true);
+    };
+
+    const submitSettlement = async () => {
+        if (!settlementExpense) return;
+        const disc = parseFloat(settlementDiscount) || 0;
+        if (disc >= settlementExpense.amount) {
+            if (!(await vamosConfirm('Diskon sama atau lebih besar dari hutang. Anggap lunas tanpa bayar?'))) return;
+        }
 
         try {
-            await api.post(`/expenses/${id}/pay-debt`, { method });
-            vamosAlert(`Piutang berhasil dibayar menggunakan ${method}!`);
+            setSaving(true);
+            await api.post(`/expenses/${settlementExpense.id}/pay-debt`, { 
+                method: settlementMethod,
+                discount: disc
+            });
+            vamosAlert(`Piutang berhasil dibayar!`);
+            setShowSettlementModal(false);
             fetchExpenses();
         } catch (err: any) {
             vamosAlert(err.response?.data?.message || 'Gagal membayar piutang.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -656,7 +679,7 @@ export default function Expenses() {
                                             <div className="flex items-center justify-center gap-2">
                                                 {e.isDebt && e.status === 'PENDING' && (
                                                     <button
-                                                        onClick={() => handlePayDebt(e.id)}
+                                                        onClick={() => handlePayDebt(e)}
                                                         className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
                                                     >
                                                         Bayar
@@ -833,6 +856,85 @@ export default function Expenses() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* ─── Settlement Modal ─────────────────────────────────────── */}
+            {showSettlementModal && settlementExpense && (
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300">
+                    <div className="bg-[#141414] border border-green-500/30 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(34,197,94,0.1)] overflow-hidden">
+                        <div className="bg-gradient-to-br from-green-500/10 to-transparent p-8">
+                            <div className="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mb-6 border border-green-500/20 mx-auto">
+                                <DollarSign className="w-8 h-8 text-green-500" />
+                            </div>
+                            <h2 className="text-xl font-black text-center mb-2 uppercase tracking-tighter">Pelunasan Piutang</h2>
+                            <p className="text-gray-500 text-center text-xs font-bold uppercase tracking-[0.2em] mb-8">
+                                {settlementExpense.member?.name || 'Member'}
+                            </p>
+
+                            <div className="space-y-5">
+                                {/* Original Amount */}
+                                <div className="bg-black/40 border border-white/5 rounded-2xl p-4 flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Hutang</span>
+                                    <span className="font-mono font-black text-white">Rp {Math.round(settlementExpense.amount).toLocaleString('id-ID')}</span>
+                                </div>
+
+                                {/* Discount Input */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Diskon Pelunasan (Rp)</label>
+                                    <input
+                                        type="number"
+                                        value={settlementDiscount}
+                                        onChange={e => setSettlementDiscount(e.target.value)}
+                                        placeholder="0"
+                                        className="w-full bg-black/60 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-green-500 text-white font-mono text-lg transition-all"
+                                    />
+                                </div>
+
+                                {/* Payment Method */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 ml-1">Metode Pembayaran</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {['CASH', 'QRIS'].map(m => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                onClick={() => setSettlementMethod(m)}
+                                                className={`py-3 rounded-xl font-black text-[10px] tracking-widest uppercase transition-all ${settlementMethod === m ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'bg-black text-gray-600 border border-white/5'}`}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Total Summary */}
+                                <div className="pt-4 border-t border-white/5">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Grand Total Bayar</span>
+                                        <span className="text-2xl font-black text-green-500 font-mono">
+                                            Rp {Math.max(0, Math.round(settlementExpense.amount - (parseFloat(settlementDiscount) || 0))).toLocaleString('id-ID')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-10">
+                                <button
+                                    onClick={() => setShowSettlementModal(false)}
+                                    className="py-4 rounded-2xl bg-white/5 text-gray-500 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    disabled={saving}
+                                    onClick={submitSettlement}
+                                    className="py-4 rounded-2xl bg-green-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-green-900/20 hover:bg-green-500 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Selesaikan'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

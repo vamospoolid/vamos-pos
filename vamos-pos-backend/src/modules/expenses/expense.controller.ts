@@ -60,8 +60,9 @@ export const createExpense = catchAsync(async (req: AuthRequest, res: Response) 
 
 export const payDebt = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { method } = req.body;
+    const { method, discount } = req.body;
     const userId = req.user!.id;
+    const numDiscount = Number(discount) || 0;
 
     const expense = await prisma.expense.findUnique({
         where: { id }
@@ -70,6 +71,8 @@ export const payDebt = catchAsync(async (req: AuthRequest, res: Response) => {
     if (!expense || !expense.isDebt || expense.status !== 'PENDING') {
         throw new AppError('Data piutang tidak valid!', 400);
     }
+
+    const finalPaymentAmount = Math.max(0, expense.amount - numDiscount);
 
     const result = await prisma.$transaction(async (tx) => {
         // Cari shift kasir yang aktif
@@ -81,7 +84,7 @@ export const payDebt = catchAsync(async (req: AuthRequest, res: Response) => {
         await tx.payment.create({
             data: {
                 sessionId: expense.sessionId,
-                amount: expense.amount,
+                amount: finalPaymentAmount,
                 method: method || 'CASH',
                 status: 'SUCCESS',
                 cashierId: userId,

@@ -1282,6 +1282,46 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
+    static async uploadAvatar(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: memberId } = req.params;
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'No file uploaded' });
+            }
+
+            // URL publicly accessible
+            const fileUrl = `/uploads/avatars/${req.file.filename}`;
+
+            const oldMember = await prisma.member.findUnique({ where: { id: memberId } });
+            
+            const member = await prisma.member.update({
+                where: { id: memberId },
+                data: { photo: fileUrl }
+            });
+
+            // Delete old photo if it exists locally to save space
+            if (oldMember?.photo && oldMember.photo.startsWith('/uploads/avatars/')) {
+                const fs = await import('fs');
+                const path = await import('path');
+                const oldPath = path.join(process.cwd(), 'public', oldMember.photo);
+                if (fs.existsSync(oldPath)) {
+                    fs.unlinkSync(oldPath);
+                }
+            }
+
+            // Award points if this is the first time uploading (verification reward)
+            const ptsLogs = await prisma.pointLog.count({
+                where: { memberId, type: 'EARN_BONUS', description: { contains: 'Avatar' } }
+            });
+            if (ptsLogs === 0) {
+                const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                await LoyaltyService.addPoints(memberId, 25, 'EARN_BONUS', '🎁 Profile Avatar Verification Reward');
+            }
+
+            res.json({ success: true, data: member });
+        } catch (error) { next(error); }
+    }
+
     static async getMenu(req: Request, res: Response, next: NextFunction) {
         try {
             const products = await prisma.product.findMany({

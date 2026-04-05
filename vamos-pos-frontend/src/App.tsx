@@ -1656,7 +1656,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                       <div className="h-px bg-gradient-to-l from-transparent to-[#333] flex-1" />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-                      {['CASH', 'QRIS', 'CARD', ...(checkoutBill.memberId ? ['BON'] : [])].map(method => (
+                      {['CASH', 'QRIS', ...(checkoutBill.memberId ? ['BON'] : [])].map(method => (
                         <button
                           key={method}
                           onClick={() => setCheckoutMethod(method)}
@@ -1746,33 +1746,6 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   >
                     Hold
                   </button>
-                  {(checkoutBill.memberId) && (
-                    <button
-                      onClick={async () => {
-                        const subtotal = (checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0);
-                        const serviceCharge = applyService ? Math.round(subtotal * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0;
-                        const taxValue = applyTax ? Math.round((subtotal + serviceCharge) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0;
-                        
-                        try {
-                          await api.post(`/sessions/${checkoutBill.id}/pay-debt`, {
-                            discount: checkoutDiscount || 0,
-                            taxAmount: taxValue,
-                            serviceAmount: serviceCharge
-                          });
-                          setCheckoutBill(null);
-                          setCheckoutDiscount(0);
-                          setCheckoutReceived(0);
-                          fetchData();
-                          vamosAlert('Bill berhasil dicatat sebagai BON (Piutang)');
-                        } catch (err: any) {
-                          vamosAlert(err.response?.data?.message || 'Gagal menyimpan sebagai BON');
-                        }
-                      }}
-                      className="flex-1 py-4 rounded-xl bg-orange-500/10 border-2 border-orange-500/30 text-orange-500 font-black uppercase tracking-[0.1em] text-xs hover:bg-orange-500/20 transition-all"
-                    >
-                      BAYAR BON
-                    </button>
-                  )}
                   <button
                     onClick={payBill}
                     disabled={checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
@@ -1781,14 +1754,18 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
                       checkoutDiscount
                     ))}
-                    className="flex-[1.5] py-4 rounded-xl bg-[#00ff66] text-[#0a0a0a] font-black uppercase tracking-[0.1em] text-sm hover:bg-[#00e65c] hover:shadow-[0_0_25px_rgba(0,255,102,0.5)] hover:-translate-y-1 transition-all duration-300 disabled:shadow-none disabled:bg-[#333] disabled:text-gray-500 disabled:cursor-not-allowed disabled:transform-none"
+                    className={`flex-[1.5] py-4 rounded-xl font-black uppercase tracking-[0.1em] text-sm transition-all duration-300 disabled:shadow-none disabled:bg-[#333] disabled:text-gray-500 disabled:cursor-not-allowed disabled:transform-none ${
+                        checkoutMethod === 'BON' 
+                        ? 'bg-orange-500 text-white hover:bg-orange-600 hover:shadow-[0_0_25px_rgba(249,115,22,0.4)]'
+                        : 'bg-[#00ff66] text-[#0a0a0a] hover:bg-[#00e65c] hover:shadow-[0_0_25px_rgba(0,255,102,0.5)] hover:-translate-y-1'
+                    }`}
                   >
                     {checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
                       (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
                         (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
                         (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
                       checkoutDiscount
-                    )) ? 'UANG KURANG' : 'PROCESS PAYMENT'}
+                    )) ? 'UANG KURANG' : (checkoutMethod === 'BON' ? 'CATAT SEBAGAI BON' : 'PROCESS PAYMENT')}
                   </button>
                 </div>
               </div>
@@ -1975,7 +1952,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     <div className="space-y-3">
                       <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Pilih Kelas Harga</label>
                       <div className="grid grid-cols-2 gap-2">
-                        {['REGULAR', 'EXEBITION'].map((type) => (
+                        {['REGULAR', 'FIGHT'].map((type) => (
                           <button
                             key={type}
                             onClick={() => setBillingClass(type)}
@@ -1985,12 +1962,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                 : 'bg-[#0d0d0d] border-[#1e1e1e] text-gray-600 hover:border-gray-500'
                             }`}
                           >
-                            {type === 'EXEBITION' ? 'Exhibition (500/Min)' : type}
+                            {type === 'FIGHT' ? 'Arena Fight (500/Min)' : type}
                           </button>
                         ))}
                       </div>
                       <p className="text-[9px] text-gray-700 italic px-1">
-                        * Pilih "Exhibition" untuk tarif per menit Rp 500. Pilih "Regular" untuk tarif per jam normal.
+                        * Pilih "Arena Fight" untuk tarif Rp 500 per menit (30rb/jam).
                       </p>
                     </div>
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PlayerController } from './player.controller';
 import { playerAuth } from '../../middleware/playerAuth';
 import { authenticate } from '../../middleware/auth';
+import { uploadAvatar } from '../../middleware/uploadMiddleware';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use(playerAuth);
 
 // Profile and History (Specifics first)
 router.put('/profile', PlayerController.updateProfile);
+router.post('/:id/avatar', uploadAvatar.single('photo'), PlayerController.uploadAvatar);
 
 // Match Challenges
 router.post('/challenge', PlayerController.createChallenge);
