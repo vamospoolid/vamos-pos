@@ -88,34 +88,40 @@ export default function Reports({
     };
 
     useEffect(() => {
-        const now = new Date();
-        const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
-        const todayL = new Date().toLocaleDateString('en-CA');
+        const calculateOperationalDates = () => {
+             const now = new Date();
+             const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
+             
+             // Base date for "Today's" business cycle
+             let todayOp = new Date();
+             if (now.getHours() < openHour) {
+                 todayOp.setDate(todayOp.getDate() - 1);
+             }
+             
+             const todayStr = todayOp.toLocaleDateString('en-CA');
+             const yesterdayOp = new Date(todayOp);
+             yesterdayOp.setDate(yesterdayOp.getDate() - 1);
+             const yesterdayStr = yesterdayOp.toLocaleDateString('en-CA');
 
-        let newStart = todayL;
-        let newEnd = todayL;
+             if (timeFilter === 'daily') {
+                 setStartDate(yesterdayStr);
+                 setEndDate(todayStr);
+                 fetchReports(yesterdayStr, todayStr);
+             } else if (timeFilter === 'weekly') {
+                 const start = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+                 setStartDate(start);
+                 setEndDate(todayStr);
+                 fetchReports(start, todayStr);
+             } else if (timeFilter === 'monthly') {
+                 const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+                 setStartDate(start);
+                 setEndDate(todayStr);
+                 fetchReports(start, todayStr);
+             }
+        };
 
-        if (timeFilter === 'daily') {
-            const operationalDate = new Date(now);
-            if (now.getHours() < openHour) {
-                operationalDate.setDate(operationalDate.getDate() - 1);
-            }
-            const yesterday = new Date(operationalDate);
-            yesterday.setDate(yesterday.getDate() - 1);
-            newStart = yesterday.toLocaleDateString('en-CA');
-            newEnd = operationalDate.toLocaleDateString('en-CA');
-        } else if (timeFilter === 'weekly') {
-            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-            newEnd = todayL;
-        } else if (timeFilter === 'monthly') {
-            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-            newEnd = todayL;
-        }
-
-        if (timeFilter !== 'custom') {
-            setStartDate(newStart);
-            setEndDate(newEnd);
-            fetchReports(newStart, newEnd);
+        if (timeFilter !== 'custom' && (venue || timeFilter !== 'daily')) {
+            calculateOperationalDates();
         }
     }, [timeFilter, venue]);
 
