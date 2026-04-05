@@ -104,12 +104,20 @@ export default function Reports({
             yesterday.setDate(yesterday.getDate() - 1);
             newStart = yesterday.toLocaleDateString('en-CA');
             newEnd = operationalDate.toLocaleDateString('en-CA');
+            
+            // Critical: Update state so UI inputs and KPI logic are synced
+            setStartDate(newStart);
+            setEndDate(newEnd);
         } else if (timeFilter === 'weekly') {
             newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
             newEnd = todayLocal;
+            setStartDate(newStart);
+            setEndDate(newEnd);
         } else if (timeFilter === 'monthly') {
             newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
             newEnd = todayLocal;
+            setStartDate(newStart);
+            setEndDate(newEnd);
         }
         // For 'custom', dates are already set by user — don't overwrite
 
