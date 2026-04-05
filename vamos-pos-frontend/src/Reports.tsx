@@ -90,10 +90,10 @@ export default function Reports({
     useEffect(() => {
         const now = new Date();
         const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
-        const todayStr = now.toISOString().split('T')[0];
+        const todayL = new Date().toLocaleDateString('en-CA');
 
-        let newStart = todayStr;
-        let newEnd = todayStr;
+        let newStart = todayL;
+        let newEnd = todayL;
 
         if (timeFilter === 'daily') {
             const operationalDate = new Date(now);
@@ -104,29 +104,20 @@ export default function Reports({
             yesterday.setDate(yesterday.getDate() - 1);
             newStart = yesterday.toLocaleDateString('en-CA');
             newEnd = operationalDate.toLocaleDateString('en-CA');
-            
-            // Critical: Update state so UI inputs and KPI logic are synced
-            setStartDate(newStart);
-            setEndDate(newEnd);
         } else if (timeFilter === 'weekly') {
             newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-            newEnd = todayLocal;
-            setStartDate(newStart);
-            setEndDate(newEnd);
+            newEnd = todayL;
         } else if (timeFilter === 'monthly') {
             newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-            newEnd = todayLocal;
-            setStartDate(newStart);
-            setEndDate(newEnd);
+            newEnd = todayL;
         }
-        // For 'custom', dates are already set by user — don't overwrite
 
         if (timeFilter !== 'custom') {
             setStartDate(newStart);
             setEndDate(newEnd);
-            fetchReports(newStart, newEnd); // pass directly to avoid stale state
+            fetchReports(newStart, newEnd);
         }
-    }, [timeFilter]);
+    }, [timeFilter, venue]);
 
     const handleApplyCustomFilter = () => {
         setTimeFilter('custom');
