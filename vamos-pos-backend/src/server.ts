@@ -58,9 +58,10 @@ app.use(cors({
             'http://localhost:3000',
             'http://localhost:5173',
             'https://pos.vamospool.id',
+            'https://app.vamospool.id',
             'http://pos.local'
         ];
-        if (!origin || allowedOrigins.some(ao => origin.includes(ao.replace('https://', '').replace('http://', '')))) {
+        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(ao => origin.includes(ao.replace('https://', '').replace('http://', '')))) {
             callback(null, true);
         } else {
             callback(null, true); // Permissive for local hardware synergy

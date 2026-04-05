@@ -44,8 +44,8 @@ export default function Reports({
     const [transactions, setTransactions] = useState<any[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [txFilter, setTxFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
-    const [txStartDate, setTxStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [txEndDate, setTxEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [txStartDate, setTxStartDate] = useState(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD local
+    const [txEndDate, setTxEndDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [txPaymentMethod, setTxPaymentMethod] = useState<'ALL' | 'CASH' | 'QRIS'>('ALL');
     const [loading, setLoading] = useState(true);
     const [expandedTx, setExpandedTx] = useState<string | null>(null);
@@ -55,8 +55,9 @@ export default function Reports({
         return transactions.filter(t => (t.paymentMethod || 'CASH').toUpperCase().includes(txPaymentMethod));
     }, [transactions, txPaymentMethod]);
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
-    const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA'));
+    const [endDate, setEndDate] = useState(todayLocal);
     const reportRef = useRef<HTMLDivElement>(null);
 
     const fetchReports = async (sd = startDate, ed = endDate) => {
@@ -95,22 +96,20 @@ export default function Reports({
         let newEnd = todayStr;
 
         if (timeFilter === 'daily') {
-            // Operational day pivot: if before openHour, we're still in yesterday's cycle
             const operationalDate = new Date(now);
             if (now.getHours() < openHour) {
                 operationalDate.setDate(operationalDate.getDate() - 1);
             }
-            // Include yesterday so growth (vs yesterday) can be calculated
             const yesterday = new Date(operationalDate);
             yesterday.setDate(yesterday.getDate() - 1);
-            newStart = yesterday.toISOString().split('T')[0];
-            newEnd = operationalDate.toISOString().split('T')[0];
+            newStart = yesterday.toLocaleDateString('en-CA');
+            newEnd = operationalDate.toLocaleDateString('en-CA');
         } else if (timeFilter === 'weekly') {
-            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            newEnd = todayStr;
+            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+            newEnd = todayLocal;
         } else if (timeFilter === 'monthly') {
-            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            newEnd = todayStr;
+            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+            newEnd = todayLocal;
         }
         // For 'custom', dates are already set by user — don't overwrite
 
@@ -590,13 +589,6 @@ export default function Reports({
         );
     }
 
-    const getPeriodLabel = () => {
-        if (timeFilter === 'daily') return 'Today';
-        if (timeFilter === 'weekly') return 'This Week';
-        if (timeFilter === 'monthly') return 'This Month';
-        return 'Selected Period';
-    };
-
     const getRevenueTrendLabel = () => {
         if (timeFilter === 'daily') return 'Today & Yesterday';
         if (timeFilter === 'weekly') return 'Last 7 Days';
@@ -742,7 +734,7 @@ export default function Reports({
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
                 {[
                     {
-                        label: `${getPeriodLabel()} Net Income`,
+                        label: `${timeFilter === 'daily' || timeFilter === 'custom' && startDate === endDate ? 'Today' : 'Period'} Net Income`,
                         value: `Rp ${Math.round(kpis.todayProfit).toLocaleString('id-ID')}`,
                         sub: `Rev: Rp ${Math.round(kpis.todayNet).toLocaleString('id-ID')} - Exp: Rp ${Math.round(kpis.todayExpenses).toLocaleString('id-ID')}`,
                         icon: <Activity className="w-7 h-7 text-[#00ff66]" />,
@@ -750,7 +742,7 @@ export default function Reports({
                         targetId: 'revenue-log-section'
                     },
                     {
-                        label: `${getPeriodLabel()} Total Revenue`,
+                        label: `${timeFilter === 'daily' || timeFilter === 'custom' && startDate === endDate ? 'Today' : 'Period'} Total Revenue`,
                         value: `Rp ${Math.round(kpis.monthNet).toLocaleString('id-ID')}`,
                         sub: `Tab: Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')} · F&B: Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')} · Other: Rp ${Math.round(kpis.monthOther).toLocaleString('id-ID')}`,
                         icon: <DollarSign className="w-7 h-7 text-[#00ff66]" />,
@@ -758,13 +750,13 @@ export default function Reports({
                         targetId: 'revenue-trend-section'
                     },
                     {
-                        label: "Today's Revenue",
+                        label: "Trend vs Yesterday",
                         value: `Rp ${Math.round(kpis.todayNet).toLocaleString('id-ID')}`,
                         sub: (
                             <div className="flex items-center gap-1">
                                 {kpis.growth >= 0 ? <ArrowUpRight className="w-4 h-4 text-[#00ff66]" /> : <ArrowDownRight className="w-4 h-4 text-red-500" />}
                                 <span className={kpis.growth >= 0 ? 'text-[#00ff66]' : 'text-red-500'}>
-                                    {kpis.growth.toFixed(1)}% vs yesterday
+                                    {kpis.growth.toFixed(1)}% growth
                                 </span>
                             </div>
                         ),
@@ -773,7 +765,7 @@ export default function Reports({
                         targetId: 'revenue-log-section'
                     },
                     {
-                        label: `${getPeriodLabel()} Table Bill`,
+                        label: `${timeFilter === 'daily' || timeFilter === 'custom' && startDate === endDate ? 'Today' : 'Period'} Table Bill`,
                         value: `Rp ${Math.round(kpis.monthTable).toLocaleString('id-ID')}`,
                         sub: "Billiard sessions only",
                         icon: <Activity className="w-7 h-7 text-[#00aaff]" />,
@@ -781,7 +773,7 @@ export default function Reports({
                         targetId: 'table-performance-section'
                     },
                     {
-                        label: `${getPeriodLabel()} F&B Bill`,
+                        label: `${timeFilter === 'daily' || timeFilter === 'custom' && startDate === endDate ? 'Today' : 'Period'} F&B Bill`,
                         value: `Rp ${Math.round(kpis.monthFnb).toLocaleString('id-ID')}`,
                         sub: "Food & Beverage sales",
                         icon: <Utensils className="w-7 h-7 text-[#ff9900]" />,
@@ -789,7 +781,7 @@ export default function Reports({
                         targetId: 'fnb-performance-section'
                     },
                     {
-                        label: `${getPeriodLabel()} Trx QRIS`,
+                        label: `${timeFilter === 'daily' || timeFilter === 'custom' && startDate === endDate ? 'Today' : 'Period'} Trx QRIS`,
                         value: `Rp ${Math.round(kpis.monthQrisRevenue).toLocaleString('id-ID')}`,
                         sub: `Total dari ${kpis.monthQrisCount} transaksi QRIS`,
                         icon: <Activity className="w-7 h-7 text-[#ff33ff]" />,

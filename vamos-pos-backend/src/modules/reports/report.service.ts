@@ -3,20 +3,23 @@ import { prisma } from '../../database/db';
 export class ReportService {
     static async getTodayUtilizationSplit() {
         const now = new Date();
-        const currentHour = now.getHours();
+        // Adjust for UTC+8 (WITA) server offset
+        const localNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        const currentHour = localNow.getUTCHours();
 
-        let startOfDay = new Date(now);
+        let startOfDay = new Date(localNow);
         if (currentHour < 6) {
-            startOfDay.setDate(startOfDay.getDate() - 1);
+            startOfDay.setUTCDate(startOfDay.getUTCDate() - 1);
         }
-        startOfDay.setHours(6, 0, 0, 0);
+        startOfDay.setUTCHours(6, 0, 0, 0);
 
-        let endOfDay = new Date(startOfDay);
-        endOfDay.setDate(endOfDay.getDate() + 1);
+        // Normalize back to UTC for Prisma query
+        const dbStart = new Date(startOfDay.getTime() - (8 * 60 * 60 * 1000));
+        const dbEnd = new Date(dbStart.getTime() + (24 * 60 * 60 * 1000));
 
         const sessions = await prisma.session.findMany({
             where: {
-                startTime: { gte: startOfDay, lte: endOfDay },
+                startTime: { gte: dbStart, lte: dbEnd },
                 tableId: { not: null }
             }
         });
@@ -78,23 +81,24 @@ export class ReportService {
         const openHour = await ReportService.getOpenHour();
         const now = new Date();
         
-        // If current time is before openHour, we are still "in yesterday's" operational day
-        const pivotDate = new Date(now);
-        if (now.getHours() < openHour) {
-            pivotDate.setDate(pivotDate.getDate() - 1);
+        // Adjust server UTC to Venue Local (WITA +8)
+        const localNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        const pivotDate = new Date(localNow);
+        
+        if (localNow.getUTCHours() < openHour) {
+            pivotDate.setUTCDate(pivotDate.getUTCDate() - 1);
         }
         // Move back daysAgo
-        pivotDate.setDate(pivotDate.getDate() - daysAgo);
+        pivotDate.setUTCDate(pivotDate.getUTCDate() - daysAgo);
 
-        const start = new Date(pivotDate);
-        start.setHours(openHour, 0, 0, 0);
+        const startLocal = new Date(pivotDate);
+        startLocal.setUTCHours(openHour, 0, 0, 0);
 
-        const end = new Date(start);
-        end.setDate(end.getDate() + 1); // openHour next calendar day
-        end.setMilliseconds(end.getMilliseconds() - 1); // inclusive
+        // Convert back to UTC for DB logic
+        const start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+        const end = new Date(start.getTime() + (24 * 60 * 60 * 1000) - 1);
 
-        const label = start.toISOString().split('T')[0]; // "YYYY-MM-DD" of open hour date
-
+        const label = startLocal.toISOString().split('T')[0]; 
         return { start, end, label };
     }
 

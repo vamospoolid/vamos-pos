@@ -973,7 +973,7 @@ export default function Settings() {
                                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Category</label>
                                         <select value={tableForm.type} onChange={e => setTableForm({ ...tableForm, type: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00ff66] text-sm font-bold transition-all">
                                             <option value="REGULAR">Regular</option>
-                                            <option value="EXEBITION">Exhibition</option>
+                                            <option value="FIGHT">Arena Fight</option>
                                             <option value="VIP">VIP</option>
                                             <option value="VVIP">VVIP Room</option>
                                             <option value="CAROM">Carom</option>

@@ -117,24 +117,27 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                 ))}
             </div>
 
-            {/* Location Selector */}
+            {/* Location Selector Chips */}
             {!searchQuery && (
                 <div className="px-4">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 pl-1 italic">Filter Lokasi</p>
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
+                    <div className="flex items-center justify-between mb-4 px-1">
+                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] italic">Filter Lokasi</p>
+                        <div className="h-[1px] flex-1 bg-white/5 ml-4" />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar -mx-2 px-2">
                         <button
                             onClick={() => setSelectedVenueId('')}
-                            className={`whitespace-nowrap px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === '' ? 'bg-primary/20 border-primary text-primary' : 'bg-[#1a1f35] border-white/5 text-slate-500'}`}
+                            className={`flex-shrink-0 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === '' ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
                         >
-                            Global Arena
+                            🌍 Semua Cabang
                         </button>
                         {venues.map(v => (
                             <button
                                 key={v.id}
                                 onClick={() => setSelectedVenueId(v.id)}
-                                className={`whitespace-nowrap px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === v.id ? 'bg-primary/20 border-primary text-primary' : 'bg-[#1a1f35] border-white/5 text-slate-500'}`}
+                                className={`flex-shrink-0 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === v.id ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
                             >
-                                {v.name}
+                                📍 {v.name}
                             </button>
                         ))}
                     </div>

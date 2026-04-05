@@ -87,14 +87,14 @@ body {
 /* Navigation - Floating Dock Style */
 .fiery-nav {
   position: fixed;
-  bottom: 2rem;
-  left: 1.5rem;
-  right: 1.5rem;
+  bottom: 1.2rem;
+  left: 1.2rem;
+  right: 1.2rem;
   background: rgba(22, 24, 35, 0.85);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 2.2rem;
-  padding: 0.8rem 1.2rem;
+  padding: 0.6rem 0.8rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -110,7 +110,7 @@ body {
   color: var(--text-secondary);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0.5rem;
-  min-width: 3.5rem;
+  min-width: 3.2rem;
 }
 
 .nav-item.active {
