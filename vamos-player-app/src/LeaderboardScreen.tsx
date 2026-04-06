@@ -124,10 +124,10 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                         <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] italic">Filter Lokasi</p>
                         <div className="h-[1px] flex-1 bg-white/5 ml-4" />
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar -mx-2 px-2">
+                    <div className="flex items-center gap-3 overflow-x-auto pb-4 pt-1 scrollbar-hide no-scrollbar -mx-2 px-2 w-full">
                         <button
                             onClick={() => setSelectedVenueId('')}
-                            className={`flex-shrink-0 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === '' ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
+                            className={`whitespace-nowrap flex-shrink-0 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === '' ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
                         >
                             🌍 Semua Cabang
                         </button>
@@ -135,7 +135,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             <button
                                 key={v.id}
                                 onClick={() => setSelectedVenueId(v.id)}
-                                className={`flex-shrink-0 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === v.id ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
+                                className={`whitespace-nowrap flex-shrink-0 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === v.id ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
                             >
                                 📍 {v.name}
                             </button>
