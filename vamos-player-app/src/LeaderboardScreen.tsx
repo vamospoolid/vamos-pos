@@ -117,27 +117,25 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                 ))}
             </div>
 
-            {/* Location Selector Chips */}
-            {!searchQuery && (
-                <div className="px-4">
-                    <div className="flex items-center justify-between mb-4 px-1">
+            {!searchQuery && venues.length > 0 && (
+                <div className="mx-2">
+                    <div className="flex items-center justify-between mb-3 px-1 mt-4">
                         <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] italic">Filter Lokasi</p>
-                        <div className="h-[1px] flex-1 bg-white/5 ml-4" />
                     </div>
-                    <div className="flex items-center gap-3 overflow-x-auto pb-4 pt-1 scrollbar-hide no-scrollbar -mx-2 px-2 w-full">
+                    <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-2xl border border-white/5 overflow-x-auto scrollbar-hide no-scrollbar">
                         <button
                             onClick={() => setSelectedVenueId('')}
-                            className={`whitespace-nowrap flex-shrink-0 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === '' ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
+                            className={`flex-[0_0_auto] whitespace-nowrap px-5 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === '' ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
                         >
-                            🌍 Semua Cabang
+                            🌍 GLOBAL
                         </button>
                         {venues.map(v => (
                             <button
                                 key={v.id}
                                 onClick={() => setSelectedVenueId(v.id)}
-                                className={`whitespace-nowrap flex-shrink-0 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedVenueId === v.id ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}
+                                className={`flex-[0_0_auto] whitespace-nowrap px-5 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === v.id ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
                             >
-                                📍 {v.name}
+                                {v.name}
                             </button>
                         ))}
                     </div>
