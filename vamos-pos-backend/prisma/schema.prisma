@@ -537,7 +537,7 @@ model KingTable {
 model MatchChallenge {
   id              String   @id @default(uuid())
   challengerId    String
-  opponentId      String
+  opponentId      String?
   pointsStake     Int      @default(50)
   status          String   @default("PENDING")
   winnerId        String?

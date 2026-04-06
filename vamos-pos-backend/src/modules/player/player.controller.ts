@@ -10,45 +10,175 @@ export class PlayerController {
     static async createChallenge(req: Request, res: Response, next: NextFunction) {
         try {
             let { challengerId, opponentId, pointsStake, isFightForTable, sessionId, note } = req.body;
-            if (!challengerId || !opponentId) return res.status(400).json({ success: false, message: 'Both players are required' });
+            if (!challengerId) return res.status(400).json({ success: false, message: 'Challenger is required' });
+            
+            const isLobbyChallenge = !opponentId;
             
             // Trim just in case
             challengerId = challengerId.trim();
-            opponentId = opponentId.trim();
 
-            if (challengerId === opponentId) return res.status(400).json({ success: false, message: 'You cannot challenge yourself' });
-
-            // Ensure opponent exists
-            const opponent = await prisma.member.findUnique({ where: { id: opponentId } });
-            if (!opponent) return res.status(400).json({ success: false, message: 'Target ID tidak valid atau Player tidak ditemukan.' });
-
-            // Balance Check for Opponent (New Requirement)
             const stake = pointsStake || 0;
-            if ((opponent.loyaltyPoints || 0) < stake) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: `Saldo poin lawan (${opponent.loyaltyPoints}) tidak mencukupi untuk menerima tantangan ini (${stake} POIN).` 
-                });
+
+            // Ensure opponent exists if not a lobby challenge
+            if (!isLobbyChallenge) {
+                opponentId = opponentId?.trim();
+                if (challengerId === opponentId) return res.status(400).json({ success: false, message: 'You cannot challenge yourself' });
+
+                const opponent = await prisma.member.findUnique({ where: { id: opponentId } });
+                if (!opponent) return res.status(400).json({ success: false, message: 'Target ID tidak valid atau Player tidak ditemukan.' });
+
+                // Balance Check for Opponent
+                if ((opponent.loyaltyPoints || 0) < stake) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: `Saldo poin lawan (${opponent.loyaltyPoints}) tidak mencukupi untuk menerima tantangan ini (${stake} POIN).` 
+                    });
+                }
             }
 
             const challenge = await (prisma.matchChallenge as any).create({
                 data: {
                     challengerId,
-                    opponentId,
+                    opponentId: isLobbyChallenge ? null : opponentId,
                     pointsStake: stake,
                     isFightForTable: !!isFightForTable,
                     sessionId: sessionId || null,
                     note: note || null,
-                    status: 'PENDING'
+                    status: isLobbyChallenge ? 'OPEN' : 'PENDING'
                 },
                 include: { challenger: true, opponent: true }
             });
 
             const { getIO } = await import('../../socket');
-            getIO().emit(`challenge:new:${opponentId}`, challenge);
-            getIO().emit(`challenge:new_arena`, challenge);
+            if (!isLobbyChallenge) {
+                getIO().emit(`challenge:new:${opponentId}`, challenge);
+            }
+            getIO().emit(`challenge:new_arena`, challenge); // Notify lobby and POS
 
             res.json({ success: true, data: challenge });
+        } catch (error) { next(error); }
+    }
+
+    static async getLobbyChallenges(req: Request, res: Response, next: NextFunction) {
+        try {
+            const challenges = await (prisma.matchChallenge as any).findMany({
+                where: { 
+                    status: 'OPEN',
+                    opponentId: null
+                },
+                include: { 
+                    challenger: true, 
+                    session: { include: { table: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+            res.json({ success: true, data: challenges });
+        } catch (error) { next(error); }
+    }
+
+    static async acceptLobbyChallenge(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: challengeId } = req.params;
+            const { memberId } = req.body;
+
+            const challenge = await prisma.matchChallenge.findUnique({
+                where: { id: challengeId },
+                include: { challenger: true }
+            });
+
+            if (!challenge || challenge.status !== 'OPEN') {
+                return res.status(404).json({ success: false, message: 'Challenge is no longer available.' });
+            }
+
+            if (challenge.challengerId === memberId) {
+                return res.status(400).json({ success: false, message: 'You cannot accept your own challenge.' });
+            }
+
+            // Balance check for acceptor
+            const acceptor = await prisma.member.findUnique({ where: { id: memberId } });
+            if (!acceptor || (acceptor.loyaltyPoints || 0) < challenge.pointsStake) {
+                return res.status(400).json({ success: false, message: 'Poin Anda tidak mencukupi untuk menerima tantangan ini.' });
+            }
+
+            const updated = await (prisma.matchChallenge as any).update({
+                where: { id: challengeId },
+                data: {
+                    opponentId: memberId,
+                    status: 'ACCEPTED',
+                    updatedAt: new Date()
+                },
+                include: { challenger: true, opponent: true }
+            });
+
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:update:${updated.challengerId}`, updated);
+            getIO().emit(`challenge:update:${updated.opponentId}`, updated);
+            getIO().emit(`challenge:new_arena`, updated);
+
+            res.json({ success: true, data: updated });
+        } catch (error) { next(error); }
+    }
+
+    static async openMysteryBox(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { memberId } = req.body;
+            const COST = 50;
+
+            const member = await prisma.member.findUnique({ where: { id: memberId } });
+            if (!member || (member.loyaltyPoints || 0) < COST) {
+                return res.status(400).json({ success: false, message: 'Poin tidak cukup (Butuh 50 Poin)' });
+            }
+
+            // Gacha Logic
+            const rand = Math.random() * 100;
+            let rewardType = 'POINT_BONUS';
+            let amount = 10;
+            let description = 'Mystery Box: Zonk (10 Poin)';
+
+            if (rand > 95) { // 5% chance
+                rewardType = 'JACKPOT';
+                amount = 500;
+                description = '🔥 MYSTERY BOX: JACKPOT 500 POIN!';
+            } else if (rand > 80) { // 15% chance
+                rewardType = 'BIG_WIN';
+                amount = 100;
+                description = '⭐ MYSTERY BOX: BIG WIN 100 POIN!';
+            } else if (rand > 50) { // 30% chance
+                rewardType = 'SMALL_WIN';
+                amount = 30;
+                description = 'MYSTERY BOX: 30 Poin';
+            }
+
+            const result = await (prisma as any).$transaction(async (tx: any) => {
+                // Deduct cost
+                await tx.member.update({
+                    where: { id: memberId },
+                    data: { loyaltyPoints: { decrement: COST } }
+                });
+
+                // Add reward
+                const updated = await tx.member.update({
+                    where: { id: memberId },
+                    data: { 
+                        loyaltyPoints: { increment: amount },
+                        experience: { increment: 10 } // Give some XP for playing gacha
+                    }
+                });
+
+                const log = await tx.pointLog.create({
+                    data: {
+                        memberId,
+                        type: 'EARN_BONUS',
+                        points: amount - COST,
+                        description: description
+                    }
+                });
+
+                return { updated, description, amount, win: amount > COST };
+            });
+
+            res.json({ success: true, ...result });
+
         } catch (error) { next(error); }
     }
 

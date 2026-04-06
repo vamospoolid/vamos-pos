@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Clock, Info, CheckCircle2, UtensilsCrossed, X } from 'lucide-react';
 import { useAppStore } from './store/appStore';
 
@@ -13,7 +13,7 @@ export function ActiveSessionScreen() {
 
     // Track when session completes
     const [showMissionAccomplished, setShowMissionAccomplished] = useState(false);
-    const [wasActive, setWasActive] = useState(false);
+    const wasActive = useRef(false);
 
     // Periodic Data Refresh
     useEffect(() => {
@@ -27,27 +27,32 @@ export function ActiveSessionScreen() {
     // Check for session completion
     useEffect(() => {
         if (activeSession) {
-            setWasActive(true);
-        } else if (wasActive && !activeSession) {
+            wasActive.current = true;
+        } else if (wasActive.current && !activeSession) {
             // Session was active, but is no longer (assuming it was paid/completed)
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setShowMissionAccomplished(true);
-            setWasActive(false); // Reset so it doesn't trigger repeatedly
+            wasActive.current = false; // Reset so it doesn't trigger repeatedly
             setTimeout(() => {
                 setShowMissionAccomplished(false);
                 setActiveTab('dashboard');
             }, 6000); // Show for 6 seconds
         }
-    }, [activeSession, wasActive, setActiveTab]);
+    }, [activeSession, setActiveTab]);
 
     // Timer Logic
     useEffect(() => {
+        let isCancelled = false;
+
         if (!activeSession?.startTime) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setElapsedTime('00:00:00');
             setEstimatedCost(0);
             return;
         }
 
         const interval = setInterval(() => {
+            if (isCancelled) return;
             const start = new Date(activeSession.startTime).getTime();
             const now = new Date().getTime();
             const passedMs = now - start;
@@ -90,7 +95,10 @@ export function ActiveSessionScreen() {
             setEstimatedCost(Math.round(computedCost));
         }, 1000);
 
-        return () => clearInterval(interval);
+        return () => {
+            isCancelled = true;
+            clearInterval(interval);
+        };
     }, [activeSession]);
 
     if (showMissionAccomplished) {

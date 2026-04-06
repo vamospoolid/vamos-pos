@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 interface VamosLogoProps {
     className?: string;
@@ -11,7 +11,8 @@ export const VamosLogo: React.FC<VamosLogoProps> = ({
     style = {},
     glowing = false,
 }) => {
-    const styleId = `vgl${Math.random().toString(36).slice(2, 7)}`;
+    const idStr = useId().replace(/:/g, '');
+    const styleId = `vgl_${idStr}`;
 
     return (
         <div className="relative inline-block">

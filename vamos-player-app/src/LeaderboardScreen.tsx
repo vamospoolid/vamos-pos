@@ -24,7 +24,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
             try {
                 const res = await api.get('/player/leaderboard', { params: { venueId: selectedVenueId } });
                 if (res.data.success) setLeaderboard(res.data.data);
-            } catch (err) {}
+            } catch (err) { console.error(err); }
             finally { setLoadingLB(false); }
         };
         

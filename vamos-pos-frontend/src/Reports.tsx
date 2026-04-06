@@ -55,7 +55,6 @@ export default function Reports({
         return transactions.filter(t => (t.paymentMethod || 'CASH').toUpperCase().includes(txPaymentMethod));
     }, [transactions, txPaymentMethod]);
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
-    const todayLocal = new Date().toLocaleDateString('en-CA');
     const [startDate, setStartDate] = useState(''); // Initialize empty to force update
     const [endDate, setEndDate] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);

@@ -28,7 +28,9 @@ router.put('/profile', PlayerController.updateProfile);
 router.post('/:id/avatar', uploadAvatar.single('photo'), PlayerController.uploadAvatar);
 
 // Match Challenges
+router.get('/lobby-challenges', PlayerController.getLobbyChallenges);
 router.post('/challenge', PlayerController.createChallenge);
+router.put('/challenge/:id/accept-lobby', PlayerController.acceptLobbyChallenge);
 router.put('/challenge/:id/respond', PlayerController.respondToChallenge);
 router.post('/challenge/:id/respond', PlayerController.respondToChallenge);
 router.put('/challenge/:id/link-session', PlayerController.linkSession);
@@ -36,6 +38,7 @@ router.put('/challenge/:id/claim-victory', PlayerController.claimVictory);
 
 // Rewards
 router.get('/rewards', PlayerController.getRewards);
+router.post('/loyalty/mystery-box', PlayerController.openMysteryBox);
 router.post('/rewards/redeem', PlayerController.redeemReward);
 router.get('/rewards/redemptions/member/:memberId', PlayerController.getRedemptions);
 

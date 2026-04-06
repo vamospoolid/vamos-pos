@@ -9,6 +9,8 @@ import { api } from './api';
 export function PlayScreen({ member }: { member: any }) {
   const [kings, setKings] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
+  const [lobbyChallenges, setLobbyChallenges] = useState<any[]>([]);
+  const [loadingLobby, setLoadingLobby] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
   const [pendingOpponentId, setPendingOpponentId] = useState<string | null>(null);
@@ -26,21 +28,31 @@ export function PlayScreen({ member }: { member: any }) {
     try {
       const res = await api.get('/player/kings');
       if (res.data.success) setKings(res.data.data);
-    } catch (err) { }
+    } catch (err) { console.error(err); }
   }, []);
 
   const fetchChallenges = useCallback(async () => {
     try {
       const res = await api.get(`/player/${member.id}/challenges`);
       if (res.data.success) setChallenges(res.data.data);
-    } catch (err) { }
+    } catch (err) { console.error(err); }
   }, [member.id]);
+
+  const fetchLobbyChallenges = useCallback(async () => {
+    try {
+      setLoadingLobby(true);
+      const res = await api.get('/player/lobby-challenges');
+      if (res.data.success) setLobbyChallenges(res.data.data);
+    } catch (err) { console.error(err); } finally { setLoadingLobby(false); }
+  }, []);
 
   useEffect(() => {
     fetchKings();
     fetchChallenges();
+    fetchLobbyChallenges();
     const kingInterval = setInterval(fetchKings, 10000);
     const chalInterval = setInterval(fetchChallenges, 5000);
+    const lobbyInterval = setInterval(fetchLobbyChallenges, 10000);
 
     const socket = io('https://pos.vamospool.id');
     socket.on('king:updated', fetchKings);
@@ -54,12 +66,19 @@ export function PlayScreen({ member }: { member: any }) {
     // Listen for updates on my active challenges
     socket.on(`challenge:update:${member.id}`, fetchChallenges);
 
+    // Listen for global arena updates (lobby and POS)
+    socket.on('challenge:new_arena', () => {
+        fetchLobbyChallenges();
+        fetchChallenges();
+    });
+
     return () => {
       clearInterval(kingInterval);
       clearInterval(chalInterval);
+      clearInterval(lobbyInterval);
       socket.disconnect();
     };
-  }, [fetchKings, fetchChallenges, member.id]);
+  }, [fetchKings, fetchChallenges, fetchLobbyChallenges, member.id]);
 
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
@@ -111,7 +130,7 @@ export function PlayScreen({ member }: { member: any }) {
              scanner.stop().catch(() => {});
           }
           scanner.clear?.();
-        } catch (e) {}
+        } catch (e) { console.error(e); }
         scannerRef.current = null;
       }
     }
@@ -120,9 +139,10 @@ export function PlayScreen({ member }: { member: any }) {
   const handleDeployChallenge = async () => {
     if (!pendingOpponentId) return;
     try {
+        const isLobby = pendingOpponentId === 'LOBBY';
         const res = await api.post('/player/challenge', {
           challengerId: member.id,
-          opponentId: pendingOpponentId,
+          opponentId: isLobby ? null : pendingOpponentId,
           pointsStake: selectedStake, 
           isFightForTable,
           sessionId: isFightForTable ? activeSession?.id : null
@@ -131,7 +151,8 @@ export function PlayScreen({ member }: { member: any }) {
           setPendingOpponentId(null);
           setIsChoosingStake(false);
           fetchChallenges();
-          alert("PROTOCOL DEPLOYED. WAITING FOR RIVAL CONFIRMATION.");
+          fetchLobbyChallenges();
+          alert(isLobby ? "CHALLENGE POSTED TO LOBBY." : "PROTOCOL DEPLOYED. WAITING FOR RIVAL CONFIRMATION.");
         }
       } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
   };
@@ -170,6 +191,21 @@ export function PlayScreen({ member }: { member: any }) {
     } catch (err: any) { 
         alert(err.response?.data?.message || "RESPONSE FAILED."); 
         setIncomingChallenge(null);
+    }
+  };
+
+  const handleAcceptLobby = async (challengeId: string) => {
+    try {
+        const res = await api.put(`/player/challenge/${challengeId}/accept-lobby`, {
+            memberId: member.id
+        });
+        if (res.data.success) {
+            fetchChallenges();
+            fetchLobbyChallenges();
+            alert("CHALLENGE ACCEPTED! MAY THE BEST PLAYER WIN.");
+        }
+    } catch (err: any) { 
+        alert(err.response?.data?.message || "FAILED TO JOIN ARENA."); 
     }
   };
 
@@ -250,6 +286,75 @@ export function PlayScreen({ member }: { member: any }) {
           </div>
           <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] italic">Scan Rival</p>
         </button>
+      </div>
+
+      {/* ─── ARENA LOBBY SECTION ────────────────────────────────────────────── */}
+      <div className="space-y-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-3">
+              <Swords className={`w-5 h-5 text-primary ${loadingLobby ? 'animate-pulse' : ''}`} />
+              Arena Lobby
+            </h2>
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Hadirkan Tantangan Terbuka</p>
+          </div>
+          <button 
+            onClick={() => {
+                setPendingOpponentId('LOBBY'); // Special marker for lobby
+                setIsChoosingStake(true);
+            }}
+            className="px-6 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest italic hover:bg-primary/20 active:scale-95 transition-all"
+          >
+            Post Challenge
+          </button>
+        </div>
+
+        {lobbyChallenges.length === 0 ? (
+          <div className="fiery-card py-12 text-center border-dashed border-white/5 opacity-40">
+            <p className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Lobby is quiet. Be the first to deploy.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {lobbyChallenges.filter(c => c.challengerId !== member.id).map((chal) => (
+                <div key={chal.id} className="fiery-card p-6 flex items-center justify-between bg-gradient-to-r from-[#1a1f35]/40 to-transparent border-white/5">
+                    <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 rounded-xl bg-[#101423] border border-white/5 overflow-hidden">
+                           {chal.challenger.photo ? (
+                             <img src={chal.challenger.photo} alt="CH" className="w-full h-full object-cover" />
+                           ) : (
+                             <div className="w-full h-full flex items-center justify-center text-primary font-black uppercase">{chal.challenger.name[0]}</div>
+                           )}
+                        </div>
+                        <div>
+                            <p className="text-xs font-black text-white uppercase italic truncate max-w-[120px]">{chal.challenger.name}</p>
+                            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic mt-0.5">Stake: {chal.pointsStake} Poin</p>
+                        </div>
+                    </div>
+
+                    <button onClick={() => handleAcceptLobby(chal.id)} 
+                        className="fiery-btn-primary px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-secondary shadow-primary/20 active:scale-95 transition-all">
+                        Lawan!
+                    </button>
+                </div>
+            ))}
+
+            {/* My Active Lobby Posting */}
+            {lobbyChallenges.filter(c => c.challengerId === member.id).map((chal) => (
+                <div key={chal.id} className="fiery-card p-6 flex items-center justify-between bg-primary/5 border-primary/20 border-dashed">
+                    <div className="flex items-center gap-6 opacity-60">
+                        <Swords className="w-5 h-5 text-primary" />
+                        <div>
+                            <p className="text-xs font-black text-white uppercase italic">Your Challenge Active</p>
+                            <p className="text-[8px] font-black text-primary uppercase tracking-widest italic mt-0.5">Waiting for rival...</p>
+                        </div>
+                    </div>
+                    <div className="px-5 py-2 rounded-xl bg-[#101423] border border-white/5">
+                        <span className="text-[9px] font-black text-slate-500 uppercase italic">{chal.pointsStake} PSS</span>
+                    </div>
+                </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ─── KINGS OF THE ARENA ─────────────────────────────────────────────── */}

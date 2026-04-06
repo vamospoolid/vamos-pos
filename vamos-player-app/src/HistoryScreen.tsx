@@ -21,7 +21,7 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
         if (sessionRes.data.success) setSessions(sessionRes.data.data);
         if (debtRes.data.success) setDebts(debtRes.data.data);
         if (matchRes.data.success) setMatches(matchRes.data.data);
-      } catch (err) {}
+      } catch (err) { console.error(err); }
       setLoading(false);
     };
     fetchData();

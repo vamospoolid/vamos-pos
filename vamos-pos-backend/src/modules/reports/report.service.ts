@@ -107,25 +107,28 @@ export class ReportService {
         let datesToProcess: { start: Date, end: Date, label: string }[] = [];
 
         if (startDateStr && endDateStr) {
-            const startParam = new Date(startDateStr);
-            startParam.setHours(0, 0, 0, 0);
-            const endParam = new Date(endDateStr);
-            endParam.setHours(23, 59, 59, 999);
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
+            
+            const startParam = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            const endParam = new Date(Date.UTC(eYear, eMonth - 1, eDay));
 
             if (startParam <= endParam) {
                 let currentDate = new Date(startParam);
+                const openHour = await ReportService.getOpenHour();
                 while (currentDate <= endParam) {
-                    const start = new Date(currentDate);
-                    start.setHours(await ReportService.getOpenHour(), 0, 0, 0);
+                    const startLocal = new Date(currentDate);
+                    startLocal.setUTCHours(openHour, 0, 0, 0);
 
-                    const end = new Date(start);
-                    end.setDate(end.getDate() + 1);
-                    end.setMilliseconds(end.getMilliseconds() - 1);
+                    // Convert to UTC by subtracting 8 hours (WITA)
+                    const start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+                    
+                    const end = new Date(start.getTime() + (24 * 60 * 60 * 1000) - 1);
 
-                    const label = start.toISOString().split('T')[0];
+                    const label = startLocal.toISOString().split('T')[0];
                     datesToProcess.push({ start, end, label });
 
-                    currentDate.setDate(currentDate.getDate() + 1);
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
                 }
             }
         } else {
@@ -314,14 +317,17 @@ export class ReportService {
         let lteDate: Date;
 
         if (startDateStr && endDateStr) {
-            // Use same operational-day boundary as getDailyRevenue for consistency
-            gteDate = new Date(startDateStr);
-            gteDate.setHours(openHour, 0, 0, 0);
-            const endParam = new Date(endDateStr);
-            endParam.setDate(endParam.getDate() + 1);
-            endParam.setHours(openHour, 0, 0, 0);
-            endParam.setMilliseconds(endParam.getMilliseconds() - 1);
-            lteDate = endParam;
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
+
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            gteDate = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            lteDate = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -384,16 +390,18 @@ export class ReportService {
         let end: Date;
 
         if (startDateStr && endDateStr) {
-            const rangeStart = await ReportService.getOperationalDayBounds(0); // Dummy call to get openHour
             const openHour = await ReportService.getOpenHour();
-            
-            start = new Date(startDateStr);
-            start.setHours(openHour, 0, 0, 0);
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
-            end = new Date(endDateStr);
-            end.setDate(end.getDate() + 1);
-            end.setHours(openHour, 0, 0, 0);
-            end.setMilliseconds(end.getMilliseconds() - 1);
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            end = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -455,13 +463,17 @@ export class ReportService {
 
         if (startDateStr && endDateStr) {
             const openHour = await ReportService.getOpenHour();
-            start = new Date(startDateStr);
-            start.setHours(openHour, 0, 0, 0);
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
-            end = new Date(endDateStr);
-            end.setDate(end.getDate() + 1);
-            end.setHours(openHour, 0, 0, 0);
-            end.setMilliseconds(end.getMilliseconds() - 1);
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            end = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -502,14 +514,18 @@ export class ReportService {
         let lteDate: Date | undefined;
 
         if (startDateStr && endDateStr) {
-            gteDate = new Date(startDateStr);
-            gteDate.setHours(await ReportService.getOpenHour(), 0, 0, 0);
-            
-            const endDate = new Date(endDateStr);
-            endDate.setDate(endDate.getDate() + 1);
-            endDate.setHours(await ReportService.getOpenHour(), 0, 0, 0);
-            endDate.setMilliseconds(endDate.getMilliseconds() - 1);
-            lteDate = endDate;
+            const openHour = await ReportService.getOpenHour();
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
+
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            gteDate = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            lteDate = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
         } else {
             // Always set both bounds to prevent unbounded queries
             const { start } = await ReportService.getOperationalDayBounds(days - 1);

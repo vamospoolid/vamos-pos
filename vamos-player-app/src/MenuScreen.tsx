@@ -51,7 +51,8 @@ export function MenuScreen() {
             const existing = prev[productId];
             if (!existing) return prev;
             if (existing.quantity <= 1) {
-                const { [productId]: _, ...rest } = prev;
+                const rest = { ...prev };
+                delete rest[productId];
                 return rest;
             }
             return {

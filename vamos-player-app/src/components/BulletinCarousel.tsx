@@ -13,7 +13,7 @@ export function BulletinCarousel() {
         if (res.data.success) {
           setAnnouncements(res.data.data);
         }
-      } catch (err) {}
+      } catch (err) { console.error(err); }
     };
     fetch();
   }, []);

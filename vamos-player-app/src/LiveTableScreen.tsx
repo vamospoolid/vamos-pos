@@ -12,7 +12,7 @@ export function LiveTableScreen({ member }: { member: any }) {
       try {
         const res = await api.get('/player/tables');
         if (res.data.success) setTables(res.data.data);
-      } catch (err) {}
+      } catch (err) { console.error(err); }
     };
     fetchTables();
     const interval = setInterval(fetchTables, 15000);
