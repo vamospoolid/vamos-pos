@@ -627,12 +627,24 @@ function MainApp() {
 
 export default function App() { 
   const [showSplash, setShowSplash] = useState(true);
+  const [venueInfo, setVenueInfo] = useState<any>(null);
+
+  useEffect(() => {
+    api.get('/player/venues').then(res => {
+      if (res.data.success && res.data.data.length > 0) {
+        setVenueInfo(res.data.data[0]);
+      }
+    }).catch(() => {});
+  }, []);
+
   
   return (
     <>
       {showSplash && (
         <SplashScreen 
           duration={3000} 
+          logoUrl={venueInfo?.splashImageUrl}
+          title={venueInfo?.name || "ARENA FIGHT"}
           onComplete={() => setShowSplash(false)} 
         />
       )}

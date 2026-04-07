@@ -22,7 +22,8 @@ export default function Settings() {
         servicePercent: 5,
         blinkWarningMinutes: 5,
         isSyncEnabled: true,
-        syncIntervalSeconds: 30
+        syncIntervalSeconds: 30,
+        splashImageUrl: ''
     });
 
     // Form Table
@@ -86,7 +87,8 @@ export default function Settings() {
                     servicePercent: serpongVenue.servicePercent ?? 5,
                     blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5,
                     isSyncEnabled: serpongVenue.isSyncEnabled ?? true,
-                    syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30
+                    syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
+                    splashImageUrl: serpongVenue.splashImageUrl || ''
                 });
             }
         } catch (err) {
@@ -140,6 +142,21 @@ export default function Settings() {
         } catch (err) {
             vamosAlert('Failed to save venue settings');
         }
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit 
+            return vamosAlert('Gambar terlalu besar! Maksimal 2MB.');
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setVenueForm({ ...venueForm, splashImageUrl: reader.result as string });
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSaveTable = async () => {
@@ -365,6 +382,44 @@ export default function Settings() {
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Address / Tagline</label>
                                     <textarea rows={2} value={venueForm.address} onChange={e => setVenueForm({ ...venueForm, address: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none" />
+                                </div>
+                                <div className="p-4 bg-[#111] border border-[#222] rounded-xl">
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Splash Screen Logo</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] border border-[#222] overflow-hidden flex items-center justify-center">
+                                            {venueForm.splashImageUrl ? (
+                                                <img src={venueForm.splashImageUrl} alt="Splash" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
+                                                    <Plus className="w-5 h-5 text-blue-500" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <input 
+                                                type="file" 
+                                                id="splash-upload" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={handleImageUpload} 
+                                            />
+                                            <label 
+                                                htmlFor="splash-upload" 
+                                                className="inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-500 text-[9px] font-bold rounded cursor-pointer hover:bg-blue-500 hover:text-white transition-all uppercase tracking-widest"
+                                            >
+                                                {venueForm.splashImageUrl ? 'Ganti Logo' : 'Upload Logo'}
+                                            </label>
+                                            {venueForm.splashImageUrl && (
+                                                <button 
+                                                    onClick={() => setVenueForm({ ...venueForm, splashImageUrl: '' })}
+                                                    className="ml-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-500 text-[9px] font-bold rounded hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            )}
+                                            <p className="text-[8px] text-gray-600 mt-2 font-medium italic">* Recommend: PNG Transparan atau SVG 1:1</p>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
