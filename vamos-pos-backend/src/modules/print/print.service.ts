@@ -102,11 +102,14 @@ export class PrintService {
             // Cut and Feed
             printer.cut();
             
+            logger.info(`✅ [PRINT_DEBUG] Menyiapkan data raw untuk dikirim ke ${printerInterface}...`);
             await printer.execute();
+            logger.info(`✨ [PRINT_DEBUG] Perintah cetak berhasil dikirim ke spooler Windows.`);
             return { success: true };
         } catch (error: any) {
-            logger.error('❌ Print Error:', error.message);
-            return { success: false, error: error.message };
+            logger.error(`❌ [PRINT_DEBUG] Gagal saat mencetak raw: ${error.message}`);
+            // Throw error so PrinterService can try fallback method
+            throw error;
         }
     }
 }
