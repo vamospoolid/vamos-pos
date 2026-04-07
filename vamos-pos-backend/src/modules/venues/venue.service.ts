@@ -37,16 +37,31 @@ export class VenueService {
         return venue;
     }
 
-    static async updateVenue(id: string, data: { name?: string; address?: string; openTime?: string; closeTime?: string; relayComPort?: string; taxPercent?: number; servicePercent?: number; printerPath?: string; blinkWarningMinutes?: number; isSyncEnabled?: boolean; syncIntervalSeconds?: number; splashImageUrl?: string }) {
+    static async updateVenue(id: string, data: { 
+        name?: string; 
+        address?: string; 
+        openTime?: string; 
+        closeTime?: string; 
+        relayComPort?: string; 
+        taxPercent?: number; 
+        servicePercent?: number; 
+        printerPath?: string; 
+        blinkWarningMinutes?: number; 
+        isSyncEnabled?: boolean; 
+        syncIntervalSeconds?: number; 
+        splashImageUrl?: string;
+        phone?: string;
+        waVerificationText?: string;
+    }) {
         const venue = await prisma.venue.findFirst({ where: { id, deletedAt: null } });
         if (!venue) {
             throw new AppError('Venue not found', 404);
         }
 
-        // PROTECTION: Jangan timpa data dengan string Kosong (hasil race condition frontend)
         const updateData: any = { ...data };
+        
+        // Anti-blank protection for critical core fields
         if (updateData.name === '') delete updateData.name;
-        if (updateData.address === '') delete updateData.address;
         if (updateData.relayComPort === '') delete updateData.relayComPort;
 
         const updated = await prisma.venue.update({
