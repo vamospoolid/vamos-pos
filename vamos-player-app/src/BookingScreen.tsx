@@ -417,17 +417,20 @@ export function BookingScreen() {
                                 >
                                     {!isAvailable && (
                                         <div className="absolute inset-0 flex items-center justify-center z-20">
-                                            <div className="bg-black/60 backdrop-blur-sm rounded-full p-1 border border-white/10">
-                                                <Box className="w-3 h-3 text-white/40" />
+                                            <div className="bg-black/80 backdrop-blur-sm rounded-full p-2 border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+                                                <div className="relative">
+                                                    <div className="absolute inset-0 bg-red-500/20 rounded-full blur-md animate-pulse" />
+                                                    <Loader2 className="w-4 h-4 text-slate-500 flex-shrink-0" /> {/* Reusing an icon representing a lock/blocked state if Lock not imported, or using a simple dot */}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
                                     <div className={`${isSelected ? 'text-primary' : isAvailable ? 'text-slate-600' : 'text-slate-800'} transition-colors`}>
-                                        {type.icon}
+                                        {isAvailable ? type.icon : <div className="opacity-20">{type.icon}</div>}
                                     </div>
                                     <div className="mt-1">
-                                        <h4 className="font-black text-[9px] text-white leading-tight uppercase tracking-widest italic">{type.name}</h4>
-                                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest italic mt-0.5">{isAvailable ? type.capacity : 'LOCKED'}</p>
+                                        <h4 className={`font-black text-[9px] uppercase tracking-widest italic ${isAvailable ? 'text-white' : 'text-slate-700'}`}>{type.name}</h4>
+                                        <p className="text-[9px] text-slate-800 font-black uppercase tracking-widest italic mt-0.5">LOCKED</p>
                                     </div>
                                 </button>
                             );

@@ -1143,7 +1143,8 @@ export class PlayerController {
             });
 
             const TIME_SLOTS = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:30", "21:00", "22:30", "00:00"];
-            const tableTypes = ['REGULAR', 'VIP', 'VVIP'];
+            const existingTypes = [...new Set(tables.map(t => t.type))];
+            const tableTypes = ['REGULAR', 'VIP', 'VVIP'].filter(type => existingTypes.includes(type));
 
             const availabilityBySlot: Record<string, any> = {};
 
