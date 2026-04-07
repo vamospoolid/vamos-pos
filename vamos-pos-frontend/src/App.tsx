@@ -2548,6 +2548,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   try {
                     // Try silent print first via Smart Bridge
                     await api.post(`/sessions/${receiptData.id}/reprint`);
+                    vamosAlert('Perintah cetak dikirim ke printer!');
                     setReceiptData(null);
                   } catch (err) {
                     // Fallback to traditional browser print if bridge/API fails
