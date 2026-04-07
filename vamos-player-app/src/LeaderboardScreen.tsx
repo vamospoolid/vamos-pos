@@ -9,31 +9,8 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     const [loadingH2H, setLoadingH2H] = useState(false);
     const [activeTab, setActiveTab] = useState<'allTime' | 'monthly' | 'streak' | 'hof'>('allTime');
     
-    const [venues, setVenues] = useState<any[]>([]);
-    const [selectedVenueId, setSelectedVenueId] = useState<string>('');
     const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
     const [loadingLB, setLoadingLB] = useState(false);
-
-    useEffect(() => {
-        api.get('/player/venues').then(res => setVenues(res.data.data)).catch(() => {});
-    }, []);
-
-    useEffect(() => {
-        const fetchFiltered = async () => {
-            setLoadingLB(true);
-            try {
-                const res = await api.get('/player/leaderboard', { params: { venueId: selectedVenueId } });
-                if (res.data.success) setLeaderboard(res.data.data);
-            } catch (err) { console.error(err); }
-            finally { setLoadingLB(false); }
-        };
-        
-        if (selectedVenueId || loadingLB) {
-            fetchFiltered();
-        } else {
-            setLeaderboard(initialLeaderboard);
-        }
-    }, [selectedVenueId]);
 
     const currentListData = useMemo(() => {
         switch(activeTab) {
@@ -116,29 +93,6 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                     </button>
                 ))}
             </div>
-
-            {!searchQuery && venues.length > 0 && (
-                <div className="mx-2 space-y-3 mt-12 relative z-20">
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] pl-3 italic">Filter Lokasi</p>
-                    <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-[22px] border border-white/5 overflow-x-auto scrollbar-hide gap-1.5">
-                        <button
-                            onClick={() => setSelectedVenueId('')}
-                            className={`flex-none px-6 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === '' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            Global
-                        </button>
-                        {venues.map(v => (
-                            <button
-                                key={v.id}
-                                onClick={() => setSelectedVenueId(v.id)}
-                                className={`flex-none px-6 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === v.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
-                            >
-                                {v.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {loadingLB ? (
                 <div className="py-20 text-center">
