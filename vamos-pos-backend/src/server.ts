@@ -48,7 +48,8 @@ logger.info('🚀 SYSTEM STARTING: Access First mode active. Hardware scanning i
 const app = express();
 
 app.use(helmet({
-    crossOriginOpenerPolicy: false, // Prevents the COOP error shown in console
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Improved CORS for Local Bridge & Cloud UI Synergy
