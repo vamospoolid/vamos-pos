@@ -252,7 +252,7 @@ export default function Members() {
                                         <td className="py-4 px-4 flex items-center space-x-3">
                                             {m.photo ? (
                                                 <img 
-                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL?.replace('/api', '')}${m.photo}`} 
+                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL}/player/avatar-view/${m.photo.split('/').pop()}`} 
                                                     alt={m.name} 
                                                     className="w-10 h-10 rounded-full object-cover border border-[#222222]" 
                                                 />
@@ -392,7 +392,7 @@ export default function Members() {
                                                         <div style={{ width: '220px', height: '220px', borderRadius: '60px', backgroundColor: '#0a0d18', border: '4px solid rgba(59,130,246,0.2)', padding: '5px', overflow: 'hidden' }}>
                                                             {m.photo ? (
                                                                 <img 
-                                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL?.replace('/api', '')}${m.photo}`} 
+                                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL}/player/avatar-view/${m.photo.split('/').pop()}`} 
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '55px' }} 
                                                                 />
                                                             ) : (
@@ -455,7 +455,7 @@ export default function Members() {
                                 <label className="cursor-pointer group relative">
                                     {formData.photo ? (
                                         <img 
-                                            src={formData.photo.startsWith('data:') || formData.photo.startsWith('http') ? formData.photo : `${api.defaults.baseURL?.replace('/api', '')}${formData.photo}`} 
+                                            src={formData.photo.startsWith('data:') || formData.photo.startsWith('http') ? formData.photo : `${api.defaults.baseURL}/player/avatar-view/${formData.photo.split('/').pop()}`} 
                                             alt="Preview" 
                                             className="w-24 h-24 rounded-full object-cover border-2 border-[#222222] group-hover:border-[#00ff66] transition-colors" 
                                         />
