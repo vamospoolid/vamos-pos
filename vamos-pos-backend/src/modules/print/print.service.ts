@@ -4,21 +4,24 @@ import { logger } from '../../utils/logger';
 export class PrintService {
     static async printReceipt(data: any) {
         try {
-            // Standard config for 58mm thermal printers (Usually RP58)
+            const printerInterface = `printer:${data.venue?.printerPath || 'RP58 Printer'}`;
+            logger.info(`🔍 [PRINT_DEBUG] Mencoba cetak ke: ${printerInterface}`);
+
             const printer = new ThermalPrinter({
-                type: PrinterTypes.EPSON, // HaoYin usually Epson compatible
-                interface: `printer:${data.venue?.printerPath || 'RP58 Printer'}`, // Dynamic from Settings
+                type: PrinterTypes.EPSON,
+                interface: printerInterface,
                 characterSet: CharacterSet.PC437_USA,
                 removeSpecialCharacters: false,
                 lineCharacter: "=",
-                width: 32, // Standard for 58mm is 32 columns
+                width: 32,
             });
 
             const isConnected = await printer.isPrinterConnected();
             if (!isConnected) {
-                logger.error('❌ Printer RP58 Printer tidak ditemukan atau mati.');
+                logger.error(`❌ [PRINT_DEBUG] Printer "${printerInterface}" TIDAK ditemukan. Silakan cek kabel atau penulisan nama printer di Settings.`);
                 return { success: false, message: 'Printer not connected' };
             }
+            logger.info(`✅ [PRINT_DEBUG] Printer Terdeteksi! Memulai pencetakan...`);
 
             // --- START PRINTING ---
             printer.alignCenter();
