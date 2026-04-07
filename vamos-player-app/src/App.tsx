@@ -562,7 +562,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
   );
 }
 
-function MainApp() {
+function MainApp({ venueInfo }: { venueInfo: any }) {
   const { member, setMember, activeTab, setActiveTab, refreshMemberData } = useAppStore();
   const [tournaments, setTournaments] = useState([]);
   const [leaderboard, setLeaderboard] = useState<{allTime: any[], monthly: any[], activeKings: any[], hallOfFame: any[]}>({allTime: [], monthly: [], activeKings: [], hallOfFame: []});
@@ -600,8 +600,8 @@ function MainApp() {
     <div className="min-h-screen bg-[#070b14] text-white flex flex-col relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-white/5">
       {activeNotification && <VictoryNotification challenge={activeNotification} currentMemberId={member.id} onClose={() => setActiveNotification(null)} />}
       <div className="flex justify-between items-center px-6 pt-10 pb-4 relative z-30">
-        <div className="flex items-center gap-3"><VamosLogo className="w-10 h-10" glowing /><h1 onClick={() => setActiveTab('dashboard')} className="text-xl font-black italic uppercase cursor-pointer leading-none">ARENA<span className="text-primary italic">FIGHT</span></h1></div>
-        <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{member.photo ? <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL?.replace('/api', '')}${member.photo}`} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
+        <div className="flex items-center gap-3"><VamosLogo className="w-10 h-10" glowing /><h1 onClick={() => setActiveTab('dashboard')} className="text-xl font-black italic uppercase cursor-pointer leading-none">{venueInfo?.name?.split(' ')[0] || "VAMOS"}<span className="text-primary italic">{venueInfo?.name?.split(' ')[1] || "POOL"}</span></h1></div>
+        <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{member.photo ? <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL}/player/avatar-view/${member.photo.split('/').pop()}`} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
         {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} />}
@@ -652,7 +652,7 @@ export default function App() {
           onComplete={() => setShowSplash(false)} 
         />
       )}
-      <MainApp />
+      <MainApp venueInfo={venueInfo} />
     </>
   );
 }
