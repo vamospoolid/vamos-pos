@@ -38,6 +38,7 @@ model Venue {
   taxPercent          Float     @default(11)
   isSyncEnabled       Boolean   @default(true)
   syncIntervalSeconds Int       @default(30)
+  splashImageUrl      String?
   tables              Table[]
 }
 

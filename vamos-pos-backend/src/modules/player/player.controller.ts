@@ -1639,7 +1639,7 @@ export class PlayerController {
         try {
             const venues = await prisma.venue.findMany({
                 where: { deletedAt: null },
-                select: { id: true, name: true, address: true }
+                select: { id: true, name: true, address: true, splashImageUrl: true }
             });
             res.json({ success: true, data: venues });
         } catch (error) { next(error); }
