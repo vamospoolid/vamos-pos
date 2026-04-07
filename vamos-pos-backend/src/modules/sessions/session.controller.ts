@@ -97,3 +97,10 @@ export const updateSession = catchAsync(async (req: AuthRequest, res: Response) 
     const result = await SessionService.updateSession(id, req.body, req.user!.id);
     res.json(result);
 });
+
+export const reprintReceipt = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    // Trigger real-time print via Smart Bridge
+    PrinterService.printReceipt(id);
+    res.json({ success: true, message: 'Print command sent' });
+});

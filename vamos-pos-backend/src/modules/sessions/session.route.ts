@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { startSession, endSession, pendingSession, paySession, payAsDebt, getActive, getPending, moveSession, addDuration, createFnbOnly, updateSession } from './session.controller';
+import { startSession, endSession, pendingSession, paySession, payAsDebt, getActive, getPending, moveSession, addDuration, createFnbOnly, updateSession, reprintReceipt } from './session.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
@@ -15,6 +15,7 @@ router.post('/pending', authorizeRoles('ADMIN', 'KASIR'), pendingSession);
 router.post('/:id/pay', authorizeRoles('ADMIN', 'KASIR'), paySession);
 router.post('/:id/pay-debt', authorizeRoles('ADMIN', 'KASIR'), payAsDebt);
 router.post('/fnb-only', authorizeRoles('ADMIN', 'KASIR'), createFnbOnly);
+router.post('/:id/reprint', authorizeRoles('ADMIN', 'KASIR'), reprintReceipt);
 router.get('/active', authorizeRoles('ADMIN', 'KASIR', 'OWNER'), getActive);
 router.get('/pending', authorizeRoles('ADMIN', 'KASIR', 'OWNER'), getPending);
 

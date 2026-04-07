@@ -2544,7 +2544,16 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 Tutup
               </button>
               <button
-                onClick={() => { window.print(); }}
+                onClick={async () => {
+                  try {
+                    // Try silent print first via Smart Bridge
+                    await api.post(`/sessions/${receiptData.id}/reprint`);
+                    setReceiptData(null);
+                  } catch (err) {
+                    // Fallback to traditional browser print if bridge/API fails
+                    window.print();
+                  }
+                }}
                 className="flex-1 py-3 rounded-xl font-bold text-sm flex justify-center items-center gap-2 transition-all"
                 style={{ background: '#00ff66', color: '#0a0a0a', boxShadow: '0 0 15px rgba(0,255,102,0.2)' }}
               >
