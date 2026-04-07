@@ -114,6 +114,7 @@ app.get('/api/system/bridge-status', (req, res) => {
 // Serve Frontend Static Files (Unified Build)
 const publicPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicPath));
+app.use('/uploads', express.static(path.join(publicPath, 'uploads')));
 
 // Handle SPA routing (redirect all non-api to index.html)
 app.get('*', (req, res, next) => {
