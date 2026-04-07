@@ -149,20 +149,21 @@ button {
     visibility: visible;
   }
 
-  /* Position receipt at top-left and force width */
+  /* Position receipt at top-left and force width to PHYSICAL PRINTABLE AREA (usually ~48mm for 58mm rolls) */
   #printable-receipt {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 58mm !important;
-    max-width: 58mm !important;
+    width: 48mm !important; 
+    max-width: 48mm !important;
     margin: 0 !important;
-    padding: 2mm !important;
+    padding: 1mm !important;
     background: white !important;
     color: black !important;
-    font-size: 10px !important;
-    line-height: 1.2 !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
     display: block !important;
+    overflow: hidden !important;
   }
 
   /* Force parents to not restrict size or add padding */
