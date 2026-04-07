@@ -124,6 +124,11 @@ button {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@page {
+  size: 58mm auto;
+  margin: 0;
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -138,12 +143,13 @@ button {
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 58mm;
     margin: 0;
-    padding: 10px;
+    padding: 2mm;
     background: white !important;
     color: black !important;
-    font-size: 12px;
+    font-size: 10px;
+    line-height: 1.2;
   }
 
   #printable-receipt * {
