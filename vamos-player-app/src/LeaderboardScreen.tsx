@@ -118,22 +118,20 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
             </div>
 
             {!searchQuery && venues.length > 0 && (
-                <div className="mx-2">
-                    <div className="flex items-center justify-between mb-3 px-1 mt-4">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] italic">Filter Lokasi</p>
-                    </div>
-                    <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-2xl border border-white/5 overflow-x-auto scrollbar-hide no-scrollbar">
+                <div className="mx-2 space-y-3 mt-12 relative z-20">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] pl-3 italic">Filter Lokasi</p>
+                    <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-[22px] border border-white/5 overflow-x-auto scrollbar-hide gap-1.5">
                         <button
                             onClick={() => setSelectedVenueId('')}
-                            className={`flex-[0_0_auto] whitespace-nowrap px-5 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === '' ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                            className={`flex-none px-6 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === '' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
                         >
-                            🌍 GLOBAL
+                            Global
                         </button>
                         {venues.map(v => (
                             <button
                                 key={v.id}
                                 onClick={() => setSelectedVenueId(v.id)}
-                                className={`flex-[0_0_auto] whitespace-nowrap px-5 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === v.id ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                                className={`flex-none px-6 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedVenueId === v.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-white'}`}
                             >
                                 {v.name}
                             </button>
