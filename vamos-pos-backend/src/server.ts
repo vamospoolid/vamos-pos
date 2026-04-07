@@ -49,7 +49,7 @@ const app = express();
 
 app.use(helmet({
     crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: false, // MATIKAN pemblokiran lintas domain secara total
 }));
 
 // Improved CORS for Local Bridge & Cloud UI Synergy
