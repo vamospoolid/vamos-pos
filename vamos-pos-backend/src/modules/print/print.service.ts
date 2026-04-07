@@ -1,5 +1,7 @@
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer';
 import { logger } from '../../utils/logger';
+import path from 'path';
+import fs from 'fs';
 
 export class PrintService {
     static async printReceipt(data: any) {
@@ -102,13 +104,29 @@ export class PrintService {
             // Cut and Feed
             printer.cut();
             
-            logger.info(`✅ [PRINT_DEBUG] Menyiapkan data raw untuk dikirim ke ${printerInterface}...`);
-            await printer.execute();
-            logger.info(`✨ [PRINT_DEBUG] Perintah cetak berhasil dikirim ke spooler Windows.`);
-            return { success: true };
+            const buffer = printer.getBuffer();
+            const tempFile = path.join(process.cwd(), 'receipt.bin');
+            const { execSync } = await import('child_process');
+            
+            fs.writeFileSync(tempFile, buffer);
+            
+            const shareName = data.venue?.printerPath === 'RP58 Printer' ? 'RP58' : data.venue?.printerPath;
+            logger.info(`✅ [PRINT_DEBUG] Mengirim data raw ke shared printer: \\\\localhost\\${shareName}...`);
+            
+            try {
+                // Command sakti Windows untuk kirim raw bytes ke printer shared
+                execSync(`copy /b "${tempFile}" "\\\\localhost\\${shareName}"`);
+                logger.info(`✨ [PRINT_DEBUG] Sukses! Kertas harusnya sudah keluar.`);
+                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+                return { success: true };
+            } catch (cmdErr: any) {
+                logger.warn(`⚠️ Jalur Shared gagal, mencoba jalur Out-Printer (PowerShell)...`);
+                execSync(`powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name '${data.venue?.printerPath || 'RP58 Printer'}'"`);
+                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+                return { success: true };
+            }
         } catch (error: any) {
-            logger.error(`❌ [PRINT_DEBUG] Gagal saat mencetak raw: ${error.message}`);
-            // Throw error so PrinterService can try fallback method
+            logger.error(`❌ [PRINT_DEBUG] Gagal total: ${error.message}`);
             throw error;
         }
     }
