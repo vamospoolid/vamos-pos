@@ -11,6 +11,7 @@ import { HistoryScreen } from './HistoryScreen';
 import { PlayScreen } from './PlayScreen';
 import { useAppStore } from './store/appStore';
 import { VamosLogo } from './components/VamosLogo';
+import { SplashScreen } from './components/SplashScreen';
 
 // ═══════════════════════════════════════════════
 // FALLBACK MOCK DATA (if DB is empty)
@@ -624,4 +625,18 @@ function MainApp() {
   );
 }
 
-export default function App() { return <MainApp />; }
+export default function App() { 
+  const [showSplash, setShowSplash] = useState(true);
+  
+  return (
+    <>
+      {showSplash && (
+        <SplashScreen 
+          duration={3000} 
+          onComplete={() => setShowSplash(false)} 
+        />
+      )}
+      <MainApp />
+    </>
+  );
+}

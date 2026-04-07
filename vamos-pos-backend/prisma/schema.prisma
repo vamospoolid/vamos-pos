@@ -549,7 +549,7 @@ model MatchChallenge {
   sessionId       String?
   note            String?
   challenger      Member   @relation("ChallengerRelation", fields: [challengerId], references: [id])
-  opponent        Member   @relation("OpponentRelation", fields: [opponentId], references: [id])
+  opponent        Member?  @relation("OpponentRelation", fields: [opponentId], references: [id])
   session         Session? @relation(fields: [sessionId], references: [id])
 }
 

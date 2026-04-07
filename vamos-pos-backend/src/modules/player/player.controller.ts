@@ -330,6 +330,8 @@ export class PlayerController {
             if (!winnerId) return res.status(400).json({ success: false, message: 'Winner not identified. Admin must select a winner.' });
 
             const loserId = challenge.challengerId === winnerId ? challenge.opponentId : challenge.challengerId;
+            if (!loserId) return res.status(400).json({ success: false, message: 'Lawan tidak ditemukan atau tantangan belum diterima.' });
+            
             const stake = challenge.pointsStake || 0;
             
             // Professional Rank Logic (Fixed XP Rewards)
@@ -359,7 +361,7 @@ export class PlayerController {
                             memberId: winnerId,
                             points: stake,
                             type: 'EARN_GAME',
-                            description: `🏆 Menang Taruhan Arena vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name}`
+                            description: `🏆 Menang Taruhan Arena vs ${challenge.challengerId === winnerId ? challenge.opponent?.name : challenge.challenger?.name}`
                         }
                     });
 
@@ -368,7 +370,7 @@ export class PlayerController {
                             memberId: loserId,
                             points: -stake,
                             type: 'REDEEM',
-                            description: `💀 Kalah Taruhan Arena vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name}`
+                            description: `💀 Kalah Taruhan Arena vs ${winnerId === challenge.challengerId ? challenge.challenger?.name : challenge.opponent?.name}`
                         }
                     });
                 }
@@ -458,7 +460,7 @@ export class PlayerController {
                         where: { id: challenge.sessionId },
                         data: {
                             memberId: loserId,
-                            customerName: (challenge.challengerId === loserId ? challenge.challenger.name : challenge.opponent.name)
+                            customerName: (challenge.challengerId === loserId ? challenge.challenger?.name : challenge.opponent?.name) || 'Guest'
                         }
                     });
                 }
@@ -472,7 +474,7 @@ export class PlayerController {
                         memberId: winnerId, 
                         points: 0, 
                         type: 'EARN_GAME', 
-                        description: `⭐ Kemenangan Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent.name : challenge.challenger.name} (+${winReputation} XP)` 
+                        description: `⭐ Kemenangan Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent?.name : challenge.challenger?.name} (+${winReputation} XP)` 
                     }
                 });
 
@@ -481,7 +483,7 @@ export class PlayerController {
                         memberId: loserId, 
                         points: 0, 
                         type: 'EARN_GAME', 
-                        description: `⭐ Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger.name : challenge.opponent.name} (+${lossReputation} XP)` 
+                        description: `⭐ Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger?.name : challenge.opponent?.name} (+${lossReputation} XP)` 
                     }
                 });
 
@@ -512,6 +514,7 @@ export class PlayerController {
                         oldRating: winner?.skillRating,
                         newRating: winnerNewRating,
                         reason: "MATCH_RESULT",
+                        notes: `Menang Match Challenge vs ${challenge.challengerId === winnerId ? challenge.opponent?.name : challenge.challenger?.name}`,
                         matchId: challengeId
                     }
                 });
@@ -525,6 +528,7 @@ export class PlayerController {
                         oldRating: loser?.skillRating,
                         newRating: loserNewRating,
                         reason: "MATCH_RESULT",
+                        notes: `Kalah Match Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger?.name : challenge.opponent?.name}`,
                         matchId: challengeId
                     }
                 });
