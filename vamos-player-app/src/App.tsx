@@ -199,7 +199,11 @@ function DashboardScreen({ member, tournaments = [] }: { member: any, tournament
         <div className="relative mb-6">
           <div className="w-32 h-32 rounded-[40px] bg-surface-highlight/20 border-4 border-white/5 p-1 relative z-10 shadow-2xl overflow-hidden">
             {member.photo ? (
-              <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL?.replace('/api', '')}${member.photo}`} alt="P" className="w-full h-full rounded-[36px] object-cover" />
+              <img 
+                src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL}/player/avatar-view/${member.photo.split('/').pop()}`} 
+                alt="P" 
+                className="w-full h-full rounded-[36px] object-cover" 
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-surface-highlight/30">
                 <User className="w-14 h-14 text-slate-600" />
@@ -547,7 +551,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
     <div className="fade-in space-y-10 pb-32">
       <div className="text-center pt-8"><h1 className="text-2xl font-black italic text-white uppercase">PROFIL</h1></div>
       <div className="flex flex-col items-center">
-        <div className="relative mb-8"><div className="w-40 h-40 rounded-[48px] bg-[#1a1f35] p-1 border-4 border-white/5 shadow-2xl overflow-hidden">{member.photo ? <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL?.replace('/api', '')}${member.photo}`} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><User className="w-16 h-16 text-slate-700" /></div>}</div><label className="absolute -bottom-2 -right-2 bg-primary p-3 rounded-2xl border-4 border-[#070b14] cursor-pointer"><Camera className="w-5 h-5 text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading}/></label></div>
+        <div className="relative mb-8"><div className="w-40 h-40 rounded-[48px] bg-[#1a1f35] p-1 border-4 border-white/5 shadow-2xl overflow-hidden">{member.photo ? <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL}/player/avatar-view/${member.photo.split('/').pop()}`} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><User className="w-16 h-16 text-slate-700" /></div>}</div><label className="absolute -bottom-2 -right-2 bg-primary p-3 rounded-2xl border-4 border-[#070b14] cursor-pointer"><Camera className="w-5 h-5 text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading}/></label></div>
         <h2 className="text-3xl font-black text-white italic uppercase">{member.name}</h2>
       </div>
       <div className="space-y-4">

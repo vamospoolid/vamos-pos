@@ -8,6 +8,7 @@ const router = Router();
 
 // Publicly accessible for the player app
 router.post('/register', PlayerController.register);
+router.get('/avatar-view/:filename', PlayerController.viewAvatarByFilename);
 router.post('/login', PlayerController.login);
 router.get('/tournaments', PlayerController.getTournaments);
 router.get('/leaderboard', PlayerController.getLeaderboard);

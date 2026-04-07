@@ -1456,6 +1456,21 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
+    static async viewAvatarByFilename(req: Request, res: Response) {
+        try {
+            const { filename } = req.params;
+            const path = await import('path');
+            const fs = await import('fs');
+            const filePath = path.join(process.cwd(), 'public', 'uploads', 'avatars', filename);
+            if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.sendFile(filePath);
+        } catch (e) { res.status(404).send('Error'); }
+    }
+
     static async getMenu(req: Request, res: Response, next: NextFunction) {
         try {
             const products = await prisma.product.findMany({
