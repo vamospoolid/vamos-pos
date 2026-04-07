@@ -9,8 +9,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     const [loadingH2H, setLoadingH2H] = useState(false);
     const [activeTab, setActiveTab] = useState<'allTime' | 'monthly' | 'streak' | 'hof'>('allTime');
     
-    const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
-    const [loadingLB, setLoadingLB] = useState(false);
+    const leaderboard = initialLeaderboard;
 
     const currentListData = useMemo(() => {
         switch(activeTab) {
@@ -94,12 +93,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                 ))}
             </div>
 
-            {loadingLB ? (
-                <div className="py-20 text-center">
-                    <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest italic">Synchronizing Data...</p>
-                </div>
-            ) : !searchQuery && top3.length >= 3 && (
+            {!searchQuery && top3.length >= 3 && (
                 <div className="relative pt-24 pb-20 px-4 fade-in min-h-[460px] flex items-end justify-center overflow-visible">
                     {/* Stage Platform Base */}
                     <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-full max-w-md h-[2px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
@@ -111,7 +105,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             
                             <div className="relative mb-6 z-20 transition-all duration-500 group-hover:-translate-y-2">
                                 <div className="w-16 h-16 rounded-[22px] bg-[#0a0d18] border-2 border-slate-400 p-1 shadow-[0_0_30px_rgba(148,163,184,0.2)] overflow-hidden">
-                                     {top3[1].photo ? <img src={top3[1].photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-400 font-black italic bg-gradient-to-br from-slate-400/20 to-slate-600/10 rounded-[18px]">{top3[1].name[0]}</div>}
+                                     {top3[1].photo ? <img src={top3[1].photo.startsWith('http') ? top3[1].photo : `${api.defaults.baseURL?.replace('/api', '')}${top3[1].photo}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-400 font-black italic bg-gradient-to-br from-slate-400/20 to-slate-600/10 rounded-[18px]">{top3[1].name[0]}</div>}
                                 </div>
                             </div>
 
@@ -137,7 +131,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                                     <Crown className="w-10 h-10 text-primary fill-primary animate-bounce" />
                                 </div>
                                 <div className="w-24 h-24 rounded-[32px] bg-[#0a0d18] border-[3px] border-primary p-1.5 shadow-[0_0_50px_rgba(255,87,34,0.4)] overflow-hidden">
-                                     {top3[0].photo ? <img src={top3[0].photo} className="w-full h-full object-cover rounded-[24px]" /> : <div className="w-full h-full flex items-center justify-center text-primary font-black italic text-3xl bg-gradient-to-br from-primary/30 to-primary/10 rounded-[24px]">{top3[0].name[0]}</div>}
+                                     {top3[0].photo ? <img src={top3[0].photo.startsWith('http') ? top3[0].photo : `${api.defaults.baseURL?.replace('/api', '')}${top3[0].photo}`} className="w-full h-full object-cover rounded-[24px]" /> : <div className="w-full h-full flex items-center justify-center text-primary font-black italic text-3xl bg-gradient-to-br from-primary/30 to-primary/10 rounded-[24px]">{top3[0].name[0]}</div>}
                                 </div>
                                 <div className="absolute -bottom-2 -right-2 bg-primary text-[#0d0f14] w-8 h-8 rounded-xl flex items-center justify-center border-4 border-[#0d0f14] italic font-black text-xs shadow-xl scale-110">#1</div>
                             </div>
@@ -162,7 +156,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             
                             <div className="relative mb-6 z-20 transition-all duration-500 group-hover:-translate-y-2">
                                 <div className="w-16 h-16 rounded-[22px] bg-[#0a0d18] border-2 border-amber-600 p-1 shadow-[0_0_30px_rgba(217,119,6,0.2)] overflow-hidden">
-                                     {top3[2].photo ? <img src={top3[2].photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-amber-600 font-black italic bg-gradient-to-br from-amber-700/20 to-amber-900/10 rounded-[18px]">{top3[2].name[0]}</div>}
+                                     {top3[2].photo ? <img src={top3[2].photo.startsWith('http') ? top3[2].photo : `${api.defaults.baseURL?.replace('/api', '')}${top3[2].photo}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-amber-600 font-black italic bg-gradient-to-br from-amber-700/20 to-amber-900/10 rounded-[18px]">{top3[2].name[0]}</div>}
                                 </div>
                             </div>
 
@@ -207,7 +201,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                                         <span className="text-slate-600 font-black italic text-[10px] group-hover:text-primary transition-colors">#{rank}</span>
                                     </div>
                                     <div className="w-12 h-12 rounded-xl bg-[#101423] border border-white/5 overflow-hidden flex items-center justify-center shrink-0">
-                                        {p.photo ? <img src={p.photo} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-700" />}
+                                        {p.photo ? <img src={p.photo.startsWith('http') ? p.photo : `${api.defaults.baseURL?.replace('/api', '')}${p.photo}`} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-700" />}
                                     </div>
                                     <div className="min-w-0 max-w-[130px]">
                                         <p className="font-black text-sm text-white uppercase italic tracking-tighter truncate leading-tight mb-1">{p.name}</p>
@@ -243,13 +237,13 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             </div>
                             <div className="flex-1">
                                 <div className="w-24 h-24 rounded-[32px] bg-[#1a1f35] mb-4 mx-auto overflow-hidden border-2 border-white/5 shadow-xl">
-                                    {currentUser.photo ? <img src={currentUser.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">YOU</div>}
+                                    {currentUser.photo ? <img src={currentUser.photo.startsWith('http') ? currentUser.photo : `${api.defaults.baseURL?.replace('/api', '')}${currentUser.photo}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">YOU</div>}
                                 </div>
                                 <p className="text-[10px] font-black text-white uppercase italic tracking-widest">{currentUser.name.split(' ')[0]}</p>
                             </div>
                             <div className="flex-1">
                                 <div className="w-24 h-24 rounded-[32px] bg-[#1a1f35] mb-4 mx-auto overflow-hidden border-2 border-white/5 shadow-xl">
-                                    {selectedRival.photo ? <img src={selectedRival.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">{selectedRival.name?.[0]}</div>}
+                                    {selectedRival.photo ? <img src={selectedRival.photo.startsWith('http') ? selectedRival.photo : `${api.defaults.baseURL?.replace('/api', '')}${selectedRival.photo}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">{selectedRival.name?.[0]}</div>}
                                 </div>
                                 <p className="text-[10px] font-black text-white uppercase italic tracking-widest">{(selectedRival.name || '').split(' ')[0]}</p>
                             </div>
