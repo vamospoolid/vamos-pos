@@ -7,7 +7,7 @@ export class PrintService {
             // Standard config for 58mm thermal printers (Usually RP58)
             const printer = new ThermalPrinter({
                 type: PrinterTypes.EPSON, // HaoYin usually Epson compatible
-                interface: 'printer:RP58 Printer', // Use the name from Windows Settings
+                interface: `printer:${data.venue?.printerPath || 'RP58 Printer'}`, // Dynamic from Settings
                 characterSet: CharacterSet.PC437_USA,
                 removeSpecialCharacters: false,
                 lineCharacter: "=",
