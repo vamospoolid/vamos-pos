@@ -506,7 +506,10 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
 function VerificationCard({ member }: { member: any }) {
   const { refreshMemberData } = useAppStore();
   const [uploading, setUploading] = useState(false);
-  const handleVerifyWa = () => window.open(`https://wa.me/6281234567890?text=Halo%20Vamos%20Pool,%20saya%20ingin%20verifikasi%20akun%20member%20saya%20dengan%20ID:%20${member.id}`, '_blank');
+  const handleVerifyWa = () => {
+    api.post(`/player/${member.id}/notify-verify`).catch(() => {});
+    window.open(`https://wa.me/6281234567890?text=Halo%20Vamos%20Pool,%20saya%20ingin%20verifikasi%20akun%20member%20saya%20dengan%20ID:%20${member.id}`, '_blank');
+  };
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

@@ -527,6 +527,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         vamosAlert(`🆕 ${notif.title}\n${notif.message}`);
       }
     });
+    socket.on('admin:notification', (notif: any) => {
+      if (notif.type === 'VERIFICATION_REQUEST') {
+        vamosAlert(`🆕 ${notif.title}\n${notif.message}`);
+        fetchData();
+      }
+    });
     socket.on('tables:updated', () => fetchData());
     socket.on('members:updated', () => {
       console.log('[Socket] Received members:updated');

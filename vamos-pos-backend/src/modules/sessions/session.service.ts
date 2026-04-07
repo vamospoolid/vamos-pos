@@ -512,7 +512,8 @@ export class SessionService {
                 table: { include: { venue: true } },
                 member: true,
                 orders: { include: { product: true } }
-            }
+            },
+            orderBy: { updatedAt: 'desc' }
         });
     }
 

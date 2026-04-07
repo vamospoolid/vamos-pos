@@ -3,6 +3,7 @@ import { prisma } from '../../database/db';
 import bcrypt from 'bcrypt';
 import { PricingService } from '../pricing/pricing.service';
 import { waService } from '../whatsapp/wa.service';
+import { getIO } from '../../socket';
 import { getInitialRatingFromHC, calculateMatchRating } from '../../utils/rating.util';
 import { KingService } from '../matches/king.service';
 
@@ -1469,6 +1470,25 @@ export class PlayerController {
             res.setHeader('Cache-Control', 'public, max-age=86400');
             res.sendFile(filePath);
         } catch (e) { res.status(404).send('Error'); }
+    }
+
+    static async notifyVerification(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const member = await prisma.member.findUnique({ where: { id } });
+            if (member) {
+                const io = getIO();
+                if (io) {
+                    io.emit('admin:notification', {
+                        type: 'VERIFICATION_REQUEST',
+                        title: '⚠️ VERIFIKASI MEMBER',
+                        message: `Member ${member.name} meminta verifikasi WhatsApp!`,
+                        data: { memberId: member.id, phone: member.phone }
+                    });
+                }
+            }
+            res.json({ success: true });
+        } catch (error) { res.status(500).json({ success: false }); }
     }
 
     static async getMenu(req: Request, res: Response, next: NextFunction) {

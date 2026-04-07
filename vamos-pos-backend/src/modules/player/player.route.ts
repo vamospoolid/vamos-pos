@@ -10,6 +10,7 @@ const router = Router();
 router.post('/register', PlayerController.register);
 router.get('/avatar-view/:filename', PlayerController.viewAvatarByFilename);
 router.post('/login', PlayerController.login);
+router.post('/:id/notify-verify', PlayerController.notifyVerification);
 router.get('/tournaments', PlayerController.getTournaments);
 router.get('/leaderboard', PlayerController.getLeaderboard);
 router.get('/kings', PlayerController.getKings);
