@@ -23,7 +23,9 @@ export default function Settings() {
         blinkWarningMinutes: 5,
         isSyncEnabled: true,
         syncIntervalSeconds: 30,
-        splashImageUrl: ''
+        splashImageUrl: '',
+        phone: '',
+        waVerificationText: ''
     });
 
     // Form Table
@@ -88,7 +90,9 @@ export default function Settings() {
                     blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5,
                     isSyncEnabled: serpongVenue.isSyncEnabled ?? true,
                     syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
-                    splashImageUrl: serpongVenue.splashImageUrl || ''
+                    splashImageUrl: serpongVenue.splashImageUrl || '',
+                    phone: serpongVenue.phone || '',
+                    waVerificationText: serpongVenue.waVerificationText || ''
                 });
             }
         } catch (err) {
@@ -430,6 +434,17 @@ export default function Settings() {
                                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Close Time</label>
                                         <input type="time" value={venueForm.closeTime} onChange={e => setVenueForm({ ...venueForm, closeTime: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors" />
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">WA Admin Verifikasi</label>
+                                    <div className="relative">
+                                        <MessageSquare className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00ff66]/50" />
+                                        <input type="text" value={venueForm.phone} onChange={e => setVenueForm({ ...venueForm, phone: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl pl-11 pr-4 py-3 text-sm font-bold text-[#00ff66] focus:outline-none focus:border-[#00ff66] transition-colors" placeholder="6281244047610" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">WA Verification Text</label>
+                                    <textarea rows={2} value={venueForm.waVerificationText} onChange={e => setVenueForm({ ...venueForm, waVerificationText: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-[11px] text-gray-400 focus:outline-none focus:border-blue-500 transition-colors resize-none" placeholder="Halo Vamos, saya ingin verifikasi ID:" />
                                 </div>
                                 <button onClick={handleSaveVenue} className="w-full py-4 mt-2 bg-blue-600/10 border border-blue-600/30 text-blue-500 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition-all transform active:scale-95 flex items-center justify-center">
                                     <Save className="w-4 h-4 mr-2" /> Save Identity

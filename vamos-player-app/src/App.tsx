@@ -153,7 +153,7 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
   );
 }
 
-function DashboardScreen({ member, tournaments = [] }: { member: any, tournaments?: any[] }) {
+function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any, tournaments?: any[], venueInfo: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const ongoingTournament = tournaments.find(t => t.status === 'ONGOING' || t.status === 'IN_PROGRESS');
   const pendingTournament = tournaments.find(t => t.status === 'PENDING' || t.status === 'UPCOMING' || !t.status);
@@ -225,7 +225,7 @@ function DashboardScreen({ member, tournaments = [] }: { member: any, tournament
         </div>
       </div>
 
-      <VerificationCard member={member} />
+      <VerificationCard member={member} venueInfo={venueInfo} />
 
       {/* ─── QUICK ACTIONS ─── */}
       <div className="grid grid-cols-2 gap-4">
@@ -503,12 +503,14 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   );
 }
 
-function VerificationCard({ member }: { member: any }) {
+function VerificationCard({ member, venueInfo }: { member: any, venueInfo: any }) {
   const { refreshMemberData } = useAppStore();
   const [uploading, setUploading] = useState(false);
   const handleVerifyWa = () => {
     api.post(`/player/${member.id}/notify-verify`).catch(() => {});
-    window.open(`https://wa.me/6281234567890?text=Halo%20Vamos%20Pool,%20saya%20ingin%20verifikasi%20akun%20member%20saya%20dengan%20ID:%20${member.id}`, '_blank');
+    const adminPhone = venueInfo?.phone || "6281244047610";
+    const waText = venueInfo?.waVerificationText || "Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:";
+    window.open(`https://wa.me/${adminPhone.replace(/\+/g, '')}?text=${encodeURIComponent(waText)}%20${member.id}`, '_blank');
   };
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -607,7 +609,7 @@ function MainApp({ venueInfo }: { venueInfo: any }) {
         <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{member.photo ? <img src={member.photo.startsWith('http') ? member.photo : `${api.defaults.baseURL}/player/avatar-view/${member.photo.split('/').pop()}`} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
-        {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} />}
+        {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} venueInfo={venueInfo} />}
         {activeTab === 'play' && <PlayScreen member={member} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} />}
         {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} member={member} />}

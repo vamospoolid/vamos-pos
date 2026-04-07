@@ -39,6 +39,8 @@ model Venue {
   isSyncEnabled       Boolean   @default(true)
   syncIntervalSeconds Int       @default(30)
   splashImageUrl      String?
+  phone               String?   @default("6281244047610")
+  waVerificationText  String?   @default("Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:")
   tables              Table[]
 }
 
