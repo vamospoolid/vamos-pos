@@ -302,6 +302,16 @@ const initCloudBridge = () => {
         }
     });
 
+    cloudSocket.on('print:receipt', async (data: any) => {
+        logger.info(`🖨️ [BRIDGE] print:receipt diterima dari VPS! Meluncur ke RP58 Printer...`);
+        try {
+            const { PrintService } = await import('./modules/print/print.service');
+            await PrintService.printReceipt(data);
+        } catch (err: any) {
+            logger.error(`❌ [BRIDGE] Gagal eksekusi cetak struk: ${err.message}`);
+        }
+    });
+
     cloudSocket.on('disconnect', () => {
         logger.warn('⚠️ Jembatan Cloud TERPUTUS. Menunggu koneksi kembali...');
     });

@@ -94,12 +94,15 @@ export class PrinterService {
         this.isPrinting = true;
 
         try {
+            const isLocalBridge = !!process.env.IS_LOCAL_ELECTRON;
+
             const session = await prisma.session.findUnique({
                 where: { id: sessionId },
                 include: {
                     table: { include: { venue: true } },
                     orders: { include: { product: true } },
-                    cashier: true
+                    cashier: true,
+                    member: true
                 }
             });
 
@@ -108,32 +111,48 @@ export class PrinterService {
             const venue = session.table?.venue || await prisma.venue.findFirst();
             if (!venue) throw new Error('Venue not configured');
 
-            const printerPath = venue.printerPath || 'POS-58'; // Default name
+            // --- CLOUD VPS MODE: EMIT SOCKET TO LOCAL BRIDGE ---
+            if (!isLocalBridge) {
+                const { getIO } = await import('../../socket');
+                const io = getIO();
+                if (io) {
+                    logger.info(`📡 [VPS] Emitting print:receipt for session ${sessionId} to Local Bridge...`);
+                    // We emit to everyone, the Local Bridge with matching Venue (or all) will pick it up
+                    // Ideally we should emit to specific room, but for now global is fine as usually 1 venue 1 bridge
+                    io.emit('print:receipt', {
+                        ...session,
+                        venue
+                    });
+                    return; // Stop here, VPS doesn't print physically
+                }
+            }
+
+            // --- LOCAL BRIDGE MODE: PHYSICAL PRINTING ---
+            const printerPath = venue.printerPath || 'RP58 Printer'; // Default to user's printer name
             
             logger.info(`🖨️ PRINTER: Printing receipt for session ${sessionId} to ${printerPath}`);
 
+            // If we are on local bridge, we can use our new PrintService (more stable for 58mm)
+            try {
+                const { PrintService } = await import('../print/print.service');
+                await PrintService.printReceipt({ ...session, venue });
+                return;
+            } catch (e) {
+                logger.warn(`⚠️ PrintService (raw) failed, falling back to PowerShell: ${e}`);
+            }
+
+            // FALLBACK TO POWERSHELL (Old Method)
             const buffer = this.encodeReceipt(venue, session);
-            
-            // Write to a temporary file
             const tempFile = path.join(os.tmpdir(), `receipt_${sessionId}.bin`);
             fs.writeFileSync(tempFile, buffer);
 
-            // Send to Windows Printer using different methods
-            // Method A: If printer is shared, use copy /b
-            // Method B: Using PowerShell Out-Printer (doesn't support RAW ESC/POS well)
-            // Method C: Using WriteAllBytes directly to a USB port (requires identifying USB001/2/3)
-
-            // We use a universal PowerShell Command to write raw bytes to the printer handle
             const psCommand = `"$bytes = [System.IO.File]::ReadAllBytes('${tempFile.replace(/'/g, "''")}'); $printer = '${printerPath.replace(/'/g, "''")}'; [System.IO.File]::WriteAllBytes('\\\\localhost\\'+$printer, $bytes)"`;
             
-            exec(`powershell -Command ${psCommand}`, (error, stdout, stderr) => {
+            exec(`powershell -Command ${psCommand}`, (error) => {
                 if (error) {
-                    logger.error(`🚨 PRINTER ERROR: ${error.message}`);
-                    // Fallback to simpler 'copy' if shared
                     exec(`copy /b "${tempFile}" "\\\\localhost\\${printerPath}"`);
                 }
-                // Cleanup
-                setTimeout(() => fs.unlinkSync(tempFile), 2000);
+                setTimeout(() => fs.existsSync(tempFile) && fs.unlinkSync(tempFile), 2000);
             });
 
         } catch (err: any) {
