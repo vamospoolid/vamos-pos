@@ -30,8 +30,6 @@ export function RewardsScreen() {
     const [loading, setLoading] = useState(true);
     const [redeemingId, setRedeemingId] = useState<string | null>(null);
     const [confirmReward, setConfirmReward] = useState<any>(null);
-    const [mysteryOpening, setMysteryOpening] = useState(false);
-    const [mysteryResult, setMysteryResult] = useState<any>(null);
 
     const points = member?.loyaltyPoints || 0;
     const experience = member?.experience || 0;
@@ -93,25 +91,6 @@ export function RewardsScreen() {
         }
     };
 
-    const handleOpenMystery = async () => {
-        if (points < 50) return alert('Poin tidak cukup (Butuh 50 Poin)');
-        setMysteryOpening(true);
-        setMysteryResult(null);
-        try {
-            await new Promise(r => setTimeout(r, 1500)); // Dramatic pause
-            const res = await api.post('/player/loyalty/mystery-box', {
-                memberId: member.id
-            });
-            if (res.data.success) {
-                setMysteryResult(res.data);
-                setMember(res.data.updated);
-            }
-        } catch (err: any) {
-            alert(err.response?.data?.message || 'Gagal membuka box.');
-        } finally {
-            setMysteryOpening(false);
-        }
-    };
 
     return (
         <div className="pb-40 text-white min-h-screen fade-in relative px-1">
@@ -201,29 +180,6 @@ export function RewardsScreen() {
                 {/* Catalog */}
                 {!loading && rewardsTab === 'catalog' && (
                     <div className="space-y-6">
-                        {/* Mystery Box Gacha Hero */}
-                        <div className="relative group overflow-hidden bg-gradient-to-br from-[#1f22ff]/20 via-[#1a1f35]/80 to-transparent p-[2px] rounded-[32px] border border-white/10 shadow-2xl mb-8">
-                            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div className="bg-[#101423] p-8 rounded-[31px] relative overflow-hidden flex items-center justify-between">
-                                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700" />
-                                
-                                <div className="flex items-center gap-6 relative z-10">
-                                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center relative">
-                                        <div className="absolute inset-0 bg-primary/10 blur-xl animate-pulse" />
-                                        <Box className={`w-8 h-8 text-primary transition-all duration-300 ${mysteryOpening ? 'animate-bounce' : 'group-hover:scale-110'}`} fill="currentColor" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Arena Mystery Box</h3>
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest italic opacity-80">Chance to win 500 Poin Jackpot!</p>
-                                    </div>
-                                </div>
-
-                                <button onClick={handleOpenMystery} disabled={mysteryOpening}
-                                    className="px-6 py-3 rounded-xl bg-primary text-secondary text-[10px] font-black uppercase tracking-widest italic shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                                    {mysteryOpening ? 'Opening...' : '50 Poin'}
-                                </button>
-                            </div>
-                        </div>
 
                         {rewards.length === 0 && (
                             <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-60">
@@ -457,31 +413,6 @@ export function RewardsScreen() {
                 </div>
             )}
 
-            {/* Mystery Box Result Modal */}
-            {mysteryResult && (
-                <div className="fixed inset-0 z-[1100] flex items-center justify-center p-8" onClick={() => setMysteryResult(null)}>
-                    <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
-                    <div className="relative w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-primary/10 rounded-full blur-[100px] animate-pulse" />
-                        
-                        <div className={`mx-auto mb-10 w-32 h-32 rounded-[40px] flex items-center justify-center text-5xl transition-all duration-700 scale-110 shadow-2xl ${mysteryResult.win ? 'bg-primary/20 border-primary shadow-primary/30' : 'bg-slate-800/40 border-white/5'}`}>
-                            {mysteryResult.win ? '🔥' : '💀'}
-                        </div>
-
-                        <h2 className={`text-4xl font-black italic uppercase tracking-tighter mb-4 ${mysteryResult.win ? 'text-primary animate-pulse' : 'text-slate-500'}`}>
-                            {mysteryResult.win ? 'WINNER!' : 'BETTER LUCK NEXT TIME'}
-                        </h2>
-                        <p className="text-lg font-black text-white italic uppercase tracking-widest mb-12 opacity-80">
-                            {mysteryResult.description}
-                        </p>
-
-                        <button onClick={() => setMysteryResult(null)}
-                            className="w-full py-6 rounded-[24px] bg-[#1a1f35] border border-white/5 text-white font-black text-xs uppercase tracking-widest italic hover:bg-white/5 transition-all">
-                            Back to Store
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -40,7 +40,7 @@ router.put('/challenge/:id/claim-victory', PlayerController.claimVictory);
 
 // Rewards
 router.get('/rewards', PlayerController.getRewards);
-router.post('/loyalty/mystery-box', PlayerController.openMysteryBox);
+// router.post('/loyalty/mystery-box', PlayerController.openMysteryBox);
 router.post('/rewards/redeem', PlayerController.redeemReward);
 router.get('/rewards/redemptions/member/:memberId', PlayerController.getRedemptions);
 

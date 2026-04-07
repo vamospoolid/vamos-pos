@@ -120,68 +120,11 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
+    /*
     static async openMysteryBox(req: Request, res: Response, next: NextFunction) {
-        try {
-            const { memberId } = req.body;
-            const COST = 50;
-
-            const member = await prisma.member.findUnique({ where: { id: memberId } });
-            if (!member || (member.loyaltyPoints || 0) < COST) {
-                return res.status(400).json({ success: false, message: 'Poin tidak cukup (Butuh 50 Poin)' });
-            }
-
-            // Gacha Logic
-            const rand = Math.random() * 100;
-            let rewardType = 'POINT_BONUS';
-            let amount = 10;
-            let description = 'Mystery Box: Zonk (10 Poin)';
-
-            if (rand > 95) { // 5% chance
-                rewardType = 'JACKPOT';
-                amount = 500;
-                description = '🔥 MYSTERY BOX: JACKPOT 500 POIN!';
-            } else if (rand > 80) { // 15% chance
-                rewardType = 'BIG_WIN';
-                amount = 100;
-                description = '⭐ MYSTERY BOX: BIG WIN 100 POIN!';
-            } else if (rand > 50) { // 30% chance
-                rewardType = 'SMALL_WIN';
-                amount = 30;
-                description = 'MYSTERY BOX: 30 Poin';
-            }
-
-            const result = await (prisma as any).$transaction(async (tx: any) => {
-                // Deduct cost
-                await tx.member.update({
-                    where: { id: memberId },
-                    data: { loyaltyPoints: { decrement: COST } }
-                });
-
-                // Add reward
-                const updated = await tx.member.update({
-                    where: { id: memberId },
-                    data: { 
-                        loyaltyPoints: { increment: amount },
-                        experience: { increment: 10 } // Give some XP for playing gacha
-                    }
-                });
-
-                const log = await tx.pointLog.create({
-                    data: {
-                        memberId,
-                        type: 'EARN_BONUS',
-                        points: amount - COST,
-                        description: description
-                    }
-                });
-
-                return { updated, description, amount, win: amount > COST };
-            });
-
-            res.json({ success: true, ...result });
-
-        } catch (error) { next(error); }
+        ... (Mystery Box deactivated)
     }
+    */
 
     static async getChallenges(req: Request, res: Response, next: NextFunction) {
         try {
