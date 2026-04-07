@@ -251,7 +251,11 @@ export default function Members() {
                                         </td>
                                         <td className="py-4 px-4 flex items-center space-x-3">
                                             {m.photo ? (
-                                                <img src={m.photo} alt={m.name} className="w-10 h-10 rounded-full object-cover border border-[#222222]" />
+                                                <img 
+                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL?.replace('/api', '')}${m.photo}`} 
+                                                    alt={m.name} 
+                                                    className="w-10 h-10 rounded-full object-cover border border-[#222222]" 
+                                                />
                                             ) : (
                                                 <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-[#333333] flex items-center justify-center text-gray-500">
                                                     <Users className="w-5 h-5" />
@@ -387,7 +391,10 @@ export default function Members() {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '50px', position: 'relative', zIndex: 10 }}>
                                                         <div style={{ width: '220px', height: '220px', borderRadius: '60px', backgroundColor: '#0a0d18', border: '4px solid rgba(59,130,246,0.2)', padding: '5px', overflow: 'hidden' }}>
                                                             {m.photo ? (
-                                                                <img src={m.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '55px' }} />
+                                                                <img 
+                                                                    src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL?.replace('/api', '')}${m.photo}`} 
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '55px' }} 
+                                                                />
                                                             ) : (
                                                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1f35' }}>
                                                                     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -447,7 +454,11 @@ export default function Members() {
                             <div className="flex justify-center mb-4">
                                 <label className="cursor-pointer group relative">
                                     {formData.photo ? (
-                                        <img src={formData.photo} alt="Preview" className="w-24 h-24 rounded-full object-cover border-2 border-[#222222] group-hover:border-[#00ff66] transition-colors" />
+                                        <img 
+                                            src={formData.photo.startsWith('data:') || formData.photo.startsWith('http') ? formData.photo : `${api.defaults.baseURL?.replace('/api', '')}${formData.photo}`} 
+                                            alt="Preview" 
+                                            className="w-24 h-24 rounded-full object-cover border-2 border-[#222222] group-hover:border-[#00ff66] transition-colors" 
+                                        />
                                     ) : (
                                         <div className="w-24 h-24 rounded-full bg-[#0a0a0a] border-2 border-dashed border-[#222222] group-hover:border-[#00ff66] flex flex-col items-center justify-center text-gray-500 transition-colors">
                                             <Plus className="w-6 h-6 mb-1" />
