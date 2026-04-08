@@ -6,24 +6,25 @@ import fs from 'fs';
 export class PrintService {
     static async printReceipt(data: any) {
         try {
-            const printerInterface = `printer:${data.venue?.printerPath || 'RP58 Printer'}`;
-            logger.info(`🔍 [PRINT_DEBUG] Mencoba cetak ke: ${printerInterface}`);
+            const printerInterface = data.venue?.printerPath || 'RP58 Printer';
+            logger.info(`🔍 [PRINT_DEBUG] Menyiapkan printer: ${printerInterface}`);
 
             const printer = new ThermalPrinter({
                 type: PrinterTypes.EPSON,
-                interface: printerInterface,
+                interface: printerInterface, // No 'printer:' prefix to avoid driver error
                 characterSet: CharacterSet.PC437_USA,
                 removeSpecialCharacters: false,
                 lineCharacter: "=",
                 width: 32,
             });
 
-            const isConnected = await printer.isPrinterConnected();
-            if (!isConnected) {
-                logger.error(`❌ [PRINT_DEBUG] Printer "${printerInterface}" TIDAK ditemukan. Silakan cek kabel atau penulisan nama printer di Settings.`);
-                return { success: false, message: 'Printer not connected' };
-            }
-            logger.info(`✅ [PRINT_DEBUG] Printer Terdeteksi! Memulai pencetakan...`);
+            // Note: We skip isPrinterConnected() because we use Windows Shared Printer bypassing driver checks
+            // const isConnected = await printer.isPrinterConnected();
+            // if (!isConnected) {
+            //     logger.error(`❌ [PRINT_DEBUG] Printer "${printerInterface}" TIDAK ditemukan. Silakan cek kabel atau penulisan nama printer di Settings.`);
+            //     return { success: false, message: 'Printer not connected' };
+            // }
+            logger.info(`✅ [PRINT_DEBUG] Menyiapkan data struk untuk: ${printerInterface}...`);
 
             // --- START PRINTING ---
             // Set tighter line spacing (most 58mm thermal printers support this)

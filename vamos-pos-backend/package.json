@@ -23,7 +23,9 @@
     "db:push": "prisma db push",
     "db:reset": "prisma db push --force-reset && ts-node src/database/seed-complete.ts",
     "seed": "ts-node src/database/seed.ts",
-    "seed:all": "ts-node src/database/seed-complete.ts"
+    "seed:all": "ts-node src/database/seed-complete.ts",
+    "electron:dev": "tsc && electron dist/electron-main.js",
+    "electron:build": "tsc && electron-builder"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
@@ -57,6 +59,7 @@
     "@types/node": "^20.19.39",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/serialport": "^8.0.5",
+    "electron": "^41.1.1",
     "nodemon": "^3.1.14",
     "pkg": "^5.8.1",
     "prisma": "^5.0.0",
