@@ -684,10 +684,9 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
               <p className="text-3xl font-black text-emerald-400 italic tracking-tighter leading-none">{rankData?.totalWins ?? 0}<span className="text-[11px] text-slate-500 ml-1 not-italic">W</span></p>
             </div>
 
-            {/* Monthly Score */}
             <div className="bg-[#101423] rounded-[24px] p-5 border border-white/5">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Poin Liga</p>
-              <p className="text-3xl font-black text-blue-400 italic tracking-tighter leading-none">{rankData?.monthlyScore ?? 0}<span className="text-[11px] text-slate-500 ml-1 not-italic">PTS</span></p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic mb-2">XP</p>
+              <p className="text-3xl font-black text-blue-400 italic tracking-tighter leading-none">{rankData?.monthlyScore ?? 0}<span className="text-[11px] text-slate-500 ml-1 not-italic">XP</span></p>
             </div>
 
             {/* Level */}
