@@ -16,20 +16,24 @@ export const api = axios.create({
 });
 
 // Base URL tanpa /api — untuk akses file statis
-const STATIC_BASE = (import.meta.env.VITE_API_URL || 'https://pos.vamospool.id/api').replace(/\/api$/, '');
+const getStaticBase = () => {
+    const baseURL = api.defaults.baseURL || '';
+    return baseURL.endsWith('/api') ? baseURL.replace(/\/api$/, '') : baseURL;
+};
 
 /**
  * Resolves member photo paths to a full URL.
- * DB menyimpan foto sebagai:  /uploads/avatars/xxx.jpg
- * Backend serve static dari:  /public/uploads/...
- * Nginx expose sebagai:        https://pos.vamospool.id/uploads/avatars/xxx.jpg
  */
 export function getAvatarUrl(photo: string | null | undefined): string | null {
     if (!photo) return null;
-    if (photo.startsWith('http')) return photo;                          // already absolute
-    if (photo.startsWith('/uploads/')) return `${STATIC_BASE}${photo}`; // static file path
-    // legacy: just a filename
-    return `${STATIC_BASE}/uploads/avatars/${photo.split('/').pop()}`;
+    if (photo.startsWith('http')) return photo;
+    
+    const base = getStaticBase();
+    if (photo.startsWith('/uploads/')) return `${base}${photo}`;
+    
+    // Fallback logic for legacy filename-only records
+    const filename = photo.split('/').pop();
+    return `${base}/uploads/avatars/${filename}`;
 }
 
 api.interceptors.request.use((config) => {

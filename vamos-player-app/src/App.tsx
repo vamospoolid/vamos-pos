@@ -531,7 +531,7 @@ function VerificationCard({ member, venueInfo }: { member: any, venueInfo: any }
     const formData = new FormData();
     formData.append('photo', file);
     try {
-      const res = await api.post(`/player/${member.id}/avatar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const res = await api.post(`/player/${member.id}/avatar`, formData);
       if (res.data.success) refreshMemberData();
     } catch (err: any) { alert(err.response?.data?.message || 'Gagal mengunggah foto.'); }
     finally { setUploading(false); }
@@ -592,7 +592,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
     const formData = new FormData();
     formData.append('photo', file);
     try {
-      const res = await api.post(`/player/${member.id}/avatar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const res = await api.post(`/player/${member.id}/avatar`, formData);
       if (res.data.success) refreshMemberData();
     } catch (err: any) { alert(err.response?.data?.message || 'Gagal mengunggah foto.'); }
     finally { setUploading(false); }
