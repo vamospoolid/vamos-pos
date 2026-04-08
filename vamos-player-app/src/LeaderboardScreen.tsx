@@ -156,7 +156,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             
                             <div className="relative mb-6 z-20 transition-all duration-500 group-hover:-translate-y-2">
                                 <div className="w-16 h-16 rounded-[22px] bg-[#0a0d18] border-2 border-amber-600 p-1 shadow-[0_0_30px_rgba(217,119,6,0.2)] overflow-hidden">
-                                     {top3[2].photo ? <img src={top3[2].photo.startsWith('http') ? top3[2].photo : `${api.defaults.baseURL?.replace('/api', '')}${top3[2].photo}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-amber-600 font-black italic bg-gradient-to-br from-amber-700/20 to-amber-900/10 rounded-[18px]">{top3[2].name[0]}</div>}
+                                     {top3[2].photo ? <img src={top3[2].photo.startsWith('http') ? top3[2].photo : `${api.defaults.baseURL}/player/avatar-view/${top3[2].photo.split('/').pop()}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-amber-600 font-black italic bg-gradient-to-br from-amber-700/20 to-amber-900/10 rounded-[18px]">{top3[2].name[0]}</div>}
                                 </div>
                             </div>
 
