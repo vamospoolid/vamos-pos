@@ -572,8 +572,22 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
         <h2 className="text-3xl font-black text-white italic uppercase">{member.name}</h2>
       </div>
       <div className="space-y-4">
-        <button onClick={() => setView('history')} className="w-full fiery-card flex items-center justify-between p-8 rounded-[40px] border-2 border-white/5 group"><div className="flex items-center gap-6"><div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center"><Swords className="w-6 h-6 text-primary" /></div><span className="font-black text-white text-lg uppercase italic">Riwayat Arena</span></div><ChevronRight className="w-6 h-6 text-slate-700"/></button>
-        <button onClick={onLogout} className="w-full py-6 rounded-[32px] mt-12 font-black text-[10px] uppercase bg-rose-500/10 text-rose-500 border-2 border-rose-500/20 italic">Abort Mission Protocol</button>
+        <button onClick={() => setView('history')} className="w-full fiery-card flex items-center justify-between p-6 rounded-[30px] border-2 border-white/5 group"><div className="flex items-center gap-6"><div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center"><Swords className="w-5 h-5 text-primary" /></div><span className="font-black text-white text-base uppercase italic">Riwayat Arena</span></div><ChevronRight className="w-6 h-6 text-slate-700"/></button>
+        
+        <a href="https://pos.vamospool.id/VamosPlayer.apk" download className="w-full fiery-card flex items-center justify-between p-6 rounded-[30px] border-2 border-primary/20 group hover:bg-primary/5 transition-all">
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Download className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-left">
+              <span className="font-black text-white text-base uppercase italic block leading-none">Aplikasi Android</span>
+              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 block">Pasang di Layar Utama HP Anda</span>
+            </div>
+          </div>
+          <ChevronRight className="w-6 h-6 text-primary/50 group-hover:text-primary transition-all" />
+        </a>
+
+        <button onClick={onLogout} className="w-full py-5 rounded-[24px] mt-12 font-black text-[10px] uppercase bg-rose-500/10 text-rose-500 border-2 border-rose-500/20 italic">Keluar Profil</button>
       </div>
     </div>
   );
