@@ -26,36 +26,40 @@ export class PrintService {
             logger.info(`✅ [PRINT_DEBUG] Printer Terdeteksi! Memulai pencetakan...`);
 
             // --- START PRINTING ---
+            // Set tighter line spacing (most 58mm thermal printers support this)
+            // 30 is usually the tightest readable
+            // printer.setLineSpacing(30); 
+
             printer.alignCenter();
-            printer.setTextSize(1, 1);
-            printer.println(data.venue?.name || 'VAMOS POOL & CAFE');
             printer.setTextNormal();
+            printer.println(data.venue?.name?.toUpperCase() || 'VAMOS POOL & CAFE');
             printer.println(data.venue?.address || 'Billiard & Cafe');
             printer.println("-".repeat(32));
 
             printer.alignLeft();
-            printer.println(`Date: ${new Date(data.paidAt || Date.now()).toLocaleString('id-ID')}`);
-            printer.println(`Bill: #${(data.id || '').substring(0, 8).toUpperCase()}`);
-            printer.println(`Table: ${data.table?.name || '-'}`);
-            if (data.member?.name) printer.println(`Mem: ${data.member.name}`);
+            const dateStr = new Date(data.paidAt || Date.now()).toLocaleString('id-ID', { 
+                day: '2-digit', month: '2-digit', year: '2-digit', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+            
+            printer.println(`TGL: ${dateStr}`);
+            printer.println(`BIL: #${(data.id || '').substring(0, 6).toUpperCase()} | MEJA: ${data.table?.name || '-'}`);
+            if (data.member?.name) printer.println(`MEM: ${data.member.name.toUpperCase()}`);
             printer.println("-".repeat(32));
 
             // Session
             if (data.tableAmount > 0) {
-                printer.println("Billiard / Table Session");
                 const mins = data.totalMinutes || 0;
                 const hrs = Math.floor(mins / 60);
                 const rem = mins % 60;
-                printer.tableCustom([
-                    { text: `${hrs}h ${rem}m`, align: "LEFT", width: 0.5 },
-                    { text: `Rp ${data.tableAmount.toLocaleString()}`, align: "RIGHT", width: 0.5 }
-                ]);
+                printer.println(`Billiard (${hrs}h ${rem}m)`);
+                printer.alignRight();
+                printer.println(`Rp ${data.tableAmount.toLocaleString()}`);
+                printer.alignLeft();
             }
 
             // Orders
             if (data.orders && data.orders.length > 0) {
-                if (data.tableAmount > 0) printer.println("");
-                printer.println("Orders:");
                 data.orders.forEach((o: any) => {
                     const name = o.product?.name || 'Item';
                     printer.println(`${name} x${o.quantity}`);
@@ -81,25 +85,24 @@ export class PrintService {
             }
 
             printer.drawLine();
-            printer.setTextSize(1, 1);
             printer.tableCustom([
                 { text: "TOTAL", align: "LEFT", width: 0.4 },
                 { text: `Rp ${(data.finalAmount || 0).toLocaleString()}`, align: "RIGHT", width: 0.6 }
             ]);
-            printer.setTextNormal();
             printer.println("-".repeat(32));
 
-            // Payment
-            printer.println(`Payment: ${data.method || 'CASH'}`);
+            // Payment Detail
+            const change = Math.max(0, (data.receivedAmount || 0) - (data.finalAmount || 0));
+            printer.println(`BAYAR  : ${data.method || 'CASH'}`);
             if (data.receivedAmount > 0) {
-                printer.println(`Cash: Rp ${data.receivedAmount.toLocaleString()}`);
-                printer.println(`Change: Rp ${Math.max(0, data.receivedAmount - (data.finalAmount || 0)).toLocaleString()}`);
+                printer.println(`TUNAI  : Rp ${data.receivedAmount.toLocaleString()}`);
+                printer.println(`KEMBALI: Rp ${change.toLocaleString()}`);
             }
 
             printer.println("-".repeat(32));
             printer.alignCenter();
-            printer.println("Terima kasih telah berkunjung!");
-            printer.println("Powered by VamosPOS");
+            printer.println("TERIMA KASIH!");
+            printer.println("VAMOSPOOL.ID");
             
             // Cut and Feed
             printer.cut();
