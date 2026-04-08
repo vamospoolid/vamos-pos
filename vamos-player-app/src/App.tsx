@@ -213,8 +213,9 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
             {member.photo ? (
               <img 
                 src={getAvatarUrl(member.photo)!} 
-                alt="P" 
+                alt="" 
                 className="w-full h-full rounded-[36px] object-cover" 
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-surface-highlight/30">
@@ -541,7 +542,7 @@ function VerificationCard({ member, venueInfo }: { member: any, venueInfo: any }
       <div className="flex justify-between items-center mb-8 relative z-10"><div><p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 italic">Security Protocol</p><h3 className="text-2xl font-black text-white uppercase italic">PROFIL MEMBER</h3></div></div>
       <div className="space-y-4 relative z-10">
         <div className="flex items-center justify-between p-5 rounded-[28px] bg-[#101423] border border-white/5"><div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-[18px] flex items-center justify-center border ${member.isWaVerified ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-slate-700 border-white/5'}`}><CheckCircle2 className="w-6 h-6" /></div><div><p className="text-sm font-black text-white uppercase italic">WhatsApp Protocol</p></div></div>{member.isWaVerified ? <div className="px-5 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase italic border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">VERIFIED</div> : <button onClick={handleVerifyWa} className="px-5 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase italic border border-primary/20">Verify</button>}</div>
-        <div className="flex items-center justify-between p-5 rounded-[28px] bg-[#101423] border border-white/5"><div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-[18px] flex items-center justify-center border ${member.photo ? 'bg-primary/10 text-primary' : 'text-slate-700'}`}><User className="w-6 h-6" /></div><div><p className="text-sm font-black text-white uppercase italic">Foto Profil</p></div></div>{getAvatarUrl(member.photo) ? <div className="w-10 h-10 rounded-lg overflow-hidden border border-primary/30"><img src={getAvatarUrl(member.photo)!} className="w-full h-full object-cover" /></div> : <label className="px-5 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase italic cursor-pointer">{uploading ? 'SYNC' : 'UPLOAD'}<input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading}/></label>}</div>
+        <div className="flex items-center justify-between p-5 rounded-[28px] bg-[#101423] border border-white/5"><div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-[18px] flex items-center justify-center border ${member.photo ? 'bg-primary/10 text-primary' : 'text-slate-700'}`}><User className="w-6 h-6" /></div><div><p className="text-sm font-black text-white uppercase italic">Foto Profil</p></div></div>{getAvatarUrl(member.photo) ? <div className="flex items-center gap-2"><div className="w-10 h-10 rounded-lg overflow-hidden border border-primary/30"><img src={getAvatarUrl(member.photo)!} alt="" className="w-full h-full object-cover" /></div><label className="text-[9px] font-black text-primary cursor-pointer border-b border-primary/30 pb-0.5">REPLACE<input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} /></label></div> : <label className="px-5 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase italic cursor-pointer">{uploading ? 'SYNC' : 'UPLOAD'}<input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading}/></label>}</div>
       </div>
     </div>
   );
@@ -618,7 +619,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
         <div className="relative mb-5">
           <div className="w-36 h-36 rounded-[44px] bg-[#1a1f35] p-1 border-4 border-white/5 shadow-2xl overflow-hidden">
             {member.photo
-              ? <img src={getAvatarUrl(member.photo)!} alt="P" className="w-full h-full object-cover" />
+              ? <img src={getAvatarUrl(member.photo)!} alt="" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center"><User className="w-14 h-14 text-slate-700" /></div>}
           </div>
           <label className={`absolute -bottom-2 -right-2 p-3 rounded-2xl border-4 border-[#070b14] cursor-pointer transition-all ${uploading ? 'bg-slate-600 animate-pulse' : 'bg-primary'}`}>
@@ -785,7 +786,7 @@ function MainApp({ venueInfo }: { venueInfo: any }) {
       {activeNotification && <VictoryNotification challenge={activeNotification} currentMemberId={member.id} onClose={() => setActiveNotification(null)} />}
       <div className="flex justify-between items-center px-6 pt-10 pb-4 relative z-30">
         <div className="flex items-center gap-3"><VamosLogo className="w-10 h-10" glowing /><h1 onClick={() => setActiveTab('dashboard')} className="text-xl font-black italic uppercase cursor-pointer leading-none">{venueInfo?.name?.split(' ')[0] || "VAMOS"}<span className="text-primary italic">{venueInfo?.name?.split(' ')[1] || "POOL"}</span></h1></div>
-        <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{getAvatarUrl(member.photo) ? <img src={getAvatarUrl(member.photo)!} alt="P" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
+        <div className="flex items-center gap-3"><div className="bg-[#101423] p-1.5 rounded-[12px] flex items-center gap-2 border border-white/10"><Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" /><span className="text-xs font-black text-white">{member.loyaltyPoints ?? 0}</span></div><button onClick={() => setActiveTab('profile')} className="w-10 h-10 rounded-[14px] bg-[#101423] overflow-hidden border border-white/10">{getAvatarUrl(member.photo) ? <img src={getAvatarUrl(member.photo)!} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1f35] flex items-center justify-center text-primary font-black">{member.name?.[0]}</div>}</button></div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10">
         {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} venueInfo={venueInfo} />}

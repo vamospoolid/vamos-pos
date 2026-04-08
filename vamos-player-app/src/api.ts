@@ -15,25 +15,21 @@ export const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'https://pos.vamospool.id/api', 
 });
 
-// Base URL tanpa /api — untuk akses file statis
-const getStaticBase = () => {
-    const baseURL = api.defaults.baseURL || '';
-    return baseURL.endsWith('/api') ? baseURL.replace(/\/api$/, '') : baseURL;
-};
-
-/**
- * Resolves member photo paths to a full URL.
- */
 export function getAvatarUrl(photo: string | null | undefined): string | null {
     if (!photo) return null;
     if (photo.startsWith('http')) return photo;
     
-    const base = getStaticBase();
-    if (photo.startsWith('/uploads/')) return `${base}${photo}`;
+    const path = photo.startsWith('/uploads/') ? photo : `/uploads/avatars/${photo.split('/').pop()}`;
     
-    // Fallback logic for legacy filename-only records
-    const filename = photo.split('/').pop();
-    return `${base}/uploads/avatars/${filename}`;
+    // Jika di browser, biarkan relatif agar otomatis mengikuti domain yang sedang dibuka (app.vamospool.id atau pos.vamospool.id)
+    if (typeof window !== 'undefined') {
+        return path;
+    }
+    
+    // Fallback untuk environment luar browser (misal: testing atau native helper)
+    const baseURL = api.defaults.baseURL || 'https://pos.vamospool.id/api';
+    const base = baseURL.replace(/\/api$/, '');
+    return `${base}${path}`;
 }
 
 api.interceptors.request.use((config) => {
