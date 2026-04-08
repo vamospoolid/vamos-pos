@@ -116,31 +116,36 @@ export class PrintService {
             
             const shareName = data.venue?.printerPath === 'RP58 Printer' ? 'RP58' : data.venue?.printerPath;
             const computerName = process.env.COMPUTERNAME || '127.0.0.1';
-            const networkPath = `\\\\${computerName}\\${shareName}`;
             
-            logger.info(`✅ [PRINT_DEBUG] Mengirim data raw ke shared printer: ${networkPath}...`);
-            
-            try {
-                // Command sakti Windows untuk kirim raw bytes ke printer shared
-                execSync(`copy /b "${tempFile}" "${networkPath}"`);
-                logger.info(`✨ [PRINT_DEBUG] Sukses! Kertas harusnya sudah keluar.`);
-                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                return { success: true };
-            } catch (cmdErr: any) {
-                logger.error(`❌ [PRINT_DEBUG] Gagal copy ke jaringan lokal. Error: ${cmdErr.message}`);
-                
-                // Fallback: LPT1 / USB direct mapping
+            const pathsToTry = [
+                `\\\\127.0.0.1\\${shareName}`,
+                `\\\\localhost\\${shareName}`,
+                `\\\\${computerName}\\${shareName}`
+            ];
+
+            let success = false;
+            let lastError = '';
+
+            for (const networkPath of pathsToTry) {
                 try {
-                    logger.warn(`⚠️ Mencoba mem-print via print command bawaan Windows...`);
-                    // Using print command which is native to windows for raw files
-                    execSync(`print /D:"${networkPath}" "${tempFile}"`);
-                    logger.info(`✨ [PRINT_DEBUG] Sukses via Fallback Print Command!`);
-                    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                    return { success: true };
-                } catch (printErr: any) {
-                     logger.error(`❌ [PRINT_DEBUG] Gagal menggunakan print command: ${printErr.message}`);
-                     throw new Error(`Gagal cetak ke jaringan. Pastikan printer di-share dengan nama ${shareName}`);
+                    logger.info(`✅ [PRINT_DEBUG] Mencoba jalur print: ${networkPath}...`);
+                    execSync(`copy /b "${tempFile}" "${networkPath}"`, { stdio: 'pipe' });
+                    logger.info(`✨ [PRINT_DEBUG] Sukses! Kertas keluar via ${networkPath}`);
+                    success = true;
+                    break;
+                } catch (cmdErr: any) {
+                    lastError = cmdErr.message || String(cmdErr);
+                    logger.warn(`⚠️ Gagal mencoba ${networkPath}`);
                 }
+            }
+
+            if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+
+            if (success) {
+                return { success: true };
+            } else {
+                logger.error(`❌ [PRINT_DEBUG] Semua jalur print mati. Error terakhir: ${lastError}`);
+                throw new Error(`Gagal cetak ke jaringan. Pastikan printer Share Name adalah '${shareName}' dan 'File and Printer Sharing' aktif di Windows.`);
             }
         } catch (error: any) {
             logger.error(`❌ [PRINT_DEBUG] Gagal total: ${error.message}`);
