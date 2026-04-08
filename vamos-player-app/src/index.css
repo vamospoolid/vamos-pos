@@ -291,3 +291,58 @@ h1, h2, h3, h4 {
   animation: tagline-reveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.8s forwards;
   opacity: 0;
 }
+
+/* ═══════════════════════════════════════════════
+   PREMIUM DISCOVERY - REDESIGN SYSTEM
+   ═══════════════════════════════════════════════ */
+
+.fiery-glass {
+  background: rgba(26, 31, 53, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fiery-gradient-card {
+  background: linear-gradient(135deg, #ff5722 0%, #ff1744 100%);
+  box-shadow: 0 15px 35px rgba(255, 87, 34, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.fiery-search-container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fiery-search-container:focus-within {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 87, 34, 0.4);
+  box-shadow: 0 0 20px rgba(255, 87, 34, 0.1);
+}
+
+.fiery-date-item {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fiery-date-item.active {
+  background: linear-gradient(180deg, #ff5722 0%, #ff1744 100%);
+  box-shadow: 0 10px 25px rgba(255, 87, 34, 0.2);
+  transform: scale(1.05);
+}
+
+.fiery-header-scrolled {
+  background: rgba(7, 11, 20, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom Scrollbar for Horizontal Date Picker */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

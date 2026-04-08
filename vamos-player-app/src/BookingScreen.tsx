@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, Loader2, CheckCircle2, ArrowRight, Crown, Box } from 'lucide-react';
 import { useAppStore } from './store/appStore';
 import { api } from './api';
+import { HorizontalDateSelector } from './components/HorizontalDateSelector';
 
 const TIME_SLOTS = [
     "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", 
@@ -309,44 +310,31 @@ export function BookingScreen() {
 
     return (
         <div className="pb-[350px] text-white min-h-screen fade-in relative px-1 scrollbar-hide overflow-x-hidden">
-            {/* Header Sticky - Compact */}
-            <div className="pt-8 pb-3 px-8 flex justify-between items-center bg-[#070b14]/95 backdrop-blur-3xl sticky top-0 z-[100] -mx-8 border-b border-white/5">
+            {/* Header Sticky - Discovery Style */}
+            <div className="pt-8 pb-3 px-6 flex justify-between items-center bg-[#070b14]/80 backdrop-blur-xl sticky top-0 z-[100] -mx-1 border-b border-white/5">
                 <button onClick={() => setActiveTab('dashboard')} className="w-10 h-10 rounded-[14px] bg-[#1a1f35] flex items-center justify-center active:scale-90 transition-all text-white border border-white/5">
                     <ArrowLeft className="w-4 h-4" />
                 </button>
-                <h1 className="text-sm font-black text-white italic uppercase tracking-[0.2em]">Detail Pesanan</h1>
+                <div className="text-center">
+                    <h1 className="text-[10px] font-black text-slate-500 italic uppercase tracking-[0.2em] mb-0.5 opacity-60">Vamos Arena</h1>
+                    <p className="text-sm font-black text-white italic uppercase tracking-widest">Detail Pesanan</p>
+                </div>
                 <div className="w-10 h-10" /> {/* Spacer */}
             </div>
 
-            <div className="mt-6 space-y-8">
-                {/* Tactical Header - Date Selection as Primary Focus */}
+            <div className="mt-6 px-1 space-y-8">
+                {/* ─── NEW HORIZONTAL DATE SELECTOR ─── */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-baseline px-1">
-                        <h3 className="text-base font-black text-white italic uppercase tracking-tighter">Pilih Tanggal</h3>
-                        <p className="text-[9px] font-black text-primary uppercase tracking-widest italic opacity-60">
-                            {selectedDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()}
+                        <h3 className="text-base font-black text-white italic uppercase tracking-tighter">Pilih Jadwal</h3>
+                        <p className="text-[9px] font-black text-primary uppercase tracking-widest italic opacity-80">
+                            {selectedDate.toLocaleDateString('id-ID', { month: 'long' }).toUpperCase()}
                         </p>
                     </div>
-                    <div className="flex space-x-3 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
-                        {dates.map((d, i) => {
-                            const isSelected = d.toDateString() === selectedDate.toDateString();
-                            return (
-                                <button
-                                    key={i}
-                                    onClick={() => setSelectedDate(d)}
-                                    className={`flex-shrink-0 w-[58px] h-20 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 border ${isSelected
-                                        ? 'bg-primary text-secondary border-primary shadow-lg shadow-primary/20 scale-105'
-                                        : 'bg-[#1a1f35]/40 text-slate-500 border-white/5 hover:border-white/10'
-                                        }`}
-                                >
-                                    <span className={`text-[8px] font-black mb-1 uppercase tracking-widest ${isSelected ? 'text-secondary/70' : 'text-slate-600'}`}>
-                                        {d.toLocaleDateString('id-ID', { weekday: 'short' })}
-                                    </span>
-                                    <span className="text-xl font-black italic leading-none">{d.getDate()}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <HorizontalDateSelector 
+                        selectedDate={selectedDate} 
+                        onDateChange={setSelectedDate} 
+                    />
                 </div>
 
                 {/* Combined Parameters Grid (Side by Side) */}
@@ -392,8 +380,8 @@ export function BookingScreen() {
                     </div>
                 </div>
 
-                {/* Asset Selection (Table Type) - High Density Grid */}
-                <div className="space-y-3">
+                {/* Area Selection - Redesigned to Match Discovery Cards */}
+                <div className="space-y-4">
                     <h3 className="text-[10px] font-black text-slate-500 italic uppercase tracking-widest px-1">Pilih Area Meja</h3>
                     <div className="grid grid-cols-3 gap-3">
                         {TABLE_TYPES.map(type => {
@@ -408,30 +396,27 @@ export function BookingScreen() {
                                         setSelectedTableType(type.id);
                                         setSelectedPackageId(null);
                                     }}
-                                    className={`p-3.5 rounded-[22px] border-2 transition-all duration-500 text-center relative overflow-hidden flex flex-col items-center gap-1 ${isSelected
-                                        ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(31,34,255,0.2)]'
+                                    className={`p-4 rounded-[24px] border-2 transition-all duration-500 text-center relative overflow-hidden flex flex-col items-center gap-1.5 ${isSelected
+                                        ? 'fiery-gradient-card border-transparent'
                                         : isAvailable 
                                             ? 'bg-[#1a1f35]/40 border-white/5 hover:border-white/10'
-                                            : 'bg-black/40 border-white/5 opacity-30 grayscale cursor-not-allowed'
+                                            : 'bg-black/40 border-white/10 opacity-30 grayscale cursor-not-allowed'
                                         }`}
                                 >
+                                    <div className={`${isSelected ? 'text-white' : isAvailable ? 'text-slate-500' : 'text-slate-800'} transition-colors relative z-10`}>
+                                        {type.icon}
+                                    </div>
+                                    <h4 className={`font-black text-[9px] uppercase tracking-widest italic relative z-10 ${isSelected ? 'text-white' : isAvailable ? 'text-slate-300' : 'text-slate-700'}`}>{type.name}</h4>
+                                    
                                     {!isAvailable && (
-                                        <div className="absolute inset-0 flex items-center justify-center z-20">
-                                            <div className="bg-black/80 backdrop-blur-sm rounded-full p-2 border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-                                                <div className="relative">
-                                                    <div className="absolute inset-0 bg-red-500/20 rounded-full blur-md animate-pulse" />
-                                                    <Loader2 className="w-4 h-4 text-slate-500 flex-shrink-0" /> {/* Reusing an icon representing a lock/blocked state if Lock not imported, or using a simple dot */}
-                                                </div>
-                                            </div>
+                                        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+                                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
                                         </div>
                                     )}
-                                    <div className={`${isSelected ? 'text-primary' : isAvailable ? 'text-slate-600' : 'text-slate-800'} transition-colors`}>
-                                        {isAvailable ? type.icon : <div className="opacity-20">{type.icon}</div>}
-                                    </div>
-                                    <div className="mt-1">
-                                        <h4 className={`font-black text-[9px] uppercase tracking-widest italic ${isAvailable ? 'text-white' : 'text-slate-700'}`}>{type.name}</h4>
-                                        <p className="text-[9px] text-slate-800 font-black uppercase tracking-widest italic mt-0.5">LOCKED</p>
-                                    </div>
+
+                                    {isSelected && (
+                                        <div className="absolute top-0 right-0 w-12 h-12 bg-white/10 rounded-full blur-xl animate-pulse" />
+                                    )}
                                 </button>
                             );
                         })}

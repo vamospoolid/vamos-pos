@@ -12,6 +12,9 @@ import { PlayScreen } from './PlayScreen';
 import { useAppStore } from './store/appStore';
 import { VamosLogo } from './components/VamosLogo';
 import { SplashScreen } from './components/SplashScreen';
+import { DiscoveryHeader } from './components/DiscoveryHeader';
+import { HorizontalDateSelector } from './components/HorizontalDateSelector';
+import { FeaturedBookingCard } from './components/FeaturedBookingCard';
 
 // ═══════════════════════════════════════════════
 // FALLBACK MOCK DATA (if DB is empty)
@@ -167,142 +170,126 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
 
 function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any, tournaments?: any[], venueInfo: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
-  const ongoingTournament = tournaments.find(t => t.status === 'ONGOING' || t.status === 'IN_PROGRESS');
-  const pendingTournament = tournaments.find(t => t.status === 'PENDING' || t.status === 'UPCOMING' || !t.status);
-  const [showMasteryInfo, setShowMasteryInfo] = useState(false);
-  const [showRankHistory, setShowRankHistory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const { setActiveTab } = useAppStore();
 
-  useEffect(() => {
-    if (showRankHistory) {
-      // Mock loading history
-    }
-  }, [showRankHistory, member.id]);
-
   return (
-    <div className="fade-in space-y-8 pb-32">
-      {/* ─── MASTERY INFO MODAL ─── */}
-      {showMasteryInfo && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#0a0f1d]/95 backdrop-blur-xl" onClick={() => setShowMasteryInfo(false)} />
-          <div className="relative w-full max-w-sm fiery-card p-10 text-left scale-in border-2 border-primary/20">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Protokol Keahlian</h3>
-              <button onClick={() => setShowMasteryInfo(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-6">
-               <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                    <Trophy className="w-5 h-5 text-primary" />
-                  </div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-tight leading-relaxed">Capai Peringkat lebih tinggi untuk membuka fitur eksklusif dan diskon pendaftaran turnamen.</p>
-               </div>
-            </div>
-            <button onClick={() => setShowMasteryInfo(false)} className="w-full mt-10 py-4 fiery-btn-primary text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4" /> Mengerti
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="fade-in space-y-6 pb-32">
+      {/* ─── NEW DISCOVERY HEADER ─── */}
+      <DiscoveryHeader member={member} />
 
-      {/* ─── IDENTITY BLOCK ─── */}
-      <div className="flex flex-col items-center pt-10 pb-6 relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="relative mb-6">
-          <div className="w-32 h-32 rounded-[40px] bg-surface-highlight/20 border-4 border-white/5 p-1 relative z-10 shadow-2xl overflow-hidden">
-            {member.photo ? (
-              <img 
-                src={getAvatarUrl(member.photo)!} 
-                alt="" 
-                className="w-full h-full rounded-[36px] object-cover" 
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-surface-highlight/30">
-                <User className="w-14 h-14 text-slate-600" />
-              </div>
-            )}
-          </div>
-        </div>
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">{member.name || 'LEGEND PLAYER'}</h1>
-        <div className="flex items-center gap-12 mt-6">
-          <div className="text-center">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Balance</p>
-            <p className="text-2xl font-black text-white italic tracking-tighter leading-none">{member.loyaltyPoints || 0} <span className="text-[10px] text-primary not-italic ml-1">PTS</span></p>
-          </div>
-          <div className="w-px h-10 bg-white/5" />
-          <div className="text-center">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Standing</p>
-            <p className="text-2xl font-black text-white italic tracking-tighter leading-none uppercase">Level {member.level || 1}</p>
-          </div>
-        </div>
+      {/* ─── HORIZONTAL DATE SELECTOR ─── */}
+      <div className="pt-2">
+         <HorizontalDateSelector 
+            selectedDate={selectedDate} 
+            onDateChange={setSelectedDate} 
+         />
       </div>
 
-      <VerificationCard member={member} venueInfo={venueInfo} />
-
-      {/* ─── QUICK ACTIONS ─── */}
-      <div className="grid grid-cols-2 gap-4">
-        <button onClick={() => setActiveTab('booking')} className="fiery-card p-6 flex flex-col gap-4 hover:scale-[1.02] transition-all duration-300">
-          <div className="w-12 h-12 rounded-2xl bg-[#a855f7]/10 flex items-center justify-center border border-[#a855f7]/20">
-            <Calendar className="w-6 h-6 text-[#a855f7]" />
-          </div>
-          <div className="text-left font-black text-white uppercase italic">Pesan Meja</div>
-        </button>
-        <button onClick={() => setActiveTab('leaderboard')} className="fiery-card p-6 flex flex-col gap-4 hover:scale-[1.02] transition-all duration-300">
-          <div className="w-12 h-12 rounded-2xl bg-[#00d084]/10 flex items-center justify-center border border-[#00d084]/20">
-            <Trophy className="w-6 h-6 text-[#00d084]" />
-          </div>
-          <div className="text-left font-black text-white uppercase italic">Peringkat</div>
-        </button>
-      </div>
-
+      {/* ─── ACTIVE SESSION BANNER (Compact) ─── */}
       {activeSession && (
-        <button onClick={() => setActiveTab('active-session')} className="w-full fiery-card-highlight p-6 flex items-center justify-between fiery-glow mt-4">
-          <div className="flex items-center gap-5">
-             <Flame className="w-6 h-6 text-primary animate-pulse" fill="currentColor" />
-             <div className="text-left font-black text-white uppercase italic text-lg">Sesi Aktif: {activeSession?.table?.name}</div>
+        <button onClick={() => setActiveTab('active-session')} className="w-full fiery-card-highlight p-5 flex items-center justify-between fiery-glow group">
+          <div className="flex items-center gap-4">
+             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center animate-pulse">
+                <Flame className="w-5 h-5 text-primary" fill="currentColor" />
+             </div>
+             <div className="text-left">
+                <p className="text-[8px] font-black text-primary uppercase tracking-widest italic leading-none mb-1">Live Play</p>
+                <div className="font-black text-white uppercase italic text-base leading-none">Table: {activeSession?.table?.name}</div>
+             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-white" />
+          <ChevronRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
         </button>
       )}
 
-      {/* ─── DYNAMIC TOURNAMENT RADAR ─── */}
-      {ongoingTournament && (
-        <button onClick={() => setActiveTab('tournaments')} className="w-full fiery-card p-6 bg-blue-500/10 border-2 border-blue-500/30 rounded-[32px] flex items-center justify-between group fiery-glow mt-4">
-           <div className="flex items-center gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                  <Swords className="w-6 h-6 text-blue-500 animate-pulse" />
-              </div>
-              <div className="text-left">
-                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1 italic">Event Sedang Berlangsung</p>
-                  <p className="font-black text-white text-xl uppercase italic leading-none">{ongoingTournament.name}</p>
-              </div>
-           </div>
-           <ChevronRight className="w-6 h-6 text-white" />
-        </button>
-      )}
-
-      {!ongoingTournament && pendingTournament && (
-        <button onClick={() => setActiveTab('tournaments')} className="w-full fiery-card p-6 bg-orange-500/10 border-2 border-orange-500/30 rounded-[32px] flex items-center justify-between group fiery-glow mt-4">
-           <div className="flex items-center gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
-                  <Calendar className="w-6 h-6 text-orange-500 animate-bounce" />
-              </div>
-              <div className="text-left">
-                  <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1 italic">Pendaftaran Dibuka</p>
-                  <p className="font-black text-white text-xl uppercase italic leading-none">{pendingTournament.name}</p>
-              </div>
-           </div>
-           <ChevronRight className="w-6 h-6 text-white" />
-        </button>
-      )}
-
-      <div className="fiery-card p-8 bg-amber-500/5 border-2 border-amber-500/10 rounded-[40px] flex items-center justify-between group mt-4" onClick={() => setShowRankHistory(true)}>
-         <div className="text-left">
-            <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] mb-2 italic">Official Handicap</p>
-            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate max-w-[200px]">{member.handicapLabel || 'ELITE FRAGGER'}</h3>
+      {/* ─── FEATURED CONTENT ─── */}
+      <div className="space-y-2">
+         <div className="flex justify-between items-baseline px-1 mb-4">
+            <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Ongoing Events</h3>
+            <button className="text-[10px] font-black text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">View More</button>
          </div>
-         <TrendingUp className="w-7 h-7 text-amber-500" />
+
+         {/* Mapping Tournaments to Premium Cards */}
+         {tournaments.length > 0 ? tournaments.map((t: any, i: number) => (
+            <FeaturedBookingCard 
+              key={t.id || i}
+              title={t.name}
+              location={venueInfo?.name || "Vamos Arena"}
+              price={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : "Free Entry"}
+              players={`${t.participants?.length || 0}/16`}
+              status={t.status === 'ONGOING' ? 'Open' : 'Private'}
+              startsIn={t.status === 'ONGOING' ? "3h" : undefined}
+              isPremium={i === 0}
+              onJoin={() => setActiveTab('tournaments')}
+            />
+         )) : (
+            <>
+               <FeaturedBookingCard 
+                 title="Friday Night League"
+                 location="Marina Green, 1.8km away"
+                 price="RP 150K"
+                 players="12/16"
+                 status="Open"
+                 startsIn="3hrs"
+                 isPremium={true}
+                 onJoin={() => setActiveTab('booking')}
+               />
+               <FeaturedBookingCard 
+                 title="Courtside Futsal Night"
+                 location="City Sports Complex, 1.1 km"
+                 price="RP 85K"
+                 players="8/12"
+                 status="Open"
+                 onJoin={() => setActiveTab('booking')}
+               />
+            </>
+         )}
+      </div>
+
+      {/* ─── SECONDARY SECTION ─── */}
+      <div className="space-y-4 pt-4">
+         <div className="flex justify-between items-baseline px-1">
+            <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Popular Teams</h3>
+            <button className="text-[10px] font-black text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">View More</button>
+         </div>
+
+         <div className="space-y-3">
+            {[
+               { name: 'The Spartson', loc: 'Marina Green, 1.8 km away', icon: '⚽' },
+               { name: 'Horizon Warriors', loc: 'Riverside Park, 0.6 km away', icon: '🏀' }
+            ].map((team, idx) => (
+               <div key={idx} className="fiery-card p-5 flex items-center justify-between border-white/5 bg-[#1a1f35]/30">
+                  <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 rounded-2xl bg-[#101423] flex items-center justify-center text-xl border border-white/5">
+                        {team.icon}
+                     </div>
+                     <div>
+                        <p className="font-black text-white text-base uppercase italic leading-none mb-1.5">{team.name}</p>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight italic">{team.loc}</p>
+                     </div>
+                  </div>
+                  <button className="text-[9px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-all px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                     View Detail
+                  </button>
+               </div>
+            ))}
+         </div>
+      </div>
+
+      {/* Keep Identity Stats (Balance/Level) but smaller or moved */}
+      <div className="grid grid-cols-2 gap-3 pt-6">
+         <div className="bg-[#101423] border border-white/5 p-4 rounded-[24px]">
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Loyalty Points</p>
+            <p className="text-xl font-black text-white italic leading-none">{member.loyaltyPoints || 0} <span className="text-[8px] text-primary">PTS</span></p>
+         </div>
+         <div className="bg-[#101423] border border-white/5 p-4 rounded-[24px]">
+            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Member Standing</p>
+            <p className="text-xl font-black text-white italic leading-none uppercase">Level {member.level || 1}</p>
+         </div>
+      </div>
+
+      <div className="pt-4">
+         <VerificationCard member={member} venueInfo={venueInfo} />
       </div>
     </div>
   );
@@ -798,16 +785,30 @@ function MainApp({ venueInfo }: { venueInfo: any }) {
         {activeTab === 'profile' && <ProfileScreen member={member} onLogout={() => useAppStore.getState().logout()} />}
         {activeTab === 'menu' && <MenuScreen />}
       </div>
-      <nav className="fiery-nav">
+      <nav className="fiery-nav fiery-glass mx-4 mb-2 !bottom-4 !left-2 !right-2 rounded-[28px] py-3 px-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-white/5">
         {[
           {id:'dashboard', icon:LayoutGrid, label:'Home'},
           {id:'play',      icon:Swords,     label:'Arena'},
           {id:'leaderboard', icon:Trophy,   label:'Ranking'},
           {id:'rewards',   icon:Star,       label:'Store'},
           {id:'profile',   icon:User,       label:'Profil'},
-        ].map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`nav-item ${activeTab === item.id ? 'active' : ''}`}><div className="icon-container"><item.icon className="w-5 h-5" /></div><span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span></button>
-        ))}
+        ].map(item => {
+          const isActive = activeTab === item.id;
+          return (
+            <button 
+              key={item.id} 
+              onClick={() => setActiveTab(item.id as any)} 
+              className={`nav-item flex flex-col items-center justify-center transition-all duration-300 ${isActive ? 'active translate-y-[-6px]' : 'opacity-40'}`}
+            >
+              <div className={`icon-container p-2.5 rounded-2xl transition-all duration-500 ${isActive ? 'bg-primary shadow-[0_5px_15px_rgba(255,87,34,0.4)] text-white' : 'text-slate-400'}`}>
+                <item.icon className="w-5 h-5" strokeWidth={isActive ? 3 : 2} />
+              </div>
+              {isActive && (
+                <div className="w-1 h-1 bg-primary rounded-full mt-1 animate-pulse" />
+              )}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
