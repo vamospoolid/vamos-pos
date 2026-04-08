@@ -115,19 +115,32 @@ export class PrintService {
             fs.writeFileSync(tempFile, buffer);
             
             const shareName = data.venue?.printerPath === 'RP58 Printer' ? 'RP58' : data.venue?.printerPath;
-            logger.info(`✅ [PRINT_DEBUG] Mengirim data raw ke shared printer: \\\\localhost\\${shareName}...`);
+            const computerName = process.env.COMPUTERNAME || '127.0.0.1';
+            const networkPath = `\\\\${computerName}\\${shareName}`;
+            
+            logger.info(`✅ [PRINT_DEBUG] Mengirim data raw ke shared printer: ${networkPath}...`);
             
             try {
                 // Command sakti Windows untuk kirim raw bytes ke printer shared
-                execSync(`copy /b "${tempFile}" "\\\\localhost\\${shareName}"`);
+                execSync(`copy /b "${tempFile}" "${networkPath}"`);
                 logger.info(`✨ [PRINT_DEBUG] Sukses! Kertas harusnya sudah keluar.`);
                 if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
                 return { success: true };
             } catch (cmdErr: any) {
-                logger.warn(`⚠️ Jalur Shared gagal, mencoba jalur Out-Printer (PowerShell)...`);
-                execSync(`powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name '${data.venue?.printerPath || 'RP58 Printer'}'"`);
-                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                return { success: true };
+                logger.error(`❌ [PRINT_DEBUG] Gagal copy ke jaringan lokal. Error: ${cmdErr.message}`);
+                
+                // Fallback: LPT1 / USB direct mapping
+                try {
+                    logger.warn(`⚠️ Mencoba mem-print via print command bawaan Windows...`);
+                    // Using print command which is native to windows for raw files
+                    execSync(`print /D:"${networkPath}" "${tempFile}"`);
+                    logger.info(`✨ [PRINT_DEBUG] Sukses via Fallback Print Command!`);
+                    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+                    return { success: true };
+                } catch (printErr: any) {
+                     logger.error(`❌ [PRINT_DEBUG] Gagal menggunakan print command: ${printErr.message}`);
+                     throw new Error(`Gagal cetak ke jaringan. Pastikan printer di-share dengan nama ${shareName}`);
+                }
             }
         } catch (error: any) {
             logger.error(`❌ [PRINT_DEBUG] Gagal total: ${error.message}`);
