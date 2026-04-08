@@ -19,17 +19,11 @@ export function getAvatarUrl(photo: string | null | undefined): string | null {
     if (!photo) return null;
     if (photo.startsWith('http')) return photo;
     
-    const path = photo.startsWith('/uploads/') ? photo : `/uploads/avatars/${photo.split('/').pop()}`;
+    // Gunakan route API khusus untuk view avatar yang sudah terbukti bisa diakses di VPS
+    const baseURL = (api.defaults.baseURL || '').replace(/\/$/, '');
+    const filename = photo.split('/').pop();
     
-    // Jika di browser, biarkan relatif agar otomatis mengikuti domain yang sedang dibuka (app.vamospool.id atau pos.vamospool.id)
-    if (typeof window !== 'undefined') {
-        return path;
-    }
-    
-    // Fallback untuk environment luar browser (misal: testing atau native helper)
-    const baseURL = api.defaults.baseURL || 'https://pos.vamospool.id/api';
-    const base = baseURL.replace(/\/api$/, '');
-    return `${base}${path}`;
+    return `${baseURL}/player/avatar-view/${filename}`;
 }
 
 api.interceptors.request.use((config) => {
