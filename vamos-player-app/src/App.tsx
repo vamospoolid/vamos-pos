@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp, Download } from 'lucide-react';
 import { api } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -148,6 +148,18 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
         <p className="text-center text-[9px] text-slate-600 font-bold uppercase mt-8 tracking-widest">
           {isRegister ? 'Dengan bergabung Anda menyetujui aturan arena' : 'Kendala login? Hubungi Kasir.'}
         </p>
+        
+        <a 
+          href="https://pos.vamospool.id/VamosPlayer.apk" 
+          download
+          className="mt-6 flex flex-col items-center justify-center py-4 bg-primary/10 border-2 border-primary/20 rounded-2xl mx-auto w-full max-w-[250px] shadow-[0_0_15px_rgba(255,87,34,0.1)] active:scale-95 transition-all text-primary hover:bg-primary/20"
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Download className="w-5 h-5" />
+            <span className="font-black italic uppercase text-xs">Download App Android</span>
+          </div>
+          <span className="text-[8px] font-bold text-slate-400">Lebih cepat. Lebih stabil.</span>
+        </a>
       </div>
     </div>
   );
