@@ -24,7 +24,9 @@ interface Challenge {
         table: {
             name: string;
         }
-    }
+    };
+    score1?: number;
+    score2?: number;
 }
 
 export default function Challenges() {
@@ -227,10 +229,15 @@ export default function Challenges() {
                                     <div className="bg-orange-500/10 px-3 py-1 rounded-lg mb-2">
                                         <p className="text-orange-500 font-black text-xs font-mono">VS</p>
                                     </div>
-                                    <div className="h-px w-8 bg-[#222] relative">
-                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-orange-500">
-                                            <Swords className="w-4 h-4" />
-                                        </div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Swords className="w-4 h-4 text-orange-500" />
+                                        {c.status === 'WAITING_VERIFICATION' && (
+                                            <div className="flex gap-2 items-center bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+                                                <span className="text-lg font-black text-white">{c.score1 || 0}</span>
+                                                <span className="text-[10px] text-gray-500 font-bold">-</span>
+                                                <span className="text-lg font-black text-white">{c.score2 || 0}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -286,8 +293,8 @@ export default function Challenges() {
                                     onClick={() => {
                                         setSelectedChallenge(c);
                                         setSelectedWinnerId(c.winnerId || null);
-                                        setScore1((c as any).score1 || 0);
-                                        setScore2((c as any).score2 || 0);
+                                        setScore1(c.score1 || 0);
+                                        setScore2(c.score2 || 0);
                                         setIsCompleteModalOpen(true);
                                     }}
                                     className={`w-full border py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
