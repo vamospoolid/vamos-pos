@@ -1,0 +1,362 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;600;700;900&display=swap');
+
+:root {
+  --primary: #ff5722;
+  --primary-gradient: linear-gradient(135deg, #ff5722 0%, #ff1744 100%);
+  --bg-dark: #0d0f14;
+  --bg-card: #161823;
+  --text-main: #ffffff;
+  --text-muted: #94a3b8;
+  --accent-glow: rgba(255, 87, 34, 0.4);
+  --glass: rgba(26, 31, 53, 0.6);
+  --border-glass: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base UI Elements */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+h1, h2, h3 {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Navigation */
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 1.5rem 0;
+  z-index: 1000;
+  transition: all 0.4s ease;
+}
+
+nav.scrolled {
+  background: rgba(13, 15, 20, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-glass);
+  padding: 1rem 0;
+}
+
+.nav-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo img {
+  height: 40px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2.5rem;
+  list-style: none;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: color 0.3s;
+}
+
+.nav-links a:hover {
+  color: var(--primary);
+}
+
+/* Hero Section */
+.hero {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(13, 15, 20, 0.4), rgba(13, 15, 20, 0.9)), url('assets/hero.png');
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.1);
+  filter: blur(2px) brightness(0.7);
+  z-index: -1;
+}
+
+.hero-content {
+  text-align: center;
+  max-width: 900px;
+}
+
+.hero h1 {
+  font-size: clamp(3rem, 8vw, 6rem);
+  line-height: 0.9;
+  margin-bottom: 1.5rem;
+}
+
+.hero p {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin-bottom: 2.5rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cta-btn {
+  display: inline-block;
+  padding: 1.2rem 3rem;
+  background: var(--primary-gradient);
+  color: white;
+  text-decoration: none;
+  border-radius: 5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 0 10px 30px rgba(255, 87, 34, 0.3);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.cta-btn:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(255, 87, 34, 0.5);
+}
+
+/* Features Section */
+.features {
+  padding: 8rem 0;
+}
+
+.section-head {
+  text-align: center;
+  margin-bottom: 5rem;
+}
+
+.section-head h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  padding: 3rem;
+  border-radius: 2rem;
+  border: 1px solid var(--border-glass);
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card:hover {
+  transform: translateY(-10px);
+  border-color: rgba(255, 87, 34, 0.3);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.feature-card i {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
+.feature-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card p {
+  color: var(--text-muted);
+}
+
+/* Vanguard Focus Section */
+.vanguard {
+  padding: 8rem 0;
+  background: radial-gradient(circle at 100% 50%, rgba(255, 87, 34, 0.05) 0%, transparent 50%);
+}
+
+.vanguard-flex {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+}
+
+.vanguard-img {
+  flex: 1;
+  position: relative;
+}
+
+.vanguard-img img {
+  width: 100%;
+  border-radius: 2rem;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+}
+
+.vanguard-info {
+  flex: 1;
+}
+
+.vanguard-info h2 {
+  font-size: 4rem;
+  line-height: 1;
+  margin-bottom: 2rem;
+}
+
+.vanguard-list {
+  list-style: none;
+}
+
+.vanguard-list li {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.vanguard-list li b {
+  color: var(--primary);
+  min-width: 100px;
+}
+
+/* App Edge Section */
+.app-edge {
+  padding: 8rem 0;
+  text-align: center;
+  background: var(--bg-dark);
+}
+
+.glass-pill {
+  display: inline-block;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem 1.5rem;
+  border-radius: 2rem;
+  border: 1px solid var(--border-glass);
+  margin-bottom: 2rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  color: var(--primary);
+}
+
+.app-download-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rem;
+  background: var(--bg-card);
+  padding: 4rem;
+  border-radius: 3rem;
+  border: 1px solid var(--border-glass);
+  margin: 4rem auto;
+  max-width: 900px;
+}
+
+.qr-box {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  background: white;
+  padding: 1rem;
+  border-radius: 2rem;
+  flex-shrink: 0;
+}
+
+.qr-box img {
+  width: 100%;
+}
+
+.qr-glow {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  background: var(--primary);
+  filter: blur(40px);
+  opacity: 0.15;
+  z-index: -1;
+  border-radius: 3rem;
+  animation: qr-pulse 3s infinite ease-in-out;
+}
+
+@keyframes qr-pulse {
+  0%, 100% { opacity: 0.1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.05); }
+}
+
+.download-info {
+  text-align: left;
+}
+
+.download-info h3 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Animations */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 1s ease-out;
+}
+
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .vanguard-flex {
+    flex-direction: column;
+  }
+  .hero h1 {
+    font-size: 4rem;
+  }
+  .nav-links {
+    display: none;
+  }
+}

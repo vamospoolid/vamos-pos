@@ -77,36 +77,93 @@ async function main() {
     console.log('✅ Tables seeded');
 
     // ============================================================
-    // 4. PRICING RULES
+    // 4. PRICING RULES (UPDATING/UPSERTING)
     // ============================================================
-    const existingRules = await prisma.pricingRule.count({ where: { deletedAt: null } });
-    if (existingRules === 0) {
-        await prisma.pricingRule.createMany({
-            data: [
-                { name: 'Dini Hari Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '02:01', endTime: '07:00', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
-                { name: 'Malam Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:01', endTime: '02:00', ratePerHour: 35000, memberRatePerHour: 35000, isActive: true },
-                { name: 'Siang Regular', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00', ratePerHour: 25000, memberRatePerHour: 25000, isActive: true },
-                { name: 'EXEBITION', tableType: 'REGULAR', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:01', endTime: '04:59', ratePerHour: 30000, memberRatePerHour: 30000, isActive: true },
-            ]
+    const pricingRulesData = [
+        { name: 'Dini Hari Regular', tableType: 'REGULAR', startTime: '02:01', endTime: '07:00', ratePerHour: 30000 },
+        { name: 'Malam Regular', tableType: 'REGULAR', startTime: '17:01', endTime: '02:00', ratePerHour: 35000 },
+        { name: 'Siang Regular', tableType: 'REGULAR', startTime: '09:00', endTime: '17:00', ratePerHour: 25000 },
+        { name: 'EXEBITION', tableType: 'REGULAR', startTime: '17:01', endTime: '04:59', ratePerHour: 30000 },
+    ];
+
+    for (const rule of pricingRulesData) {
+        await prisma.pricingRule.upsert({
+            where: { id: rule.name }, // Using name as a virtual ID for seeding purposes if needed, but schema uses UUID. 
+            // Better: find by name and update.
+            create: { 
+                name: rule.name, 
+                tableType: rule.tableType, 
+                startTime: rule.startTime, 
+                endTime: rule.endTime, 
+                ratePerHour: rule.ratePerHour, 
+                memberRatePerHour: rule.ratePerHour, // Same price for members
+                dayOfWeek: [0, 1, 2, 3, 4, 5, 6],
+                isActive: true 
+            },
+            update: { 
+                ratePerHour: rule.ratePerHour, 
+                memberRatePerHour: rule.ratePerHour 
+            },
+        }).catch(async () => {
+            // Fallback if upsert by ID 'name' fails because ID must be UUID
+            const existing = await prisma.pricingRule.findFirst({ where: { name: rule.name, deletedAt: null } });
+            if (existing) {
+                await prisma.pricingRule.update({
+                    where: { id: existing.id },
+                    data: { ratePerHour: rule.ratePerHour, memberRatePerHour: rule.ratePerHour }
+                });
+            } else {
+                await prisma.pricingRule.create({
+                    data: { 
+                        name: rule.name, 
+                        tableType: rule.tableType, 
+                        startTime: rule.startTime, 
+                        endTime: rule.endTime, 
+                        ratePerHour: rule.ratePerHour, 
+                        memberRatePerHour: rule.ratePerHour, 
+                        dayOfWeek: [0, 1, 2, 3, 4, 5, 6],
+                        isActive: true 
+                    }
+                });
+            }
         });
     }
-    console.log('✅ Pricing rules seeded');
+    console.log('✅ Pricing rules seeded/updated');
 
     // ============================================================
-    // 5. PACKAGES
+    // 5. PACKAGES (UPDATING/UPSERTING)
     // ============================================================
-    const existingPkg = await prisma.package.count({ where: { deletedAt: null } });
-    if (existingPkg === 0) {
-        await prisma.package.createMany({
-            data: [
-                { name: 'Paket Malam 2 Jam', tableType: 'REGULAR', duration: 120, price: 50000, memberPrice: 50000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [1, 2, 3, 4, 5] },
-                { name: 'Paket Malam 3 Jam', tableType: 'REGULAR', duration: 180, price: 75000, memberPrice: 75000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'MIDNIGHT PACKAGE', tableType: 'REGULAR', duration: 60, price: 25000, memberPrice: 25000, startTime: '02:00', endTime: '07:59', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-                { name: 'EXEBITION', tableType: 'REGULAR', duration: 60, price: 30000, memberPrice: 30000, startTime: '17:00', endTime: '02:00', isActive: true, dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
-            ]
-        });
+    const packagesData = [
+        { name: 'Paket Malam 2 Jam', tableType: 'REGULAR', duration: 120, price: 60000, startTime: '17:00', endTime: '02:00', dayOfWeek: [1, 2, 3, 4, 5] },
+        { name: 'Paket Malam 3 Jam', tableType: 'REGULAR', duration: 180, price: 90000, startTime: '17:00', endTime: '02:00', dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+        { name: 'MIDNIGHT PACKAGE', tableType: 'REGULAR', duration: 60, price: 25000, startTime: '02:00', endTime: '07:59', dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+        { name: 'EXEBITION', tableType: 'REGULAR', duration: 60, price: 30000, startTime: '17:00', endTime: '02:00', dayOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+    ];
+
+    for (const pkg of packagesData) {
+        const existing = await prisma.package.findFirst({ where: { name: pkg.name, deletedAt: null } });
+        if (existing) {
+            await prisma.package.update({
+                where: { id: existing.id },
+                data: { price: pkg.price, memberPrice: pkg.price }
+            });
+        } else {
+            await prisma.package.create({
+                data: {
+                    name: pkg.name,
+                    tableType: pkg.tableType,
+                    duration: pkg.duration,
+                    price: pkg.price,
+                    memberPrice: pkg.price,
+                    startTime: pkg.startTime,
+                    endTime: pkg.endTime,
+                    isActive: true,
+                    dayOfWeek: pkg.dayOfWeek
+                }
+            });
+        }
     }
-    console.log('✅ Packages seeded');
+    console.log('✅ Packages seeded/updated');
 
     // ============================================================
     // 6. PRODUCTS

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp, Download } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp, Download, Share2 } from 'lucide-react';
 import { api, getAvatarUrl } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -211,17 +211,35 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
 
          {/* Mapping Tournaments to Premium Cards */}
          {tournaments.length > 0 ? tournaments.map((t: any, i: number) => (
-            <FeaturedBookingCard 
-              key={t.id || i}
-              title={t.name}
-              location={venueInfo?.name || "Vamos Arena"}
-              price={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : "Free Entry"}
-              players={`${t.participants?.length || 0}/16`}
-              status={t.status === 'ONGOING' ? 'Open' : 'Private'}
-              startsIn={t.status === 'ONGOING' ? "3h" : undefined}
-              isPremium={i === 0}
-              onJoin={() => setActiveTab('tournaments')}
-            />
+            <div key={t.id || i} className="space-y-3">
+              <FeaturedBookingCard 
+                title={t.name}
+                location={venueInfo?.name || "Vamos Arena"}
+                price={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : "Free Entry"}
+                players={`${t.participants?.length || 0}/16`}
+                status={t.status === 'ONGOING' ? 'Open' : 'Private'}
+                startsIn={t.status === 'ONGOING' ? "3h" : undefined}
+                isPremium={i === 0}
+                onJoin={() => setActiveTab('tournaments')}
+              />
+              {(t.name || '').toLowerCase().includes('arisan') && t.participants?.length > 0 && (
+                <div className="bg-[#1a1f35]/50 border border-white/5 p-4 rounded-3xl mx-1 -mt-1 group animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="flex justify-between items-center mb-2 px-1">
+                    <p className="text-[9px] font-black text-primary uppercase italic tracking-[0.2em]">Live Participants</p>
+                    <p className="text-[8px] font-black text-slate-600 uppercase italic">{t.participants.length} Active</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+                    {t.participants.map((p: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-1 opacity-80 overflow-hidden">
+                         <span className="text-[7px] font-black text-slate-700 w-2.5 shrink-0">{idx + 1}</span>
+                         <span className="text-[9px] font-black text-slate-300 uppercase italic truncate">{(p.member?.name || p.name || '...').split(' ')[0]}</span>
+                         {p.handicap && <span className="text-[7px] font-bold text-primary shrink-0">H{p.handicap}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
          )) : (
             <>
                <FeaturedBookingCard 
@@ -302,6 +320,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   
   const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>(isOngoing ? 'bracket' : 'info');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
+  const [isCompact, setIsCompact] = useState((tournament?.name || '').toLowerCase().includes('arisan'));
   const [paymentRef, setPaymentRef] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
   const { refreshMemberData } = useAppStore();
@@ -481,10 +500,61 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
         )}
         {activeView === 'rankings' && (
           <div className="space-y-6">
-            <div className="bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5"><input className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" placeholder="Cari nama peserta..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-[#1a1f35]/50 flex items-center px-6 py-4 rounded-2xl border border-white/5">
+                <input 
+                  className="bg-transparent focus:outline-none text-sm w-full font-bold placeholder:text-slate-600 text-white uppercase italic" 
+                  placeholder="Cari nama peserta..." 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                />
+              </div>
+              <button 
+                onClick={() => setIsCompact(!isCompact)}
+                className={`px-4 py-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${isCompact ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'bg-[#1a1f35]/50 border-white/5 text-slate-500'}`}
+                title="Screenshot mode (Compact)"
+              >
+                <Camera className="w-5 h-5" />
+                <span className="text-[9px] font-black uppercase italic hidden sm:inline">Compact</span>
+              </button>
+              {isCompact && (
+                <button 
+                  onClick={() => {
+                    const text = `*LIST PESERTA: ${tournament.name}*\n\n` + 
+                      filteredParticipants.map((p: any, i: number) => `${i+1}. ${p.name || p.member?.name} ${p.handicap ? `(HC: ${p.handicap})` : ''}`).join('\n') +
+                      `\n\n_Generated by Vamos Player App_`;
+                    
+                    // Copy to clipboard
+                    navigator.clipboard.writeText(text);
+                    
+                    // Open WA
+                    const waUrl = `https://wa.me?text=${encodeURIComponent(text)}`;
+                    window.open(waUrl, '_blank');
+                  }}
+                  className="px-4 py-4 rounded-2xl border border-white/5 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                  title="Share list to WhatsApp"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span className="text-[9px] font-black uppercase italic hidden sm:inline">Share WA</span>
+                </button>
+              )}
+            </div>
             {filteredParticipants.length === 0 ? (
                 <div className="fiery-card py-20 text-center border-dashed border-white/10 opacity-70">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Belum ada peserta yang mendaftar.</p>
+                </div>
+            ) : isCompact ? (
+                <div className="grid grid-cols-2 gap-2">
+                   {filteredParticipants.map((p: any, i: number) => (
+                      <div key={p.id || i} className="bg-[#1a1f35]/50 border border-white/5 p-3 rounded-xl flex items-center gap-3">
+                         <div className="text-[8px] font-black text-slate-500 w-4 text-center shrink-0">{i + 1}</div>
+                         <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                            <p className="font-black text-white text-[10px] uppercase italic truncate">{p?.name || 'PESERTA'}</p>
+                            {p.handicap && <span className="text-[8px] font-bold text-primary italic shrink-0">HC {p.handicap}</span>}
+                         </div>
+                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)] shrink-0" />
+                      </div>
+                   ))}
                 </div>
             ) : (
                 filteredParticipants.map((p: any, i: number) => (

@@ -70,20 +70,20 @@ async function main() {
 
     await prisma.pricingRule.createMany({
         data: [
-            { name: 'Regular Weekday', tableType: 'REGULAR', dayOfWeek: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00', ratePerHour: 40000, isActive: true },
-            { name: 'Regular Night', tableType: 'REGULAR', dayOfWeek: [1, 2, 3, 4, 5], startTime: '18:00', endTime: '23:59', ratePerHour: 55000, isActive: true },
-            { name: 'VIP All Day', tableType: 'VIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '00:00', endTime: '23:59', ratePerHour: 80000, isActive: true },
-            { name: 'VVIP All Day', tableType: 'VVIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '00:00', endTime: '23:59', ratePerHour: 120000, isActive: true },
+            { name: 'Regular Weekday', tableType: 'REGULAR', dayOfWeek: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00', ratePerHour: 40000, memberRatePerHour: 40000, isActive: true },
+            { name: 'Regular Night', tableType: 'REGULAR', dayOfWeek: [1, 2, 3, 4, 5], startTime: '18:00', endTime: '23:59', ratePerHour: 55000, memberRatePerHour: 55000, isActive: true },
+            { name: 'VIP All Day', tableType: 'VIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '00:00', endTime: '23:59', ratePerHour: 80000, memberRatePerHour: 80000, isActive: true },
+            { name: 'VVIP All Day', tableType: 'VVIP', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '00:00', endTime: '23:59', ratePerHour: 120000, memberRatePerHour: 120000, isActive: true },
         ]
     });
 
     await prisma.package.createMany({
         data: [
-            { name: 'Ngebul Package (3 Hrs)', duration: 180, price: 100000, memberPrice: 85000, tableType: 'REGULAR', isActive: true },
-            { name: 'VIP Night Long (4 Hrs)', duration: 240, price: 300000, memberPrice: 250000, tableType: 'VIP', isActive: true },
-            { name: 'Lunch Break (2 Hrs)', duration: 120, price: 70000, memberPrice: 60000, tableType: 'REGULAR', isActive: true },
-            { name: 'Sultan Promo (5 Hrs)', duration: 300, price: 500000, memberPrice: 420000, tableType: 'VVIP', isActive: true },
-            { name: 'Midnight Marathon (6 Hrs)', duration: 360, price: 180000, memberPrice: 150000, tableType: 'REGULAR', isActive: true },
+            { name: 'Ngebul Package (3 Hrs)', duration: 180, price: 100000, memberPrice: 100000, tableType: 'REGULAR', isActive: true },
+            { name: 'VIP Night Long (4 Hrs)', duration: 240, price: 300000, memberPrice: 300000, tableType: 'VIP', isActive: true },
+            { name: 'Lunch Break (2 Hrs)', duration: 120, price: 70000, memberPrice: 70000, tableType: 'REGULAR', isActive: true },
+            { name: 'Sultan Promo (5 Hrs)', duration: 300, price: 500000, memberPrice: 500000, tableType: 'VVIP', isActive: true },
+            { name: 'Midnight Marathon (6 Hrs)', duration: 360, price: 180000, memberPrice: 180000, tableType: 'REGULAR', isActive: true },
         ]
     });
 
