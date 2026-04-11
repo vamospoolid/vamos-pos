@@ -1037,10 +1037,21 @@ export class PlayerController {
     static async registerTournament(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: tournamentId } = req.params;
-            const { memberId, handicap, paymentNotes, paymentStatus } = req.body;
+            const memberId = req.body.memberId || (req as any).member?.id;
+            const { handicap, paymentNotes, paymentStatus, paymentMethod } = req.body;
 
             const { TournamentService } = await import('../tournaments/tournament.service');
-            const pt = await TournamentService.registerParticipant(tournamentId, memberId, undefined, handicap, paymentNotes, paymentStatus);
+            // Params: tournamentId, userId, memberId, name, handicap, paymentNotes, status, paymentMethod
+            const pt = await TournamentService.registerParticipant(
+                tournamentId, 
+                memberId, 
+                memberId, 
+                undefined, 
+                handicap, 
+                paymentNotes, 
+                paymentStatus,
+                paymentMethod
+            );
 
             res.json({ success: true, data: pt });
         } catch (error) { next(error); }

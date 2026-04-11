@@ -117,10 +117,10 @@ export class TournamentService {
         if (tournament._count.participants >= tournament.maxPlayers) throw new AppError('Tournament is full', 400);
 
         if (memberId) {
-            const exists = await prisma.tournamentParticipant.findFirst({
+            const registeredCount = await prisma.tournamentParticipant.count({
                 where: { tournamentId, memberId }
             });
-            if (exists) throw new AppError('Member already registered', 400);
+            if (registeredCount >= 2) throw new AppError('Member sudah terdaftar maksimal (2 slot) di turnamen ini', 400);
         }
 
         const finalStatus = status || (tournament.entryFee > 0 ? 'UNPAID' : 'PAID');
@@ -132,7 +132,7 @@ export class TournamentService {
                     memberId: memberId || null,
                     name: memberId ? null : name,
                     handicap,
-                    paymentNotes,
+                    paymentNotes: paymentNotes || '',
                     paymentStatus: finalStatus
                 },
                 include: { member: true }

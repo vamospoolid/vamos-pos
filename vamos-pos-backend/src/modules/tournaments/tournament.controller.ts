@@ -32,8 +32,8 @@ export const updateTournament = catchAsync(async (req: AuthRequest, res: Respons
 
 export const registerParticipant = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { memberId, name, handicap, paymentMethod, status } = req.body;
-    const pt = await TournamentService.registerParticipant(id, req.user!.id, memberId, name, handicap, undefined, status, paymentMethod);
+    const { memberId, name, handicap, paymentMethod, status, paymentNotes } = req.body;
+    const pt = await TournamentService.registerParticipant(id, req.user!.id, memberId, name, handicap, paymentNotes, status, paymentMethod);
     getIO().emit('tournaments:updated');
     res.json({ success: true, data: pt });
 });
