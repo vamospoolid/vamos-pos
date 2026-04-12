@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Camera, Zap, Star, TrendingUp, Download, Share2 } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Camera, Zap, Star, TrendingUp, Download, Share2, ArrowLeft } from 'lucide-react';
 import { api, getAvatarUrl } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -359,8 +359,13 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
 
   return (
     <div className="fade-in space-y-8 pb-32">
-      <div className="text-center pt-8">
-        <h1 className="text-xl font-black italic tracking-tighter uppercase text-white leading-none">PUSAT <span className="text-primary italic">TURNAMEN</span></h1>
+      <div className="flex items-center px-4 pt-8">
+        <button onClick={() => setSelectedTournament(null)} className="w-10 h-10 rounded-[18px] bg-[#1a1f35] flex items-center justify-center text-white border border-white/5 active:scale-90 transition-all shadow-lg">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div className="flex-1 text-center -ml-10">
+          <h1 className="text-xl font-black italic tracking-tighter uppercase text-white leading-none">PUSAT <span className="text-primary italic">TURNAMEN</span></h1>
+        </div>
       </div>
       <div className="flex bg-[#1a1f35]/50 p-1.5 rounded-2xl border border-white/5 mx-2">
         {[

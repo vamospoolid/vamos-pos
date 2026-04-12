@@ -77,7 +77,7 @@ export function BookingScreen() {
 
     // Filter packages based on real-time
     const availablePackages = useMemo(() => {
-        const currentDay = now.getDay();
+        const currentDay = selectedDate.getDay();
         return packages.filter(pkg => {
             if (!pkg.isActive) return false;
 
@@ -88,7 +88,7 @@ export function BookingScreen() {
 
             return true;
         });
-    }, [packages]);
+    }, [packages, selectedDate]);
 
     // Filter time slots - if today, only show future slots and available tables
     const filteredSlots = useMemo(() => {
