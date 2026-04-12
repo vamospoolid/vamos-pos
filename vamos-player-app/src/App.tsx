@@ -171,7 +171,7 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
 function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any, tournaments?: any[], venueInfo: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { setActiveTab } = useAppStore();
+  const { setActiveTab, setSelectedTournament } = useAppStore();
 
   return (
     <div className="fade-in space-y-6 pb-32">
@@ -210,8 +210,9 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
          </div>
 
          {/* Mapping Tournaments to Premium Cards */}
+         <div className="flex overflow-x-auto snap-x gap-4 hide-scrollbar pb-4 items-stretch">
          {tournaments.length > 0 ? tournaments.map((t: any, i: number) => (
-            <div key={t.id || i} className="space-y-3">
+            <div key={t.id || i} className="min-w-[88%] lg:min-w-[80%] snap-center shrink-0 w-full flex flex-col space-y-3">
               <FeaturedBookingCard 
                 title={t.name}
                 location={venueInfo?.name || "Vamos Arena"}
@@ -220,28 +221,33 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                 status={t.status === 'ONGOING' ? 'Open' : 'Private'}
                 startsIn={t.status === 'ONGOING' ? "3h" : undefined}
                 isPremium={i === 0}
-                onJoin={() => setActiveTab('tournaments')}
+                onJoin={() => { setSelectedTournament(t); setActiveTab('tournaments'); }}
               />
               {(t.name || '').toLowerCase().includes('arisan') && t.participants?.length > 0 && (
-                <div className="bg-[#1a1f35]/50 border border-white/5 p-4 rounded-3xl mx-1 -mt-1 group animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="bg-[#1a1f35]/50 border border-white/5 p-4 rounded-3xl group animate-in fade-in slide-in-from-top-2 duration-500">
                   <div className="flex justify-between items-center mb-2 px-1">
                     <p className="text-[9px] font-black text-primary uppercase italic tracking-[0.2em]">Live Participants</p>
                     <p className="text-[8px] font-black text-slate-600 uppercase italic">{t.participants.length} Active</p>
                   </div>
                   <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
-                    {t.participants.map((p: any, idx: number) => (
+                    {t.participants.slice(0, 9).map((p: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-1 opacity-80 overflow-hidden">
                          <span className="text-[7px] font-black text-slate-700 w-2.5 shrink-0">{idx + 1}</span>
                          <span className="text-[9px] font-black text-slate-300 uppercase italic truncate">{(p.name || p.member?.name || '...').split(' ')[0]}</span>
                          {p.handicap && <span className="text-[7px] font-bold text-primary shrink-0">H{p.handicap}</span>}
                       </div>
                     ))}
+                    {t.participants.length > 9 && (
+                      <div className="flex items-center gap-1 opacity-80">
+                         <span className="text-[9px] font-black text-slate-400 italic">+{t.participants.length - 9}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
          )) : (
-            <>
+            <div className="min-w-[88%] lg:min-w-[80%] snap-center shrink-0 w-full flex flex-col space-y-3">
                <FeaturedBookingCard 
                  title="Friday Night League"
                  location="Marina Green, 1.8km away"
@@ -250,7 +256,7 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                  status="Open"
                  startsIn="3hrs"
                  isPremium={true}
-                 onJoin={() => setActiveTab('booking')}
+                 onJoin={() => { setSelectedTournament(null); setActiveTab('tournaments'); }}
                />
                <FeaturedBookingCard 
                  title="Courtside Futsal Night"
@@ -258,39 +264,35 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                  price="RP 85K"
                  players="8/12"
                  status="Open"
-                 onJoin={() => setActiveTab('booking')}
+                 onJoin={() => { setSelectedTournament(null); setActiveTab('tournaments'); }}
                />
-            </>
+            </div>
          )}
+         </div>
       </div>
 
       {/* ─── SECONDARY SECTION ─── */}
       <div className="space-y-4 pt-4">
          <div className="flex justify-between items-baseline px-1">
-            <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Popular Teams</h3>
-            <button className="text-[10px] font-black text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">View More</button>
+            <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Pesan Meja</h3>
          </div>
 
          <div className="space-y-3">
-            {[
-               { name: 'The Spartson', loc: 'Marina Green, 1.8 km away', icon: '⚽' },
-               { name: 'Horizon Warriors', loc: 'Riverside Park, 0.6 km away', icon: '🏀' }
-            ].map((team, idx) => (
-               <div key={idx} className="fiery-card p-5 flex items-center justify-between border-white/5 bg-[#1a1f35]/30">
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-2xl bg-[#101423] flex items-center justify-center text-xl border border-white/5">
-                        {team.icon}
-                     </div>
-                     <div>
-                        <p className="font-black text-white text-base uppercase italic leading-none mb-1.5">{team.name}</p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight italic">{team.loc}</p>
-                     </div>
-                  </div>
-                  <button className="text-[9px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-all px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-                     View Detail
-                  </button>
+             <button onClick={() => setActiveTab('booking')} className="w-full relative overflow-hidden p-6 rounded-[2rem] border-2 border-white/5 bg-gradient-to-br from-[#1a1f35]/50 to-[#0a0f1d]/50 text-left group transition-all hover:border-primary/30">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-[40px] pointer-events-none group-hover:bg-primary/20 transition-all duration-700" />
+               <div className="absolute top-2 right-4 w-12 h-12 bg-[#0a0f1d] rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-500 shadow-xl">
+                 <LayoutGrid className="w-5 h-5 text-primary" />
                </div>
-            ))}
+               <div className="relative z-10 w-[70%]">
+                 <h4 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2 leading-none">Reservasi Meja VVIP</h4>
+                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-6">Tanpa antri, langsung main</p>
+                 <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest italic">
+                   <span>Mulai Pesan</span>
+                   <ChevronRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                 </div>
+               </div>
+               <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-tl-full blur-[20px] pointer-events-none" />
+             </button>
          </div>
       </div>
 
@@ -314,7 +316,8 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
 }
 
 function TournamentScreen({ activeTournaments }: { member: any, activeTournaments: any[] }) {
-  const tournament = activeTournaments[0] || MOCK_TOURNAMENT;
+  const { selectedTournament } = useAppStore();
+  const tournament = selectedTournament || activeTournaments[0] || MOCK_TOURNAMENT;
   const isOngoing = tournament.status === 'ONGOING' || tournament.status === 'IN_PROGRESS';
   const isPending = tournament.status === 'PENDING' || tournament.status === 'UPCOMING' || !tournament.status;
   
@@ -372,7 +375,8 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
         {activeView === 'info' && (
           <div className="fiery-card p-10 border-2 border-white/5">
             <h2 className="text-lg font-black text-white uppercase italic tracking-tighter mb-8">{tournament.name}</h2>
-            <div className="grid grid-cols-2 gap-3 mb-10 relative z-10">
+            
+            <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
                <div className="bg-[#101423] p-4 rounded-[24px] border border-white/5">
                  <p className="text-[8px] text-slate-600 font-extrabold uppercase tracking-[0.2em] italic mb-1">Prize Pool</p>
                  <p className="text-lg font-black text-white italic tracking-tighter leading-none">RP {(tournament.prizePool || 0).toLocaleString()}</p>
@@ -381,15 +385,38 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                  <p className="text-[8px] text-slate-600 font-extrabold uppercase tracking-[0.2em] italic mb-1">Format</p>
                  <p className="text-lg font-black text-white italic tracking-tighter leading-none uppercase">{tournament.format || 'Single Elim'}</p>
                </div>
+               <div className="bg-[#101423] p-4 rounded-[24px] border border-white/5 col-span-2 flex items-center justify-between">
+                 <div>
+                   <p className="text-[8px] text-slate-600 font-extrabold uppercase tracking-[0.2em] italic mb-1">Schedule</p>
+                   <p className="text-xs font-black text-white italic tracking-widest leading-none uppercase">
+                     {tournament.startDate ? new Date(tournament.startDate).toLocaleDateString() : 'TBA'}
+                     {tournament.endDate ? ` - ${new Date(tournament.endDate).toLocaleDateString()}` : ''}
+                   </p>
+                 </div>
+                 <div className="bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-[9px] font-black uppercase italic border border-primary/30">
+                   Jadwal
+                 </div>
+               </div>
             </div>
-             {isPending && (
-                <button onClick={() => setIsRegModalOpen(true)} className="w-full fiery-btn-primary py-5 rounded-[28px] text-[10px] font-black uppercase tracking-[0.3em] italic">DAFTAR SEKARANG</button>
-             )}
-             {!isPending && (
-                <div className="w-full bg-white/5 border border-white/10 py-5 rounded-[28px] text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">
-                   PENDAFTARAN DITUTUP
-                </div>
-             )}
+
+            {tournament.description && (
+              <div className="mb-10 relative z-10 bg-[#1a1f35]/50 border border-white/5 p-5 rounded-[24px]">
+                 <div className="flex items-center gap-2 mb-3">
+                   <Swords className="w-4 h-4 text-primary" />
+                   <h3 className="text-xs font-black text-white uppercase italic tracking-widest">Peraturan & Info</h3>
+                 </div>
+                 <p className="text-[10px] text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">{tournament.description}</p>
+              </div>
+            )}
+
+            {isPending && (
+               <button onClick={() => setIsRegModalOpen(true)} className="w-full fiery-btn-primary py-5 rounded-[28px] text-[10px] font-black uppercase tracking-[0.3em] italic">DAFTAR SEKARANG</button>
+            )}
+            {!isPending && (
+               <div className="w-full bg-white/5 border border-white/10 py-5 rounded-[28px] text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic">
+                  PENDAFTARAN DITUTUP
+               </div>
+            )}
           </div>
         )}
 

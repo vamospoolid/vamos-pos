@@ -23,6 +23,10 @@ interface AppState {
     isDarkMode: boolean;
     setDarkMode: (val: boolean) => void;
 
+    // --- Tournament Selection ---
+    selectedTournament: any | null;
+    setSelectedTournament: (t: any | null) => void;
+
     // Global Actions
     refreshMemberData: () => Promise<void>;
 }
@@ -48,6 +52,9 @@ export const useAppStore = create<AppState>()(
 
             isDarkMode: true,
             setDarkMode: (val) => set({ isDarkMode: val }),
+
+            selectedTournament: null,
+            setSelectedTournament: (t) => set({ selectedTournament: t }),
 
             refreshMemberData: async () => {
                 const { member } = get();
