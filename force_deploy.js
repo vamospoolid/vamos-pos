@@ -39,8 +39,14 @@ conn.on('ready', () => {
                 npm run build
                 pm2 restart all || npx pm2 restart all
                 
+
                 echo "4. Building frontend..."
                 cd ../vamos-pos-frontend
+                npm install
+                npm run build
+
+                echo "5. Building player-app..."
+                cd ../vamos-player-app
                 npm install
                 npm run build
                 
