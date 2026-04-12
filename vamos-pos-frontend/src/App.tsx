@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy, Share2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
@@ -389,6 +389,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
   // Active Session Detail State
   const [detailSession, setDetailSession] = useState<any>(null);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const fixTablesStatus = async () => {
     try {
@@ -1154,14 +1156,23 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     <LayoutDashboard className="w-5 h-5 mr-2 text-[#00ff66]" />
                     Live Table View
                   </h2>
-                  <button
-                    onClick={fixTablesStatus}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all transition-all"
-                    title="Fix tables stuck in PLAYING status with no active session"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Fix Stuck Tables
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowBroadcastModal(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[#00ff66]/10 border border-[#00ff66]/20 text-[#00ff66] hover:bg-[#00ff66] hover:text-[#0a0a0a] transition-all shadow-lg shadow-[#00ff66]/5"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      Inform Meja
+                    </button>
+                    <button
+                      onClick={fixTablesStatus}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all transition-all"
+                      title="Fix tables stuck in PLAYING status with no active session"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Fix Stuck Tables
+                    </button>
+                  </div>
                 </div>
 
                 {loading ? (
@@ -2759,6 +2770,80 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               >
                 Selesaikan Shift
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Broadcast Status Modal */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#141414] border border-[#00ff66]/20 rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div className="p-6 border-b border-[#222222] flex justify-between items-center bg-[#0d0d0d]">
+              <h2 className="text-xl font-black text-white italic tracking-tighter flex items-center">
+                <Share2 className="w-5 h-5 mr-3 text-[#00ff66]" />
+                INFORM TABLE STATUS
+              </h2>
+              <button onClick={() => setShowBroadcastModal(false)} className="text-gray-500 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 bg-[#0a0a0a]">
+              <div className="bg-[#111] border border-[#222] rounded-xl p-6 font-mono text-sm mb-6 max-h-[400px] overflow-y-auto whitespace-pre-wrap leading-relaxed shadow-inner">
+                {(() => {
+                  const header = `🎱 *VAMOS POOL - LIVE STATUS* 🎱\n🕒 *${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}*\n\n`;
+                  const body = mergedTables.map(t => {
+                    let status = '';
+                    if (t.status === 'AVAILABLE') {
+                      status = 'KOSONG';
+                    } else if (t.activeSession) {
+                      if (t.activeSession.durationOpts) {
+                        const start = new Date(t.activeSession.startTime).getTime();
+                        const totalPausedMs = t.activeSession.totalPausedMs || 0;
+                        const totalDurationMs = t.activeSession.durationOpts * 60000;
+                        const endTimeMs = start + totalDurationMs + totalPausedMs;
+                        const endTime = new Date(endTimeMs);
+                        const hh = String(endTime.getHours()).padStart(2, '0');
+                        const mm = String(endTime.getMinutes()).padStart(2, '0');
+                        status = `READY ${hh}.${mm}`;
+                      } else {
+                        status = 'OPEN';
+                      }
+                    } else {
+                      status = t.status;
+                    }
+                    return `${t.name.toUpperCase()}  *${status}*`;
+                  }).join('\n');
+                  const footer = `\n\n*Yuk, langsung merapat ke Vamos atau booking lewat aplikasi!* 🔥`;
+                  return header + body + footer;
+                })()}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    const text = (document.querySelector('.whitespace-pre-wrap') as HTMLElement)?.innerText || '';
+                    navigator.clipboard.writeText(text);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    vamosAlert('Teks status berhasil disalin ke clipboard!');
+                  }}
+                  className="py-4 bg-white/5 border border-white/10 text-white rounded-xl font-black uppercase tracking-[0.1em] text-[10px] hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'COPIED' : 'COPY TEXT'}
+                </button>
+                <button
+                  onClick={() => {
+                    const text = (document.querySelector('.whitespace-pre-wrap') as HTMLElement)?.innerText || '';
+                    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="py-4 bg-[#00ff66] text-[#0a0a0a] rounded-xl font-black uppercase tracking-[0.1em] text-[10px] hover:bg-[#00e65c] transition-all shadow-xl shadow-[#00ff66]/10 flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  SEND TO WA
+                </button>
+              </div>
             </div>
           </div>
         </div>
