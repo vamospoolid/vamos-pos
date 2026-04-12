@@ -172,6 +172,25 @@ export class TournamentService {
         return result;
     }
 
+    static async updateParticipant(tournamentId: string, participantId: string, data: { name?: string, handicap?: string, paymentNotes?: string }) {
+        const pt = await prisma.tournamentParticipant.findUnique({
+            where: { id: participantId }
+        });
+
+        if (!pt || pt.tournamentId !== tournamentId) {
+            throw new AppError('Participant not found', 404);
+        }
+
+        return prisma.tournamentParticipant.update({
+            where: { id: participantId },
+            data: {
+                name: data.name !== undefined ? data.name : undefined,
+                handicap: data.handicap !== undefined ? data.handicap : undefined,
+                paymentNotes: data.paymentNotes !== undefined ? data.paymentNotes : undefined
+            }
+        });
+    }
+
     static async updateParticipantStatus(tournamentId: string, participantId: string, paymentStatus: string, userId: string, paymentMethod: string = 'CASH') {
         const tournament = await prisma.tournament.findUnique({
             where: { id: tournamentId }

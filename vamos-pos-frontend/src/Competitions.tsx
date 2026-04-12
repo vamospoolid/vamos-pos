@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Users, GitMerge, Loader2, Check, ChevronDown, ChevronUp, Calendar, Trash2 } from 'lucide-react';
+import { Trophy, Users, GitMerge, Loader2, Check, ChevronDown, ChevronUp, Calendar, Trash2, Edit3, X } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { io } from 'socket.io-client';
@@ -46,6 +46,11 @@ export default function Competitions() {
 
     const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
     const [scoreMatchData, setScoreMatchData] = useState<{ matchId: string, player1Id: string, player2Id: string, p1Name: string, p2Name: string, score1: number, score2: number } | null>(null);
+
+    const [isManageParticipantsOpen, setIsManageParticipantsOpen] = useState(false);
+    const [manageTournamentId, setManageTournamentId] = useState<string | null>(null);
+    const [isEditParticipantOpen, setIsEditParticipantOpen] = useState(false);
+    const [editParticipantData, setEditParticipantData] = useState<any>(null);
 
     const fetchData = async () => {
         try {
@@ -226,6 +231,45 @@ export default function Competitions() {
             fetchData();
         } catch (err: any) {
             vamosAlert(err.response?.data?.message || 'Failed to update player slot');
+        }
+    };
+
+    const handleUpdateParticipant = async () => {
+        if (!editParticipantData || !manageTournamentId) return;
+        try {
+            await api.put(`/tournaments/${manageTournamentId}/participants/${editParticipantData.id}`, {
+                name: editParticipantData.name,
+                handicap: editParticipantData.handicap,
+                paymentNotes: editParticipantData.paymentNotes
+            });
+            setIsEditParticipantOpen(false);
+            setEditParticipantData(null);
+            fetchData();
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Failed to update participant');
+        }
+    };
+
+    const handleRemoveParticipant = async (participantId: string) => {
+        if (!manageTournamentId) return;
+        if (!(await vamosConfirm('Hapus peserta ini dari turnamen? Slot di bracket akan dikosongkan.'))) return;
+        try {
+            await api.delete(`/tournaments/${manageTournamentId}/participants/${participantId}`);
+            fetchData();
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Failed to remove participant');
+        }
+    };
+
+    const handleUpdateParticipantStatus = async (participantId: string, newStatus: string) => {
+        if (!manageTournamentId) return;
+        try {
+            await api.put(`/tournaments/${manageTournamentId}/participants/${participantId}/status`, {
+                paymentStatus: newStatus
+            });
+            fetchData();
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Failed to update status');
         }
     };
 
@@ -455,15 +499,19 @@ export default function Competitions() {
                                 {t.status === 'PENDING' && (
                                     <div className="flex space-x-2 w-full">
                                         <button onClick={() => openRegisterModal(t.id)} className="flex-1 px-2 py-1 bg-white/10 hover:bg-white/20 text-xs font-bold rounded transition-colors text-white">Register</button>
+                                        <button onClick={() => { setManageTournamentId(t.id); setIsManageParticipantsOpen(true); }} className="flex-1 px-2 py-1 bg-[#00aaff]/10 hover:bg-[#00aaff]/20 text-[#00aaff] text-xs font-bold rounded transition-colors border border-[#00aaff]/30">Manage</button>
                                         {t.participants.length >= 2 && (
                                             <button onClick={() => generateBracket(t.id)} className="flex-1 px-2 py-1 bg-[#00ff66] hover:bg-[#00e65c] text-[#0a0a0a] text-xs font-bold rounded transition-colors">Start Event</button>
                                         )}
                                     </div>
                                 )}
                                 {t.status === 'ONGOING' && (
-                                    <button onClick={() => { setFinishTournamentId(t.id); setIsFinishModalOpen(true); }} className="w-full px-2 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold rounded transition-colors flex items-center justify-center">
-                                        <Trophy className="w-3 h-3 mr-1" /> Conclude Event
-                                    </button>
+                                    <div className="flex space-x-2 w-full">
+                                        <button onClick={() => { setManageTournamentId(t.id); setIsManageParticipantsOpen(true); }} className="flex-1 px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-400 text-[10px] font-bold rounded transition-colors border border-white/5">Participants</button>
+                                        <button onClick={() => { setFinishTournamentId(t.id); setIsFinishModalOpen(true); }} className="flex-[2] px-2 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold rounded transition-colors flex items-center justify-center">
+                                            <Trophy className="w-3 h-3 mr-1" /> Conclude Event
+                                        </button>
+                                    </div>
                                 )}
                                 {t.status === 'COMPLETED' && (
                                     <span className="text-xs text-green-500 font-bold tracking-widest uppercase"><Check className="w-3 h-3 inline mr-1" /> Event Finished</span>
@@ -801,37 +849,138 @@ export default function Competitions() {
                 </div>
             )}
 
-            {/* Record Score Modal */}
-            {isScoreModalOpen && scoreMatchData && (
+            {/* Manage Participants Modal */}
+            {isManageParticipantsOpen && manageTournamentId && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-sm overflow-hidden border-[#00aaff]/30">
-                        <div className="p-6 border-b border-[#222222]">
-                            <h2 className="text-xl font-bold flex items-center text-[#00aaff]">Record Score</h2>
-                            <p className="text-xs text-gray-400 mt-2">Enter final match score points.</p>
+                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+                        <div className="p-6 border-b border-[#222222] flex justify-between items-center bg-[#1a1a1a]">
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center">
+                                    <Users className="w-5 h-5 mr-3 text-[#00aaff]" /> 
+                                    Manage Participants
+                                </h2>
+                                <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-bold">
+                                    {tournaments.find(t => t.id === manageTournamentId)?.name}
+                                </p>
+                            </div>
+                            <button onClick={() => { setIsManageParticipantsOpen(false); setManageTournamentId(null); }} className="text-gray-500 hover:text-white transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold truncate w-32">{scoreMatchData.p1Name}</span>
-                                <input
-                                    type="number"
-                                    value={scoreMatchData.score1}
-                                    onChange={(e) => setScoreMatchData({ ...scoreMatchData, score1: parseInt(e.target.value) || 0 })}
-                                    className="w-16 bg-[#0a0a0a] border border-[#222222] rounded text-center py-2 focus:outline-none focus:border-[#00aaff] font-mono font-bold"
+                        <div className="p-6 max-h-[60vh] overflow-y-auto bg-[#0a0a0a]">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="text-[10px] text-gray-500 font-bold uppercase tracking-widest border-b border-[#222222]">
+                                        <th className="pb-3 pl-2">Participant</th>
+                                        <th className="pb-3">HC</th>
+                                        <th className="pb-3">Payment Ref (Invoice)</th>
+                                        <th className="pb-3">Status</th>
+                                        <th className="pb-3 text-right pr-2">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#1a1a1a]">
+                                    {tournaments.find(t => t.id === manageTournamentId)?.participants.map((p: any) => (
+                                        <tr key={p.id} className="hover:bg-white/5 transition-colors group">
+                                            <td className="py-4 pl-2">
+                                                <p className="font-bold text-sm text-white">{p.name || p.member?.name || 'Unknown'}</p>
+                                                {p.member && <p className="text-[10px] text-gray-500 font-mono">{p.member.phone}</p>}
+                                            </td>
+                                            <td className="py-4">
+                                                <span className="bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">
+                                                    {p.handicap || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="py-4">
+                                                <p className="text-xs text-gray-400 font-mono italic">
+                                                    {p.paymentNotes || '---'}
+                                                </p>
+                                            </td>
+                                            <td className="py-4">
+                                                <button 
+                                                    onClick={() => handleUpdateParticipantStatus(p.id, p.paymentStatus === 'PAID' ? 'UNPAID' : 'PAID')}
+                                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter ${p.paymentStatus === 'PAID' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+                                                >
+                                                    {p.paymentStatus}
+                                                </button>
+                                            </td>
+                                            <td className="py-4 text-right pr-2 space-x-2">
+                                                <button 
+                                                    onClick={() => { setEditParticipantData(p); setIsEditParticipantOpen(true); }}
+                                                    className="bg-white/5 hover:bg-white/10 text-gray-400 p-1.5 rounded transition-colors"
+                                                    title="Edit Details"
+                                                >
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRemoveParticipant(p.id)}
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-1.5 rounded transition-colors"
+                                                    title="Remove Participant"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!tournaments.find(t => t.id === manageTournamentId)?.participants || tournaments.find(t => t.id === manageTournamentId)?.participants.length === 0) && (
+                                        <tr>
+                                            <td colSpan={5} className="py-12 text-center text-gray-600 text-xs italic uppercase tracking-widest bg-black/20">
+                                                No participants registered yet.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 border-t border-[#222222] flex justify-center bg-[#141414]">
+                            <button onClick={() => { setIsManageParticipantsOpen(false); setManageTournamentId(null); }} className="px-8 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-sm transition-colors uppercase tracking-widest">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Participant Modal */}
+            {isEditParticipantOpen && editParticipantData && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4 backdrop-blur-md">
+                    <div className="bg-[#1a1a1a] border border-[#333333] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl scale-in">
+                        <div className="p-6 border-b border-[#333333] bg-[#222222] flex justify-between items-center">
+                            <h2 className="text-lg font-bold text-white uppercase italic">Edit Participant</h2>
+                            <X className="w-5 h-5 text-gray-500 cursor-pointer hover:text-white" onClick={() => setIsEditParticipantOpen(false)} />
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Tournament Alias / Name</label>
+                                <input 
+                                    type="text" 
+                                    value={editParticipantData.name || ''} 
+                                    onChange={e => setEditParticipantData({...editParticipantData, name: e.target.value})}
+                                    className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 transition-colors" 
                                 />
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold truncate w-32">{scoreMatchData.p2Name}</span>
-                                <input
-                                    type="number"
-                                    value={scoreMatchData.score2}
-                                    onChange={(e) => setScoreMatchData({ ...scoreMatchData, score2: parseInt(e.target.value) || 0 })}
-                                    className="w-16 bg-[#0a0a0a] border border-[#222222] rounded text-center py-2 focus:outline-none focus:border-[#00aaff] font-mono font-bold"
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Handicap (HC)</label>
+                                <input 
+                                    type="text" 
+                                    value={editParticipantData.handicap || ''} 
+                                    onChange={e => setEditParticipantData({...editParticipantData, handicap: e.target.value})}
+                                    className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg px-4 py-3 text-sm text-yellow-500 font-mono focus:outline-none focus:border-yellow-500 transition-colors" 
                                 />
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Payment Ref / Invoice ID</label>
+                                <input 
+                                    type="text" 
+                                    value={editParticipantData.paymentNotes || ''} 
+                                    onChange={e => setEditParticipantData({...editParticipantData, paymentNotes: e.target.value})}
+                                    className="w-full bg-[#0a0a0a] border border-[#333333] rounded-lg px-4 py-3 text-sm text-[#00ff66] font-mono italic focus:outline-none focus:border-yellow-500 transition-colors" 
+                                />
+                                <p className="text-[10px] text-gray-600 mt-2 italic px-1 italic">
+                                    "Invoice ini bisa diubah sesuai kebutuhan admin (e.g. untuk verifikasi manual)."
+                                </p>
+                            </div>
                         </div>
-                        <div className="p-6 border-t border-[#222222] flex space-x-3">
-                            <button onClick={() => setIsScoreModalOpen(false)} className="flex-1 py-2 bg-[#0a0a0a] rounded-lg font-bold text-white border border-[#222222] hover:bg-white/5">Cancel</button>
-                            <button onClick={submitMatchScore} className="flex-1 py-2 bg-[#00aaff] rounded-lg text-black font-bold hover:bg-[#0088cc] shadow-[0_0_15px_rgba(0,170,255,0.3)]">Save Result</button>
+                        <div className="p-6 border-t border-[#333333] flex space-x-3 bg-[#1a1a1a]">
+                            <button onClick={() => setIsEditParticipantOpen(false)} className="flex-1 py-3 bg-[#222222] rounded-lg font-bold text-gray-400 border border-[#333333] hover:bg-white/5 transition-colors uppercase text-xs">Cancel</button>
+                            <button onClick={handleUpdateParticipant} className="flex-1 py-3 bg-yellow-500 rounded-lg text-black font-black hover:bg-yellow-400 transition-all shadow-[0_5px_15px_rgba(234,179,8,0.2)] uppercase text-xs">Update Profile</button>
                         </div>
                     </div>
                 </div>

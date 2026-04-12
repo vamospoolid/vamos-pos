@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createTournament, getTournaments, getTournamentById, registerParticipant, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket } from './tournament.controller';
+import { createTournament, getTournaments, getTournamentById, registerParticipant, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, updateParticipant } from './tournament.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
@@ -12,6 +12,7 @@ router.get('/:id', getTournamentById);
 router.put('/:id', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateTournament);
 
 router.post('/:id/register', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), registerParticipant);
+router.put('/:id/participants/:participantId', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateParticipant);
 router.put('/:id/participants/:participantId/status', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateParticipantStatus);
 router.post('/:id/generate-bracket', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), generateBracket);
 router.post('/:id/reset-bracket', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), resetBracket);

@@ -348,7 +348,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
         refreshMemberData();
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to register.');
+      alert(err.response?.data?.message || 'Gagal mendaftar. Silakan hubungi admin atau periksa koneksi Anda.');
     } finally {
       setLoadingReg(false);
     }

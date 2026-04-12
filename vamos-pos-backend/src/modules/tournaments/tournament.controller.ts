@@ -46,6 +46,13 @@ export const updateParticipantStatus = catchAsync(async (req: AuthRequest, res: 
     res.json({ success: true, data: pt });
 });
 
+export const updateParticipant = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id, participantId } = req.params;
+    const pt = await TournamentService.updateParticipant(id, participantId, req.body);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: pt });
+});
+
 export const generateBracket = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const br = await TournamentService.generateBracket(id);
