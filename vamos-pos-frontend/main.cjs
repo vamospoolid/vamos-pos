@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -91,12 +91,21 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: false // Allow connecting to local bridge from remote URL
+            webSecurity: false, // Allow connecting to local bridge from remote URL
+            preload: path.join(__dirname, 'preload.js')
         }
     });
 
     win.setMenuBarVisibility(false);
     Menu.setApplicationMenu(null);
+    win.maximize();
+
+    ipcMain.on('silent-print', (event) => {
+        const webContents = event.sender;
+        webContents.print({ silent: true, printBackground: true }, (success, failureReason) => {
+            if (!success) console.warn('Silent print failed:', failureReason);
+        });
+    });
     win.maximize();
 
     // VAMOS CLOUD MODE: Load the VPS URL

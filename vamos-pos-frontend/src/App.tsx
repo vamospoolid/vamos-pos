@@ -2546,10 +2546,14 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               <button
                 onClick={async () => {
                   try {
-                    // Force traditional browser print for Chrome testing
-                    // await api.post(`/sessions/${receiptData.id}/reprint`);
-                    // vamosAlert('Perintah cetak dikirim ke printer!');
-                    window.print();
+                    // Try silent print first if inside Electron
+                    if ((window as any).vamosElectron) {
+                      (window as any).vamosElectron.silentPrint();
+                      // We don't close receipt modal automatically so cashier can verify, or they can close it.
+                    } else {
+                      // Fallback to traditional browser print
+                      window.print();
+                    }
                   } catch (err) {
                     console.error(err);
                   }
