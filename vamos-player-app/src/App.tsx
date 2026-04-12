@@ -153,8 +153,8 @@ function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
         </p>
         
         <a 
-          href="https://pos.vamospool.id/VamosPlayer.apk" 
-          download
+          href="/VamosPlayer.apk" 
+          download="VamosPlayer_Latest.apk"
           className="mt-6 flex flex-col items-center justify-center py-4 bg-primary/10 border-2 border-primary/20 rounded-2xl mx-auto w-full max-w-[250px] shadow-[0_0_15px_rgba(255,87,34,0.1)] active:scale-95 transition-all text-primary hover:bg-primary/20"
         >
           <div className="flex items-center gap-2 mb-1">
@@ -806,7 +806,7 @@ function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void
           <ChevronRight className="w-5 h-5 text-slate-700" />
         </button>
 
-        <a href="https://pos.vamospool.id/VamosPlayer.apk" download className="w-full fiery-card flex items-center justify-between p-6 rounded-[28px] border-2 border-primary/20 group hover:bg-primary/5 transition-all">
+        <a href="/VamosPlayer.apk" download="VamosPlayer_Latest.apk" className="w-full fiery-card flex items-center justify-between p-6 rounded-[28px] border-2 border-primary/20 group hover:bg-primary/5 transition-all">
           <div className="flex items-center gap-5">
             <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
               <Download className="w-5 h-5 text-primary" />
