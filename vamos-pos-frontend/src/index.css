@@ -166,13 +166,6 @@ button {
     overflow: hidden !important;
   }
 
-  /* Force parents to not restrict size or add padding */
-  #printable-receipt:parents {
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-  }
-
   /* Custom override for the specific wrapper in App.tsx */
   .bg-white.max-h-\[68vh\] {
     padding: 0 !important;
