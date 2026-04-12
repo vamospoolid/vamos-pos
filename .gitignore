@@ -42,3 +42,4 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+vamos-pos-backend/public/uploads/

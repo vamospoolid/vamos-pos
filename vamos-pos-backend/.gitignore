@@ -33,3 +33,4 @@ Thumbs.db
 .wwebjs_auth/
 dist/
 node_modules/
+public/uploads/
