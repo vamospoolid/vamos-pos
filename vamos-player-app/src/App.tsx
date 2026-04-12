@@ -217,7 +217,7 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                 title={t.name}
                 location={venueInfo?.name || "Vamos Arena"}
                 price={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : "Free Entry"}
-                players={`${t.participants?.length || 0}/16`}
+                players={`${t.participants?.length || 0}/${t.maxPlayers || 32}`}
                 status={t.status === 'ONGOING' ? 'Open' : 'Private'}
                 startsIn={t.status === 'ONGOING' ? "3h" : undefined}
                 isPremium={i === 0}
