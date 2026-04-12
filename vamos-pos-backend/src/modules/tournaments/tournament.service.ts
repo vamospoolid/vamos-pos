@@ -130,7 +130,7 @@ export class TournamentService {
                 data: {
                     tournamentId,
                     memberId: memberId || null,
-                    name: memberId ? null : name,
+                    name: name || null,
                     handicap,
                     paymentNotes: paymentNotes || '',
                     paymentStatus: finalStatus

@@ -33,13 +33,18 @@ conn.on('ready', () => {
                 echo "2. Pulling latest code..."
                 git pull origin main
                 
-                echo "3. Restarting backend PM2..."
+                echo "3. Building & Restarting backend..."
                 cd vamos-pos-backend
-                # Ensure the APK was copied into public
+                npm install
                 npm run build
-                pm2 restart all || echo "PM2 restart failed, checking npx" || npx pm2 restart all
+                pm2 restart all || npx pm2 restart all
                 
-                echo "DONE!"
+                echo "4. Building frontend..."
+                cd ../vamos-pos-frontend
+                npm install
+                npm run build
+                
+                echo "DEPLOYMENT COMPLETE!"
             `;
 
             conn.exec(deployScript, (err2, stream2) => {

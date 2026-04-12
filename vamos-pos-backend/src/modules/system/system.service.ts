@@ -138,23 +138,26 @@ export class SystemService {
         const tables = await prisma.table.findMany({ where: { deletedAt: null } });
 
         await prisma.$transaction(async (tx) => {
-            // Hapus data operasional (urutan penting untuk foreign key)
+            // Hapus data operasional (urutan penting untuk foreign key - Bottom Up)
+            await tx.matchMember.deleteMany();
+            await tx.match.deleteMany();
             await tx.matchChallenge.deleteMany();
             await tx.pointLog.deleteMany();
             await tx.redemption.deleteMany();
-            await tx.matchMember.deleteMany();
-            await tx.match.deleteMany();
-            await tx.payment.deleteMany();
-            await tx.cashierShift.deleteMany();
             await tx.order.deleteMany();
+            await tx.stockHistory.deleteMany();
+            await tx.payment.deleteMany();
+            await tx.expense.deleteMany();
+            await tx.cashierShift.deleteMany();
             await tx.tournamentMatch.deleteMany();
             await tx.tournamentParticipant.deleteMany();
             await tx.tournament.deleteMany();
             await tx.attendance.deleteMany();
             await tx.waitlist.deleteMany();
+            await tx.kingTable.deleteMany();
+            await tx.rankHistory.deleteMany();
             await tx.session.deleteMany();
             await tx.member.deleteMany();
-            await tx.expense.deleteMany();
             await tx.auditLog.deleteMany();
 
             // Reset semua meja ke AVAILABLE

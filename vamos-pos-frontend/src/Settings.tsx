@@ -350,8 +350,9 @@ export default function Settings() {
             await api.post('/system/reset');
             vamosAlert("System data has been reset successfully!");
             window.location.reload();
-        } catch (err) {
-            vamosAlert('Failed to reset system data');
+        } catch (err: any) {
+            const msg = err.response?.data?.message || err.message || 'Unknown error';
+            vamosAlert('Failed to reset system data: ' + msg);
         }
     };
 

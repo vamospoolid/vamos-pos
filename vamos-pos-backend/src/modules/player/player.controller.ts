@@ -1038,7 +1038,7 @@ export class PlayerController {
         try {
             const { id: tournamentId } = req.params;
             const memberId = req.body.memberId || (req as any).member?.id;
-            const { handicap, paymentNotes, paymentStatus, paymentMethod } = req.body;
+            const { name, handicap, paymentNotes, paymentRef, paymentStatus, paymentMethod } = req.body;
 
             const { TournamentService } = await import('../tournaments/tournament.service');
             // Params: tournamentId, userId, memberId, name, handicap, paymentNotes, status, paymentMethod
@@ -1046,9 +1046,9 @@ export class PlayerController {
                 tournamentId, 
                 memberId, 
                 memberId, 
-                undefined, 
+                name, 
                 handicap, 
-                paymentNotes, 
+                paymentNotes || paymentRef, 
                 paymentStatus,
                 paymentMethod
             );

@@ -232,7 +232,7 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                     {t.participants.map((p: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-1 opacity-80 overflow-hidden">
                          <span className="text-[7px] font-black text-slate-700 w-2.5 shrink-0">{idx + 1}</span>
-                         <span className="text-[9px] font-black text-slate-300 uppercase italic truncate">{(p.member?.name || p.name || '...').split(' ')[0]}</span>
+                         <span className="text-[9px] font-black text-slate-300 uppercase italic truncate">{(p.name || p.member?.name || '...').split(' ')[0]}</span>
                          {p.handicap && <span className="text-[7px] font-bold text-primary shrink-0">H{p.handicap}</span>}
                       </div>
                     ))}
@@ -322,20 +322,29 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [isCompact, setIsCompact] = useState((tournament?.name || '').toLowerCase().includes('arisan'));
   const [paymentRef, setPaymentRef] = useState('');
+  const [aliasName, setAliasName] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
   const { refreshMemberData } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const participantList = (tournament?.participants || []).map((p: any) => p.member || p);
-  const filteredParticipants = participantList.filter((p: any) => (p?.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
+  const participantList = (tournament?.participants || []).map((p: any) => ({ 
+    ...p, 
+    displayName: p.name || p.member?.name || 'Unknown' 
+  }));
+  const filteredParticipants = participantList.filter((p: any) => (p.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   const handleRegister = async () => {
     setLoadingReg(true);
     try {
-      const res = await api.post(`/tournament/${tournament.id}/register`, { paymentRef });
+      const res = await api.post(`/tournament/${tournament.id}/register`, { 
+        paymentRef,
+        name: aliasName 
+      });
       if (res.data.success) {
         alert('Registration request sent! Please wait for admin approval.');
         setIsRegModalOpen(false);
+        setAliasName('');
+        setPaymentRef('');
         refreshMemberData();
       }
     } catch (err: any) {
@@ -398,6 +407,21 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
               </div>
 
               <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">Nama Peserta / Alias <span className="text-primary opacity-60">(Tim/Sponsor)</span></label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={aliasName}
+                      onChange={e => setAliasName(e.target.value)}
+                      placeholder="Contoh: Arif Vamos, Akil 55..."
+                      className="w-full bg-[#101423] border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-primary text-white font-medium placeholder:text-slate-700 transition-all"
+                    />
+                    <User className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                  </div>
+                  <p className="text-[9px] text-slate-500 mt-2 px-1 italic">Kosongkan jika ingin menggunakan nama profil Anda.</p>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">Payment Reference / Invoice ID <span className="text-primary opacity-60">(Opsional)</span></label>
                   <div className="relative">
@@ -465,8 +489,8 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                                      {roundMatches.map((m: any) => {
                                          const p1 = tournament.participants?.find((p: any) => p.id === m.player1Id);
                                          const p2 = tournament.participants?.find((p: any) => p.id === m.player2Id);
-                                         const p1Name = p1 ? (p1.member?.name || p1.name) : 'TBD';
-                                         const p2Name = p2 ? (p2.member?.name || p2.name) : 'TBD';
+                                         const p1Name = p1 ? (p1.name || p1.member?.name) : 'TBD';
+                                         const p2Name = p2 ? (p2.name || p2.member?.name) : 'TBD';
                                          const isP1Winner = m.score1 !== null && m.score1 > m.score2;
                                          const isP2Winner = m.score2 !== null && m.score2 > m.score1;
 
@@ -521,7 +545,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                 <button 
                   onClick={() => {
                     const text = `*LIST PESERTA: ${tournament.name}*\n\n` + 
-                      filteredParticipants.map((p: any, i: number) => `${i+1}. ${p.name || p.member?.name} ${p.handicap ? `(HC: ${p.handicap})` : ''}`).join('\n') +
+                      filteredParticipants.map((p: any, i: number) => `${i+1}. ${p.displayName} ${p.handicap ? `(HC: ${p.handicap})` : ''}`).join('\n') +
                       `\n\n_Generated by Vamos Player App_`;
                     
                     // Copy to clipboard
@@ -549,7 +573,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                       <div key={p.id || i} className="bg-[#1a1f35]/50 border border-white/5 p-3 rounded-xl flex items-center gap-3">
                          <div className="text-[8px] font-black text-slate-500 w-4 text-center shrink-0">{i + 1}</div>
                          <div className="flex-1 min-w-0 flex items-baseline gap-2">
-                            <p className="font-black text-white text-[10px] uppercase italic truncate">{p?.name || 'PESERTA'}</p>
+                            <p className="font-black text-white text-[10px] uppercase italic truncate">{p.displayName}</p>
                             {p.handicap && <span className="text-[8px] font-bold text-primary italic shrink-0">HC {p.handicap}</span>}
                          </div>
                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)] shrink-0" />
@@ -559,7 +583,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
             ) : (
                 filteredParticipants.map((p: any, i: number) => (
                   <div key={p.id || i} className="fiery-card p-6 rounded-3xl flex items-center justify-between border border-white/5 bg-[#1a1f35]/30">
-                    <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p?.name || 'PESERTA TIDAK DIKENAL'}</p></div></div>
+                    <div className="flex items-center gap-5"><div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${i < 3 ? 'border-primary bg-primary/20 text-white' : 'border-slate-800 text-slate-500'}`}>{i + 1}</div><div><p className="font-black text-white text-base uppercase italic">{p.displayName}</p></div></div>
                     <div className="text-right">
                        <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full uppercase italic tracking-widest">TERDAFTAR</span>
                     </div>

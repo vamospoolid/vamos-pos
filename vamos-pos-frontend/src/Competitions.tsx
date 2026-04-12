@@ -33,6 +33,7 @@ export default function Competitions() {
     const [registerType, setRegisterType] = useState<'member' | 'guest'>('member');
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [guestName, setGuestName] = useState('');
+    const [aliasName, setAliasName] = useState('');
     const [handicap, setHandicap] = useState('');
 
     const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
@@ -103,6 +104,7 @@ export default function Competitions() {
         setRegisterType('member');
         setSelectedMemberId('');
         setGuestName('');
+        setAliasName('');
         setHandicap('');
         setIsRegisterModalOpen(true);
     };
@@ -115,7 +117,7 @@ export default function Competitions() {
         try {
             await api.post(`/tournaments/${registerTournamentId}/register`, {
                 memberId: registerType === 'member' ? selectedMemberId : undefined,
-                name: registerType === 'guest' ? guestName : undefined,
+                name: registerType === 'member' ? aliasName : guestName,
                 handicap: handicap || undefined
             });
             setIsRegisterModalOpen(false);
@@ -332,7 +334,7 @@ export default function Competitions() {
 
                 const drawPlayer = (pId: string | undefined, score: number | null | undefined, py: number, isWinner: boolean) => {
                     const p = tournament.participants.find((pt: any) => pt.id === pId);
-                    const pName = p ? (p.member?.name || p.name) : (m.status === 'COMPLETED' ? 'BYE' : 'TBD');
+                    const pName = p ? (p.name || p.member?.name) : (m.status === 'COMPLETED' ? 'BYE' : 'TBD');
                     const pHC = p?.handicap;
                     const hcStr = pHC ? `[HC:${pHC}]` : '';
 
@@ -526,8 +528,8 @@ export default function Competitions() {
                                                         {roundMatches.map((m: any) => {
                                                         const p1 = t.participants.find((p: any) => p.id === m.player1Id);
                                                         const p2 = t.participants.find((p: any) => p.id === m.player2Id);
-                                                        const p1Name = p1 ? (p1.member?.name || p1.name) : undefined;
-                                                        const p2Name = p2 ? (p2.member?.name || p2.name) : undefined;
+                                                        const p1Name = p1 ? (p1.name || p1.member?.name) : undefined;
+                                                        const p2Name = p2 ? (p2.name || p2.member?.name) : undefined;
 
                                                         return (
                                                             <div key={m.id} className="bg-[#0a0a0a] border border-[#222222] p-3 rounded-lg flex items-center shadow-sm relative z-10 w-full mb-4">
@@ -688,19 +690,31 @@ export default function Competitions() {
                                 <button type="button" onClick={() => setRegisterType('guest')} className={`flex-1 py-2 text-xs font-bold transition-colors ${registerType === 'guest' ? 'bg-[#00ff66] text-black' : 'bg-transparent text-gray-400 hover:bg-white/5'}`}>Guest</button>
                             </div>
 
-                            {registerType === 'member' ? (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Select Member</label>
-                                    <select
-                                        value={selectedMemberId}
-                                        onChange={(e) => setSelectedMemberId(e.target.value)}
-                                        className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500 transition-colors"
-                                    >
-                                        <option value="">-- Choose Member --</option>
-                                        {members.map(m => (
-                                            <option key={m.id} value={m.id}>{m.name} - HC: {m.handicap || '-'} ({m.phone})</option>
-                                        ))}
-                                    </select>
+                             {registerType === 'member' ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-400 mb-2">Select Member</label>
+                                        <select
+                                            value={selectedMemberId}
+                                            onChange={(e) => setSelectedMemberId(e.target.value)}
+                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500 transition-colors"
+                                        >
+                                            <option value="">-- Choose Member --</option>
+                                            {members.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name} - HC: {m.handicap || '-'} ({m.phone})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-400 mb-2">Tournament Alias / Team <span className="text-gray-600 font-normal">(Optional)</span></label>
+                                        <input 
+                                            type="text" 
+                                            value={aliasName} 
+                                            onChange={e => setAliasName(e.target.value)} 
+                                            placeholder="e.g. Arif Vamos, Akil 55" 
+                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:border-yellow-500 focus:outline-none text-sm" 
+                                        />
+                                    </div>
                                 </div>
                             ) : (
                                 <div>
@@ -736,7 +750,7 @@ export default function Competitions() {
                                 <select value={finishData.champion} onChange={e => setFinishData({ ...finishData, champion: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
                                     <option value="">-- Select Champion --</option>
                                     {tournaments.find(t => t.id === finishTournamentId)?.participants.map((p: any) => (
-                                        <option key={p.id} value={p.id}>{p.member?.name || p.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
+                                        <option key={p.id} value={p.id}>{p.name || p.member?.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
                                     ))}
                                 </select>
                             </div>
@@ -745,7 +759,7 @@ export default function Competitions() {
                                 <select value={finishData.runnerUp} onChange={e => setFinishData({ ...finishData, runnerUp: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none flex focus:border-yellow-500">
                                     <option value="">-- Select Runner Up (Optional) --</option>
                                     {tournaments.find(t => t.id === finishTournamentId)?.participants.map((p: any) => (
-                                        <option key={p.id} value={p.id}>{p.member?.name || p.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
+                                        <option key={p.id} value={p.id}>{p.name || p.member?.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
                                     ))}
                                 </select>
                             </div>
@@ -774,7 +788,7 @@ export default function Competitions() {
                                     {tournaments
                                         .find(t => t.id === editingMatch.tournamentId)
                                         ?.participants.map((p: any) => (
-                                            <option key={p.id} value={p.id}>{p.member?.name || p.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
+                                            <option key={p.id} value={p.id}>{p.name || p.member?.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
                                         ))}
                                 </select>
                             </div>
