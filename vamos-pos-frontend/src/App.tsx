@@ -2388,14 +2388,14 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               <div id="printable-receipt" className="text-black font-mono text-[11px] leading-snug">
 
                 {/* Header */}
-                <div className="text-center mb-3">
+                <div className="text-center mb-1">
                   <h1 className="font-black text-[15px] tracking-wide">{receiptData.venue?.name || 'VAMOS POS'}</h1>
                   <p className="text-[10px]">{receiptData.venue?.address || 'Billiard & Cafe'}</p>
-                  <p className="mt-1 text-gray-400">{'- '.repeat(19)}</p>
+                  <p className="mt-0.5 text-gray-400">{'- '.repeat(19)}</p>
                 </div>
 
                 {/* Bill Info */}
-                <div className="mb-3 space-y-0.5">
+                <div className="mb-1 space-y-0">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Date</span>
                     <span className="font-bold">{new Date(receiptData.paidAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date(receiptData.paidAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -2426,8 +2426,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   const hrs = mins !== null ? Math.floor(mins / 60) : null;
                   const remMins = mins !== null ? mins % 60 : null;
                   return (
-                    <div className="my-2">
-                      <p className="font-black text-[10px] uppercase tracking-widest text-gray-500 mb-1">Billiard / Table Session</p>
+                    <div className="my-1">
+                      <p className="font-black text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">Billiard / Table Session</p>
                       <div className="flex justify-between">
                         <span>
                           {mins !== null
@@ -2445,22 +2445,22 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
                 {/* ── F&B ORDERS ── */}
                 {receiptData.orders && receiptData.orders.length > 0 && (
-                  <div className="my-2">
-                    <p className="font-black text-[10px] uppercase tracking-widest text-gray-500 mb-1">Food & Beverage Orders</p>
+                  <div className="my-1">
+                    <p className="font-black text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">Food & Beverage Orders</p>
                     {receiptData.orders.map((o: any, i: number) => (
-                      <div key={i} className="flex justify-between mb-0.5">
+                      <div key={i} className="flex justify-between mb-0">
                         <span className="flex-1">{o.product?.name || 'Item'} <span className="text-gray-500">x{o.quantity}</span></span>
                         <span className="font-bold ml-2">Rp {Math.round(o.total || 0).toLocaleString('id-ID')}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
+                    <div className="flex justify-between border-t border-gray-200 pt-0.5 mt-0.5">
                       <span className="text-gray-500">F&B Subtotal</span>
                       <span className="font-bold">Rp {Math.round(receiptData.fnbAmount || 0).toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                 )}
                 {(!receiptData.orders || receiptData.orders.length === 0) && (receiptData.fnbAmount || 0) > 0 && (
-                  <div className="my-2">
+                  <div className="my-1">
                     <div className="flex justify-between">
                       <span>F&B Charges</span>
                       <span className="font-bold">Rp {Math.round(receiptData.fnbAmount || 0).toLocaleString('id-ID')}</span>
@@ -2471,7 +2471,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 <p className="text-gray-300">{'- '.repeat(19)}</p>
 
                 {/* Totals */}
-                <div className="space-y-1 my-2">
+                <div className="space-y-0 my-1">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span>Rp {((receiptData.tableAmount || 0) + (receiptData.fnbAmount || 0)).toLocaleString()}</span>
@@ -2494,7 +2494,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                       <span>-Rp {receiptData.discount.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-black text-[13px] pt-1 mt-1 border-t border-dashed border-gray-200">
+                  <div className="flex justify-between font-black text-[13px] pt-0.5 mt-0.5 border-t border-dashed border-gray-200">
                     <span>TOTAL</span>
                     <span>Rp {(receiptData.finalAmount || 0).toLocaleString()}</span>
                   </div>
@@ -2503,7 +2503,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 <p className="text-gray-300">{'- '.repeat(19)}</p>
 
                 {/* Payment */}
-                <div className="space-y-0.5 my-2">
+                <div className="space-y-0 my-1">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Payment</span>
                     <span className="font-bold uppercase">{receiptData.method || '-'}</span>
@@ -2528,7 +2528,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
                 {/* Footer */}
                 <p className="text-gray-300">{'- '.repeat(19)}</p>
-                <div className="text-center italic mt-3 mb-1 space-y-0.5">
+                <div className="text-center italic mt-1.5 mb-1 space-y-0">
                   <p className="font-bold">Terima kasih telah bermain!</p>
                   <p className="text-gray-500">Powered by VamosPOS</p>
                 </div>
