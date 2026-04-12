@@ -336,7 +336,7 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
   const handleRegister = async () => {
     setLoadingReg(true);
     try {
-      const res = await api.post(`/tournament/${tournament.id}/register`, { 
+      const res = await api.post(`/player/tournaments/${tournament.id}/register`, { 
         paymentRef,
         name: aliasName 
       });
