@@ -985,6 +985,41 @@ export default function Competitions() {
                     </div>
                 </div>
             )}
+            {/* Record Score Modal */}
+            {isScoreModalOpen && scoreMatchData && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-sm overflow-hidden border-[#00aaff]/30">
+                        <div className="p-6 border-b border-[#222222]">
+                            <h2 className="text-xl font-bold flex items-center text-[#00aaff]">Record Score</h2>
+                            <p className="text-xs text-gray-400 mt-2">Enter final match score points.</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold truncate w-32">{scoreMatchData.p1Name}</span>
+                                <input
+                                    type="number"
+                                    value={scoreMatchData.score1}
+                                    onChange={(e) => setScoreMatchData({ ...scoreMatchData, score1: parseInt(e.target.value) || 0 })}
+                                    className="w-16 bg-[#0a0a0a] border border-[#222222] rounded text-center py-2 focus:outline-none focus:border-[#00aaff] font-mono font-bold"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold truncate w-32">{scoreMatchData.p2Name}</span>
+                                <input
+                                    type="number"
+                                    value={scoreMatchData.score2}
+                                    onChange={(e) => setScoreMatchData({ ...scoreMatchData, score2: parseInt(e.target.value) || 0 })}
+                                    className="w-16 bg-[#0a0a0a] border border-[#222222] rounded text-center py-2 focus:outline-none focus:border-[#00aaff] font-mono font-bold"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-[#222222] flex space-x-3">
+                            <button onClick={() => setIsScoreModalOpen(false)} className="flex-1 py-2 bg-[#0a0a0a] rounded-lg font-bold text-white border border-[#222222] hover:bg-white/5">Cancel</button>
+                            <button onClick={submitMatchScore} className="flex-1 py-2 bg-[#00aaff] rounded-lg text-black font-bold hover:bg-[#0088cc] shadow-[0_0_15px_rgba(0,170,255,0.3)]">Save Result</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
