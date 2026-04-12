@@ -164,14 +164,7 @@ export function BookingScreen() {
         });
     }, [selectedDate, now, availability, selectedTableType, selectedPackageId, packages]);
 
-    // Generate next 7 dates
-    const dates = useMemo(() => {
-        return Array.from({ length: 7 }).map((_, i) => {
-            const d = new Date();
-            d.setDate(d.getDate() + i);
-            return d;
-        });
-    }, []);
+
 
     const reservedTime = useMemo(() => {
         if (!selectedSlot) return null;

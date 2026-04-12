@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Calendar, Camera, Zap, Star, TrendingUp, Download, Share2 } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Camera, Zap, Star, TrendingUp, Download, Share2 } from 'lucide-react';
 import { api, getAvatarUrl } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
