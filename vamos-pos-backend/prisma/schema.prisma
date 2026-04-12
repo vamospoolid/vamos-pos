@@ -325,6 +325,7 @@ model Tournament {
   deletedAt       DateTime?
   format          String?                 @default("8-Ball")
   venue           String?
+  rules           String?
   matches         TournamentMatch[]
   participants    TournamentParticipant[]
 }

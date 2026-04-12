@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Camera, Zap, Star, TrendingUp, Download, Share2, ArrowLeft } from 'lucide-react';
+import { User, ChevronRight, Loader2, CheckCircle2, ShieldCheck, X, LayoutGrid, Flame, Trophy, Swords, Camera, Zap, Star, TrendingUp, Download, Share2, ArrowLeft, ScrollText } from 'lucide-react';
 import { api, getAvatarUrl } from './api';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
@@ -404,13 +404,50 @@ function TournamentScreen({ activeTournaments }: { member: any, activeTournament
                </div>
             </div>
 
+            {tournament.prizeChampion > 0 && (
+               <div className="mb-6 relative z-10 bg-[#1a1f35]/30 border border-white/5 p-5 rounded-[24px]">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Trophy className="w-4 h-4 text-yellow-500" />
+                    <h3 className="text-[10px] font-black text-white uppercase italic tracking-widest">Award Protocols</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                      <span className="text-[9px] font-black text-slate-400 uppercase italic">Champion 1st</span>
+                      <span className="text-xs font-black text-yellow-500 italic">RP {tournament.prizeChampion.toLocaleString()}</span>
+                    </div>
+                    {tournament.prizeRunnerUp > 0 && (
+                      <div className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                        <span className="text-[9px] font-black text-slate-400 uppercase italic">Runner Up 2nd</span>
+                        <span className="text-xs font-black text-slate-300 italic">RP {tournament.prizeRunnerUp.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {tournament.prizeSemiFinal > 0 && (
+                      <div className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                        <span className="text-[9px] font-black text-slate-400 uppercase italic">Semi-Final 3/4</span>
+                        <span className="text-xs font-black text-slate-400 italic">RP {tournament.prizeSemiFinal.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+               </div>
+            )}
+
             {tournament.description && (
-              <div className="mb-10 relative z-10 bg-[#1a1f35]/50 border border-white/5 p-5 rounded-[24px]">
+              <div className="mb-6 relative z-10 bg-[#1a1f35]/50 border border-white/5 p-5 rounded-[24px]">
                  <div className="flex items-center gap-2 mb-3">
                    <Swords className="w-4 h-4 text-primary" />
-                   <h3 className="text-xs font-black text-white uppercase italic tracking-widest">Peraturan & Info</h3>
+                   <h3 className="text-[10px] font-black text-white uppercase italic tracking-widest">Event Description</h3>
                  </div>
                  <p className="text-[10px] text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">{tournament.description}</p>
+              </div>
+            )}
+
+            {tournament.rules && (
+              <div className="mb-10 relative z-10 bg-primary/5 border border-primary/10 p-5 rounded-[24px]">
+                 <div className="flex items-center gap-2 mb-3">
+                   <ScrollText className="w-4 h-4 text-primary" />
+                   <h3 className="text-[10px] font-black text-white uppercase italic tracking-widest">Technical Rules</h3>
+                 </div>
+                 <p className="text-[10px] text-primary/80 font-bold leading-relaxed whitespace-pre-wrap italic">{tournament.rules}</p>
               </div>
             )}
 

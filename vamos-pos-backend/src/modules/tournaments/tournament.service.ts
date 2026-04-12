@@ -19,6 +19,7 @@ export class TournamentService {
                     startDate: data.startDate ? new Date(data.startDate) : undefined,
                     venue: data.venue,
                     format: data.format || '8-Ball',
+                    rules: data.rules,
                 }
             });
 
@@ -58,6 +59,7 @@ export class TournamentService {
                 format: data.format,
                 eliminationType: data.eliminationType as any,
                 transitionSize: data.transitionSize !== undefined ? Number(data.transitionSize) : undefined,
+                rules: data.rules,
             }
         });
     }

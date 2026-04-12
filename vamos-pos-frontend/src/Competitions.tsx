@@ -23,7 +23,8 @@ export default function Competitions() {
         prizeSemiFinal: 0, 
         startDate: '', 
         eliminationType: 'SINGLE',
-        transitionSize: 32
+        transitionSize: 32,
+        rules: ''
     });
     const [expandedBrackets, setExpandedBrackets] = useState<Record<string, boolean>>({});
     const [activeBracketTab, setActiveBracketTab] = useState<Record<string, 'WINNERS' | 'LOSERS'>>({});
@@ -96,7 +97,8 @@ export default function Competitions() {
                 prizeSemiFinal: 0, 
                 startDate: '', 
                 eliminationType: 'SINGLE',
-                transitionSize: 32
+                transitionSize: 32,
+                rules: ''
             });
             fetchData();
         } catch (err) {
@@ -699,6 +701,17 @@ export default function Competitions() {
                             <div className="pt-2 border-t border-[#222222]">
                                 <label className="block text-xs font-semibold text-yellow-500 mb-2 mt-2">Total Prize Pool (Rp)</label>
                                 <input type="text" value={form.prizePool ? form.prizePool.toLocaleString('id-ID') : ''} onChange={e => setForm({ ...form, prizePool: parseInt(e.target.value.replace(/\D/g, '')) || 0 })} placeholder="0" className="w-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 rounded-lg px-4 py-2 focus:border-yellow-500 font-mono text-sm focus:outline-none" />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 mb-2">Tournament Rules & Information</label>
+                                <textarea 
+                                    value={form.rules} 
+                                    onChange={e => setForm({ ...form, rules: e.target.value })} 
+                                    placeholder="e.g. Max HC 5, Single Elimination, Lag for break..." 
+                                    rows={3} 
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-2 focus:border-yellow-500 text-sm focus:outline-none resize-none"
+                                />
                             </div>
 
                             <div className="grid grid-cols-3 gap-2">
