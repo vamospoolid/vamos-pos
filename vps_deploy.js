@@ -8,6 +8,10 @@ conn.on('ready', () => {
         
         cd /var/www/vamos-pos
         
+        echo "=== SYNCING CODE FROM GITHUB (FORCE) ==="
+        git fetch --all
+        git reset --hard origin/main
+        
         echo "=== DB PUSH ==="
         cd vamos-pos-backend
         npx prisma db push

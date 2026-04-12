@@ -173,6 +173,8 @@ interface Session {
   memberId?: string | null;
   customerName?: string;
   createdAt?: string;
+  durationOpts?: number;
+  totalPausedMs?: number;
 }
 
 function App() {
