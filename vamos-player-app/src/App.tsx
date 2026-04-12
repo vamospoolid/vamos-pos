@@ -316,7 +316,7 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
 }
 
 function TournamentScreen({ activeTournaments }: { member: any, activeTournaments: any[] }) {
-  const { selectedTournament } = useAppStore();
+  const { selectedTournament, setSelectedTournament } = useAppStore();
   const tournament = selectedTournament || activeTournaments[0] || MOCK_TOURNAMENT;
   const isOngoing = tournament.status === 'ONGOING' || tournament.status === 'IN_PROGRESS';
   const isPending = tournament.status === 'PENDING' || tournament.status === 'UPCOMING' || !tournament.status;
