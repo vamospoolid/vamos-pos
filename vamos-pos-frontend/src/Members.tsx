@@ -486,7 +486,18 @@ export default function Members() {
                                         </div>
                                         <div className="w-2/3">
                                             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">HC Title</label>
-                                            <input type="text" value={formData.handicapLabel} onChange={e => setFormData({ ...formData, handicapLabel: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-[#00ff66]" placeholder="e.g. Entry Fragger" />
+                                            <select 
+                                                value={formData.handicapLabel} 
+                                                onChange={e => setFormData({ ...formData, handicapLabel: e.target.value })} 
+                                                className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-[13.5px] focus:outline-none focus:border-[#00ff66] text-white cursor-pointer"
+                                            >
+                                                <option value="PROVISIONAL">PROVISIONAL (Unverified)</option>
+                                                <option value="OFFICIAL">OFFICIAL (Verified)</option>
+                                                <option value="ENTRY FRAGGER">ENTRY FRAGGER</option>
+                                                <option value="AMATEUR">AMATEUR</option>
+                                                <option value="PRO">PRO</option>
+                                                <option value="-">- No Title -</option>
+                                            </select>
                                         </div>
                                     </div>
                                     <div className="pt-2">
