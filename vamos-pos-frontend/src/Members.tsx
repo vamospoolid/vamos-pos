@@ -336,7 +336,7 @@ export default function Members() {
                                             </div>
                                         </td>
                                         <td className="py-4 px-4 text-right">
-                                            <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex justify-end items-center space-x-2">
                                                 <button 
                                                     onClick={() => downloadMemberCard(m)} 
                                                     className={`p-2 rounded-lg transition-colors ${isPrinting === m.id ? 'text-[#00ff66]' : 'text-gray-400 hover:text-[#00ff66] hover:bg-white/10'}`} 
