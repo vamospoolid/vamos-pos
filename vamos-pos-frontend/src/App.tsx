@@ -2546,13 +2546,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               <button
                 onClick={async () => {
                   try {
-                    // Try silent print first via Smart Bridge
-                    await api.post(`/sessions/${receiptData.id}/reprint`);
-                    vamosAlert('Perintah cetak dikirim ke printer!');
-                    setReceiptData(null);
-                  } catch (err) {
-                    // Fallback to traditional browser print if bridge/API fails
+                    // Force traditional browser print for Chrome testing
+                    // await api.post(`/sessions/${receiptData.id}/reprint`);
+                    // vamosAlert('Perintah cetak dikirim ke printer!');
                     window.print();
+                  } catch (err) {
+                    console.error(err);
                   }
                 }}
                 className="flex-1 py-3 rounded-xl font-bold text-sm flex justify-center items-center gap-2 transition-all"
