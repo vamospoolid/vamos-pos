@@ -2,7 +2,9 @@ const { Client } = require('ssh2');
 const conn = new Client();
 conn.on('ready', () => {
     const cmd = `
-        cat /etc/nginx/sites-enabled/* | grep app.vamospool.id -A 10 -B 2
+        cd /var/www/vamos-pos/vamos-player-app/dist
+        ls -la
+        ls -la assets
     `;
     conn.exec(cmd, (err, stream) => {
         if (err) throw err;

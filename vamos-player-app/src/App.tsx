@@ -284,7 +284,7 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                  <LayoutGrid className="w-5 h-5 text-primary" />
                </div>
                <div className="relative z-10 w-[70%]">
-                 <h4 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2 leading-none">Reservasi Meja VVIP</h4>
+                 <h4 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2 leading-none">Reservasi Meja</h4>
                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-6">Tanpa antri, langsung main</p>
                  <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest italic">
                    <span>Mulai Pesan</span>
