@@ -644,9 +644,6 @@ export class TournamentService {
         if (tournament.status === 'COMPLETED') throw new AppError('Already finished', 400);
 
         await prisma.$transaction(async (tx) => {
-            // Mark tournament completed
-            await tx.tournament.update({ where: { id: tournamentId }, data: { status: 'COMPLETED' } });
-
             const loadMemberId = async (participantId: string) => {
                 if (!participantId) return null;
                 const p = await tx.tournamentParticipant.findUnique({ where: { id: participantId } });
@@ -655,6 +652,15 @@ export class TournamentService {
 
             const championMemberId = await loadMemberId(payload.championId);
             const runnerUpMemberId = await loadMemberId(payload.runnerUpId || '');
+
+            // Mark tournament completed and save champion
+            await tx.tournament.update({ 
+                where: { id: tournamentId }, 
+                data: { 
+                    status: 'COMPLETED',
+                    championId: championMemberId
+                } 
+            });
 
             const { LoyaltyService } = await import('../loyalty/loyalty.service');
 

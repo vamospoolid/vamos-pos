@@ -323,6 +323,7 @@ model Tournament {
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   deletedAt       DateTime?
+  championId      String?
   format          String?                 @default("8-Ball")
   venue           String?
   rules           String?

@@ -54,14 +54,14 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     }, [selectedRival]);
 
     const getPrimaryMetricLabel = () => {
-        if (activeTab === 'monthly') return 'MONTHLY XP';
+        if (activeTab === 'monthly') return 'TROFI';
         if (activeTab === 'streak') return 'STREAK';
         if (activeTab === 'hof') return 'MAX STREAK';
         return 'VICTORIES';
     };
 
     const getPrimaryMetricValue = (p: any) => {
-        if (activeTab === 'monthly') return `${p.monthlyScore?.toLocaleString('id-ID')} XP`;
+        if (activeTab === 'monthly') return `${p.monthlyScore || 0} ${p.monthlyScore === 1 ? 'TROFI' : 'TROFI'}`;
         if (activeTab === 'streak') return `${p.streakCount || p.currentStreak} 🔥`;
         if (activeTab === 'hof') return `${p.highestKingStreak} 🔥`;
         return `${p.totalWins || 0}W`;

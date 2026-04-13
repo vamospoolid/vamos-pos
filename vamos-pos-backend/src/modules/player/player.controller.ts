@@ -803,39 +803,38 @@ export class PlayerController {
                 take: 50
             });
 
-            // 2. Monthly League (Points earned this month)
+            // 2. Monthly League (Tournament Wins this month)
             const startOfMonth = new Date();
             startOfMonth.setDate(1);
             startOfMonth.setHours(0, 0, 0, 0);
 
-            // Group points by member for this month
-            const monthlyPoints = await prisma.pointLog.groupBy({
-                by: ['memberId'],
+            // Group tournament wins by member for this month
+            const monthlyWinners = await prisma.tournament.groupBy({
+                by: ['championId'],
                 where: {
-                    createdAt: { gte: startOfMonth },
-                    points: { gt: 0 },
+                    status: 'COMPLETED',
+                    championId: { not: null },
+                    updatedAt: { gte: startOfMonth },
                     ...(venueId ? {
-                        session: {
-                            table: { venueId: venueId as string }
-                        }
+                        venue: { contains: venueId as string } // Basic filtering, may need refinement based on venue model
                     } : {})
                 },
-                _sum: { points: true },
-                orderBy: { _sum: { points: 'desc' } },
-                take: 20
+                _count: { championId: true },
+                orderBy: { _count: { championId: 'desc' } },
+                take: 50
             });
 
-            // Fetch member details for the monthly leaders
-            const monthlyMemberIds = monthlyPoints.map(p => p.memberId);
+            // Fetch member details for the monthly winners
+            const monthlyMemberIds = monthlyWinners.map(w => w.championId as string);
             const monthlyMembersInfo = await prisma.member.findMany({
                 where: { id: { in: monthlyMemberIds } }
             });
 
-            const monthly = monthlyPoints.map(mp => {
-                const member = monthlyMembersInfo.find(m => m.id === mp.memberId);
+            const monthly = monthlyWinners.map(mw => {
+                const member = monthlyMembersInfo.find(m => m.id === mw.championId);
                 return {
                     ...member,
-                    monthlyScore: mp._sum.points || 0
+                    monthlyScore: mw._count.championId || 0
                 };
             });
 
