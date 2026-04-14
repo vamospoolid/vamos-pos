@@ -407,6 +407,33 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     }
   };
 
+  const handleRemoveOrderItem = async (orderId: string, sessionId: string) => {
+    const ok = await vamosConfirm("Hapus item ini dari pesanan?");
+    if (!ok) return;
+
+    try {
+      await api.delete(`/orders/${orderId}`);
+      
+      // Update local state for checkoutBill to reflect deletion immediately
+      if (checkoutBill && checkoutBill.id === sessionId) {
+        const updatedOrders = checkoutBill.orders.filter((o: any) => o.id !== orderId);
+        const newFnbAmount = updatedOrders.reduce((acc: number, o: any) => acc + o.total, 0);
+        
+        setCheckoutBill({
+          ...checkoutBill,
+          orders: updatedOrders,
+          fnbAmount: newFnbAmount,
+          totalAmount: (checkoutBill.tableAmount || 0) + newFnbAmount
+        });
+      }
+      
+      // Refresh all data to sync everything
+      fetchData();
+    } catch (err: any) {
+      vamosAlert(err.response?.data?.message || "Gagal menghapus item.");
+    }
+  };
+
   const fetchData = async () => {
     try {
       const results = await Promise.allSettled([
@@ -1536,12 +1563,24 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     {checkoutBill.orders && checkoutBill.orders.length > 0 ? (
                       <div className="space-y-2 mt-3 bg-[#141414] p-3 rounded-xl border border-[#222]">
                         {checkoutBill.orders.map((o: any) => (
-                          <div key={o.id} className="flex justify-between items-center px-1">
+                          <div key={o.id} className="flex justify-between items-center px-1 py-1 pr-2 hover:bg-white/[0.02] rounded-lg transition-colors group/item">
                             <div className="flex items-center gap-3">
                               <span className="w-6 h-6 rounded-lg bg-[#222] flex items-center justify-center text-[10px] text-gray-400 font-mono font-bold">x{o.quantity}</span>
                               <span className="text-gray-300 font-semibold text-xs">{o.product?.name || 'Item'}</span>
                             </div>
-                            <span className="font-mono text-gray-400 font-semibold text-xs min-w-[70px] text-right">Rp {o.total.toLocaleString()}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-gray-400 font-semibold text-[11px] min-w-[70px] text-right">Rp {o.total.toLocaleString()}</span>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveOrderItem(o.id, checkoutBill.id);
+                                }}
+                                className="w-6 h-6 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover/item:opacity-100"
+                                title="Hapus Item"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

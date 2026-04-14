@@ -1,5 +1,10 @@
 {
   "dependencies": {
+    "qrcode": "^1.5.4",
     "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "jimp": "^0.22.12",
+    "jsqr": "^1.4.0"
   }
 }
