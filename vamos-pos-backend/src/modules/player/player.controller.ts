@@ -968,13 +968,16 @@ export class PlayerController {
                 const isChallenger = m.challengerId === memberId;
                 const opp = isChallenger ? m.opponent : m.challenger;
 
+                const myScore = isChallenger ? (m.score1 || 0) : (m.score2 || 0);
+                const opponentScore = isChallenger ? (m.score2 || 0) : (m.score1 || 0);
+
                 return {
                     id: m.id,
                     type: 'CHALLENGE',
                     tournamentName: m.isFightForTable ? 'Fight for Table' : 'Pit Match',
                     isWinner: m.winnerId === memberId,
-                    myScore: m.winnerId === memberId ? 1 : 0,
-                    opponentScore: m.winnerId !== memberId ? 1 : 0,
+                    myScore,
+                    opponentScore,
                     opponentName: opp?.name || 'Unknown Player',
                     opponentPhoto: opp?.photo,
                     date: m.updatedAt
