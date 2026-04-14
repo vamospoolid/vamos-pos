@@ -369,6 +369,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [billingClass, setBillingClass] = useState<string>('');
   const [customMinutes, setCustomMinutes] = useState<number>(60);
   const [packages, setPackages] = useState<any[]>([]);
+  const [waitlist, setWaitlist] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [venueConfig, setVenueConfig] = useState<any>(null);
@@ -478,7 +479,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         setTodayExpenses(revData.totalExpenses || 0);
       }
       if (utilRes.status === 'fulfilled') setUtilizationSplit(utilRes.value.data.data);
-      if (waitRes.status === 'fulfilled') setWaitlistCount(Array.isArray(waitRes.value.data) ? waitRes.value.data.length : 0);
+      if (waitRes.status === 'fulfilled') {
+        const wData = waitRes.value.data;
+        const wList = Array.isArray(wData) ? wData : (wData.data || []);
+        setWaitlist(wList);
+        setWaitlistCount(wList.length);
+      }
       if (arenaRes.status === 'fulfilled') setArenaPendingCount(arenaRes.value.data.data?.length || 0);
       if (debtRes.status === 'fulfilled') setUnpaidDebtCount((debtRes as any).value.data.count || 0);
       if (redRes.status === 'fulfilled') setRedemptionPendingCount((redRes as any).value.data.count || 0);
@@ -2855,8 +2861,15 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     }
                     return `${t.name.toUpperCase()}  *${status}*`;
                   }).join('\n');
+
+                  let waitlistText = '';
+                  if (waitlist && waitlist.length > 0) {
+                    waitlistText = `\n\n📝 *WAITING LIST (Via App):*\n`;
+                    waitlistText += waitlist.map((w, i) => `${i + 1}. ${w.member?.name || w.customerName || 'Guest'}`).join('\n');
+                  }
+
                   const footer = `\n\n*Yuk, langsung merapat ke Vamos atau booking lewat aplikasi!* 🔥`;
-                  return header + body + footer;
+                  return header + body + waitlistText + footer;
                 })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
