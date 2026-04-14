@@ -4,6 +4,8 @@ import { catchAsync } from '../../utils/catchAsync';
 import { AuthRequest } from '../../middleware/auth';
 import { AppError } from '../../utils/errors';
 import { getIO } from '../../socket';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import { SessionService } from '../sessions/session.service';
 
 export const getExpenses = catchAsync(async (req: Request, res: Response) => {
     const { memberId, status, isDebt } = req.query;
@@ -97,6 +99,31 @@ export const payDebt = catchAsync(async (req: AuthRequest, res: Response) => {
             where: { id },
             data: { status: 'PAID' }
         });
+
+        // ─── AWARD LOYALTY POINTS NOW THAT IT'S PAID ───
+        if (expense.memberId && finalPaymentAmount > 0) {
+            try {
+                if (expense.sessionId) {
+                    const session = await tx.session.findUnique({ where: { id: expense.sessionId } });
+                    if (session) {
+                        // Award points based on session breakdown
+                        if (session.tableAmount > 0) {
+                            await LoyaltyService.awardGamePoints(session.id, expense.memberId, session.tableAmount);
+                        }
+                        if (session.fnbAmount > 0) {
+                            await LoyaltyService.awardFnbPoints(expense.memberId, session.fnbAmount, session.id);
+                        }
+                        // Check Streak
+                        await LoyaltyService.checkAndUpdateStreak(expense.memberId);
+                    }
+                } else {
+                    // Manual debt with no session - award generic fnb points based on amount
+                    await LoyaltyService.awardFnbPoints(expense.memberId, finalPaymentAmount);
+                }
+            } catch (e) {
+                console.error('[Loyalty] Error during debt payment points:', e);
+            }
+        }
 
         return updatedExpense;
     });

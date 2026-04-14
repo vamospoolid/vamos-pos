@@ -399,27 +399,11 @@ export class SessionService {
                 }
             });
 
-            // AWARD LOYALTY POINTS FOR DEBT PAYMENT
+            // AWARD LOYALTY POINTS MOVED TO DEBT SETTLEMENT INSTEAD
+            // We removed the awarding here because the payment is still a debt (BON)
+            // Update Total Spend for Tiering (Keep this as spending is recorded)
             if (session.memberId && finalAmount > 0) {
-                try {
-                    const { LoyaltyService } = await import('../loyalty/loyalty.service');
-
-                    // Award points for Table & FNB (1 per 1000)
-                    if (session.tableAmount > 0) {
-                        await LoyaltyService.awardGamePoints(sessionId, session.memberId, session.tableAmount);
-                    }
-                    if (session.fnbAmount > 0) {
-                        await LoyaltyService.awardFnbPoints(session.memberId, session.fnbAmount, sessionId);
-                    }
-
-                    // Update Total Spend for Tiering
-                    await MemberService.updateSpend(session.memberId, finalAmount);
-
-                    // Update Streak
-                    await LoyaltyService.checkAndUpdateStreak(session.memberId);
-                } catch (e) {
-                    console.error('Loyalty award error (Debt):', e);
-                }
+                await MemberService.updateSpend(session.memberId, finalAmount);
             }
 
             return expense;
