@@ -30,7 +30,8 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     }, [currentListData, searchQuery]);
 
     const top3 = currentListData.slice(0, 3);
-    const others = filteredLeaderboard.slice(3).filter((p: any) => p.id !== top3[0]?.id && p.id !== top3[1]?.id && p.id !== top3[2]?.id);
+    const showPodium = !searchQuery && top3.length >= 3;
+    const others = filteredLeaderboard.slice(showPodium ? 3 : 0);
 
     const fetchH2H = async (rivalId: string) => {
         setLoadingH2H(true);
