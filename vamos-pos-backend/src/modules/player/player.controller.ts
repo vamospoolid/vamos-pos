@@ -1528,6 +1528,18 @@ export class PlayerController {
                 }
             });
 
+            // Arena Challenge matches
+            const arenaChallenges = await (prisma.matchChallenge as any).findMany({
+                where: {
+                    OR: [{ challengerId: memberId }, { opponentId: memberId }],
+                    status: 'COMPLETED'
+                },
+                include: { 
+                    challenger: true, 
+                    opponent: true 
+                }
+            });
+
             const stats: Record<string, any> = {};
 
             // Process Tournament Matches
@@ -1567,6 +1579,26 @@ export class PlayerController {
                 stats[oppId].total++;
                 if (m.winnerId === memberId) stats[oppId].wins++;
                 else if (m.winnerId === oppId) stats[oppId].losses++;
+            }
+
+            // Process Arena Arena Arena Challenges
+            for (const ac of arenaChallenges) {
+                const isChallenger = ac.challengerId === memberId;
+                const opp = isChallenger ? ac.opponent : ac.challenger;
+                const oppId = isChallenger ? ac.opponentId : ac.challengerId;
+
+                if (!oppId || !opp) continue;
+
+                if (!stats[oppId]) stats[oppId] = {
+                    opponentId: oppId,
+                    name: opp.name,
+                    photo: opp.photo,
+                    wins: 0, losses: 0, total: 0
+                };
+
+                stats[oppId].total++;
+                if (ac.winnerId === memberId) stats[oppId].wins++;
+                else if (ac.winnerId === oppId) stats[oppId].losses++;
             }
 
             const sortedStats = Object.values(stats)
