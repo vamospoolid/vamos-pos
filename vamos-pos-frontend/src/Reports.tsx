@@ -155,7 +155,7 @@ export default function Reports({
     }, [timeFilter, startDate, endDate, txFilter, txStartDate, txEndDate]);
 
     // ─── Transaction List Fetch ─────────────────────────────────────────────
-    const fetchTransactions = async (filter = txFilter, sd = txStartDate, ed = txEndDate) => {
+    const fetchTransactions = async (_f = txFilter, sd = txStartDate, ed = txEndDate) => {
         setTxLoading(true);
         try {
             const query = `?startDate=${sd}&endDate=${ed}`;

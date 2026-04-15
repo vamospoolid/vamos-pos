@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer, TrendingUp, History, Trophy, Activity, MessageSquare } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer, TrendingUp, History, Trophy } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import html2canvas from 'html2canvas';
