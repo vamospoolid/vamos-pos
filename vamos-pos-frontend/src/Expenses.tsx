@@ -68,8 +68,8 @@ export default function Expenses() {
     const [saving, setSaving] = useState(false);
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+    const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [memberSearch, setMemberSearch] = useState<string>('');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 

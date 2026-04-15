@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer, TrendingUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ArrowUp, ArrowDown, Users, Star, Gift, Loader2, CheckCircle2, Clock, ShieldCheck, Printer, TrendingUp, History, Trophy, Activity, MessageSquare } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import html2canvas from 'html2canvas';
@@ -17,6 +17,7 @@ export default function Members() {
     const [isPrinting, setIsPrinting] = useState<string | null>(null);
     const [showOnlyDebt, setShowOnlyDebt] = useState(false);
     const [debtMemberDetail, setDebtMemberDetail] = useState<any>(null);
+    const [memberDetail, setMemberDetail] = useState<any>(null);
 
     const [pointsModal, setPointsModal] = useState<{ id: string, name: string, points: number } | null>(null);
 
@@ -161,6 +162,15 @@ export default function Members() {
         }
     };
 
+    const fetchMemberDetail = async (id: string) => {
+        try {
+            const res = await api.get(`/members/${id}`);
+            setMemberDetail(res.data.data);
+        } catch (err) {
+            vamosAlert('Gagal memuat detail member');
+        }
+    };
+
     const filteredMembers = members.filter(m => {
         const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
         const matchesDebtFilter = showOnlyDebt ? (m.totalDebt || 0) > 0 : true;
@@ -169,6 +179,9 @@ export default function Members() {
 
     return (
         <div className="fade-in">
+            <div className="bg-[#ff3333]/10 border border-[#ff3333]/30 p-2 rounded-lg mb-4 text-[10px] text-[#ff3333] font-black text-center uppercase tracking-widest">
+                DEBUG MODE: MEMBER CLICK LOGIC ACTIVE (VERSION 5)
+            </div>
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center">
                     {selectedIds.length > 0 && (
@@ -262,8 +275,18 @@ export default function Members() {
                                                 </div>
                                             )}
                                             <div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-bold text-sm text-white">{m.name}</p>
+                                                <div 
+                                                    className="inline-flex items-center gap-2 cursor-pointer select-none py-1 group/name" 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        console.log('CLICKED MEMBER:', m.id);
+                                                        fetchMemberDetail(m.id); 
+                                                    }}
+                                                >
+                                                    <p className="font-bold text-sm text-[#00ff66] underline decoration-[#00ff66]/30 transition-all flex items-center gap-2">
+                                                        {m.name}
+                                                        <Trophy className="w-3 h-3 text-[#00ff66]" />
+                                                    </p>
                                                     {m.identityStatus === 'VERIFIED' && <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />}
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-0.5">
@@ -523,6 +546,171 @@ export default function Members() {
                         <div className="p-6 border-t border-[#222222] flex space-x-3">
                             <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-xl bg-[#0a0a0a] border border-[#222222] text-white font-semibold">Cancel</button>
                             <button onClick={handleSave} disabled={!formData.name || !formData.phone} className="flex-1 py-3 rounded-xl bg-[#00ff66] text-[#0a0a0a] font-bold hover:bg-[#00e65c] disabled:opacity-50">Save Data</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Member Detail Modal */}
+            {memberDetail && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+                    <div className="bg-[#141414] border border-[#222222] rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col">
+                        <div className="p-8 border-b border-[#222222] flex justify-between items-start bg-gradient-to-r from-[#00ff66]/5 to-transparent">
+                            <div className="flex items-center space-x-6">
+                                <div className="relative">
+                                    {memberDetail.photo ? (
+                                        <img 
+                                            src={memberDetail.photo.startsWith('http') ? memberDetail.photo : `${api.defaults.baseURL}/player/avatar-view/${memberDetail.photo.split('/').pop()}`} 
+                                            className="w-24 h-24 rounded-2xl object-cover border-2 border-[#333]" 
+                                        />
+                                    ) : (
+                                        <div className="w-24 h-24 rounded-2xl bg-[#1a1a1a] border-2 border-[#333] flex items-center justify-center">
+                                            <Users className="w-10 h-10 text-gray-500" />
+                                        </div>
+                                    )}
+                                    <div className="absolute -bottom-2 -right-2 bg-[#00ff66] text-black w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-lg border-2 border-[#141414]">
+                                        {memberDetail.level || 1}
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                        {memberDetail.name}
+                                        {memberDetail.identityStatus === 'VERIFIED' && <ShieldCheck className="w-6 h-6 text-blue-400" fill="currentColor" fillOpacity={0.1} />}
+                                    </h2>
+                                    <div className="flex items-center gap-4">
+                                        <div className="px-3 py-1 bg-[#1a1a1a] rounded-lg border border-[#333] flex items-center gap-2">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-gray-400" />
+                                            <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">HC {memberDetail.handicap || 4}</span>
+                                        </div>
+                                        <div className="px-3 py-1 bg-[#1a1a1a] rounded-lg border border-[#333] flex items-center gap-2">
+                                            <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                            <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">{memberDetail.phone}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => setMemberDetail(null)} className="p-3 hover:bg-white/10 rounded-2xl transition-all border border-transparent hover:border-white/10">
+                                <X className="w-6 h-6 text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                            <div className="grid grid-cols-4 gap-6 mb-10">
+                                <div className="bg-[#0a0a0a] border border-[#222] p-5 rounded-3xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 bg-yellow-400 rounded-bl-3xl">
+                                        <Star className="w-12 h-12" />
+                                    </div>
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Loyalty Points</p>
+                                    <p className="text-3xl font-black text-yellow-500 font-mono tracking-tighter">
+                                        {memberDetail.loyaltyPoints?.toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0a0a0a] border border-[#222] p-5 rounded-3xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 bg-blue-500 rounded-bl-3xl">
+                                        <TrendingUp className="w-12 h-12" />
+                                    </div>
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Experience (XP)</p>
+                                    <p className="text-3xl font-black text-blue-400 font-mono tracking-tighter">
+                                        {memberDetail.experience?.toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0a0a0a] border border-[#222] p-5 rounded-3xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 bg-[#00ff66] rounded-bl-3xl">
+                                        <Gift className="w-12 h-12" />
+                                    </div>
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Tournament Wins</p>
+                                    <p className="text-3xl font-black text-[#00ff66] font-mono tracking-tighter">
+                                        {memberDetail.totalWins || 0}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0a0a0a] border border-[#222] p-5 rounded-3xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 bg-purple-500 rounded-bl-3xl">
+                                        <Clock className="w-12 h-12" />
+                                    </div>
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Play Hours</p>
+                                    <p className="text-3xl font-black text-purple-400 font-mono tracking-tighter">
+                                        {Math.round(memberDetail.totalPlayHours || 0)} <span className="text-sm">HRS</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                {/* Arena Challenge History */}
+                                <div>
+                                    <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <Gift className="w-4 h-4 text-[#00ff66]" /> Arena Challenge History
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {[...(memberDetail.challengesSent || []), ...(memberDetail.challengesReceived || [])]
+                                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                            .slice(0, 5).map((c: any) => {
+                                                const isChallenger = c.challengerId === memberDetail.id;
+                                                const opponent = isChallenger ? c.opponent : c.challenger;
+                                                const isWinner = c.winnerId === memberDetail.id;
+                                                return (
+                                                    <div key={c.id} className="bg-[#0a0a0a] border border-[#222] p-4 rounded-2xl flex items-center justify-between group hover:border-[#00ff66]/30 transition-all">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${isWinner ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'bg-red-500/10 text-red-500'}`}>
+                                                                {isWinner ? 'W' : 'L'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-white">vs {opponent?.name || 'Unknown'}</p>
+                                                                <p className="text-[9px] text-gray-500 font-mono tracking-tighter uppercase mt-0.5">
+                                                                    {new Date(c.createdAt).toLocaleDateString()} • Stake: {c.pointsStake} pts
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {c.isFightForTable && (
+                                                            <span className="bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/20 px-2 py-0.5 rounded text-[8px] font-black">ARENA</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        {(!memberDetail.challengesSent?.length && !memberDetail.challengesReceived?.length) && (
+                                            <p className="text-center py-6 text-gray-600 text-xs italic bg-[#0a0a0a] border border-[#222] rounded-2xl">No challenge history yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Points Activity */}
+                                <div>
+                                    <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <History className="w-4 h-4 text-yellow-500" /> Points Activity
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {memberDetail.pointLogs?.slice(0, 5).map((l: any) => (
+                                            <div key={l.id} className="bg-[#0a0a0a] border border-[#222] p-4 rounded-2xl flex items-center justify-between group hover:border-yellow-400/30 transition-all">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${l.points > 0 ? 'bg-yellow-400/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {l.points > 0 ? `+` : ``}{l.points}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-white truncate max-w-[180px]">{l.description}</p>
+                                                        <p className="text-[9px] text-gray-500 font-mono tracking-tighter uppercase mt-0.5">
+                                                            {new Date(l.createdAt).toLocaleDateString()} • {l.type}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {!memberDetail.pointLogs?.length && (
+                                            <p className="text-center py-6 text-gray-600 text-xs italic bg-[#0a0a0a] border border-[#222] rounded-2xl">No point activity yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 border-t border-[#222222] bg-[#0a0a0a]/50 flex justify-end gap-3">
+                            <button onClick={() => setMemberDetail(null)} className="px-8 py-3 rounded-2xl bg-[#141414] border border-[#333] text-white font-bold hover:bg-[#1a1a1a] transition-all">
+                                CLOSE DETAILS
+                            </button>
+                            <button 
+                                onClick={() => { setEditingMember(memberDetail); setFormData({ name: memberDetail.name, phone: memberDetail.phone, photo: memberDetail.photo || '', handicap: memberDetail.handicap || '4', handicapLabel: memberDetail.handicapLabel || 'PROVISIONAL' }); setMemberDetail(null); setIsModalOpen(true); }}
+                                className="px-8 py-3 rounded-2xl bg-[#00ff66] text-black font-black hover:bg-[#00e65c] transition-all shadow-lg shadow-[#00ff66]/10"
+                            >
+                                EDIT PROFILE
+                            </button>
                         </div>
                     </div>
                 </div>

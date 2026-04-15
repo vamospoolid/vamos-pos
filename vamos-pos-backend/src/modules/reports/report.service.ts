@@ -532,6 +532,7 @@ export class ReportService {
             const { end } = await ReportService.getOperationalDayBounds(0);
             gteDate = start;
             lteDate = end;
+            console.log(`[ReportService] Default Range (${days} days): gte: ${gteDate.toISOString()} | lte: ${lteDate?.toISOString()}`);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

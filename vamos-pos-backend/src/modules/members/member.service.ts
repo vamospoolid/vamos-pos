@@ -122,7 +122,31 @@ export class MemberService {
                             createdAt: 'desc'
                         }
                     },
-                    take: 10 // Get last 10 matches
+                    take: 10
+                },
+                challengesSent: {
+                    include: {
+                        opponent: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    take: 20
+                },
+                challengesReceived: {
+                    include: {
+                        challenger: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    take: 20
+                },
+                pointLogs: {
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    take: 50
                 }
             }
         });

@@ -54,6 +54,14 @@ export default function Reports({
         if (txPaymentMethod === 'ALL') return transactions;
         return transactions.filter(t => (t.paymentMethod || 'CASH').toUpperCase().includes(txPaymentMethod));
     }, [transactions, txPaymentMethod]);
+    const getOperationalDate = () => {
+        const now = new Date();
+        const rawHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
+        const openHour = isNaN(rawHour) ? 10 : rawHour;
+        const reportDate = new Date();
+        if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
+        return reportDate.toLocaleDateString('en-CA');
+    };
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
     const [startDate, setStartDate] = useState(''); // Initialize empty to force update
     const [endDate, setEndDate] = useState('');
@@ -88,18 +96,11 @@ export default function Reports({
 
     useEffect(() => {
         const calculateOperationalDates = () => {
-             const now = new Date();
-             const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
-             
-             let todayOp = new Date();
-             if (now.getHours() < openHour) {
-                 todayOp.setDate(todayOp.getDate() - 1);
-             }
-             
-             const todayStr = todayOp.toLocaleDateString('en-CA');
-             const tomorrowOp = new Date(todayOp);
-             tomorrowOp.setDate(tomorrowOp.getDate() + 1);
-             const tomorrowStr = tomorrowOp.toLocaleDateString('en-CA');
+             const todayStr = getOperationalDate();
+             const todayDate = new Date(todayStr);
+             const tomorrowDate = new Date(todayDate);
+             tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+             const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA');
 
              let s = todayStr;
              let e = tomorrowStr;
@@ -157,27 +158,7 @@ export default function Reports({
     const fetchTransactions = async (filter = txFilter, sd = txStartDate, ed = txEndDate) => {
         setTxLoading(true);
         try {
-            let query = '';
-            const todayStr = new Date().toISOString().split('T')[0];
-
-            if (filter === 'custom') {
-                query = `?startDate=${sd}&endDate=${ed}`;
-            } else {
-                let startStr: string;
-                if (filter === 'daily') {
-                    const now = new Date();
-                    const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 10;
-                    const reportDate = new Date();
-                    if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
-                    startStr = reportDate.toISOString().split('T')[0];
-                } else if (filter === 'weekly') {
-                    startStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                } else {
-                    startStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                }
-                // Always include endDate so backend always sets lteDate
-                query = `?startDate=${startStr}&endDate=${todayStr}`;
-            }
+            const query = `?startDate=${sd}&endDate=${ed}`;
             const res = await api.get(`/reports/transactions${query}`);
             setTransactions(res.data.data || []);
         } catch (err) {
@@ -188,29 +169,33 @@ export default function Reports({
     };
 
     useEffect(() => {
-        fetchTransactions();
-    }, []);
+        const opDate = getOperationalDate();
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        
+        // Always sync both for initial mount if daily
+        setTxStartDate(opDate);
+        const finalEnd = txFilter === 'daily' ? opDate : todayStr;
+        setTxEndDate(finalEnd);
+        fetchTransactions(txFilter, opDate, finalEnd);
+    }, [venue?.openTime]);
 
     const handleTxFilterChange = (f: 'daily' | 'weekly' | 'monthly' | 'custom') => {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString('en-CA');
         let newStart = todayStr;
 
         if (f === 'daily') {
-            const now = new Date();
-            const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0]) : 9;
-            const reportDate = new Date();
-            if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
-            newStart = reportDate.toISOString().split('T')[0];
+            newStart = getOperationalDate();
         } else if (f === 'weekly') {
-            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
         } else if (f === 'monthly') {
-            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
         }
 
         setTxFilter(f);
         setTxStartDate(newStart);
-        setTxEndDate(todayStr);
-        if (f !== 'custom') fetchTransactions(f, newStart, todayStr);
+        const finalEnd = (f === 'daily' || f === 'custom') ? newStart : todayStr;
+        setTxEndDate(finalEnd);
+        fetchTransactions(f, newStart, finalEnd);
     };
 
     const exportTransactionPDF = () => {

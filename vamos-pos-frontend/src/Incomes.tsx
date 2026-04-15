@@ -50,8 +50,8 @@ export default function Incomes() {
     const [saving, setSaving] = useState(false);
     const [search, setSearch] = useState('');
     const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+    const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
 
     // Form states
     const [amount, setAmount] = useState('');
