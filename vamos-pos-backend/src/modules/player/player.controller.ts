@@ -197,6 +197,32 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
+    static async deleteChallenge(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = req.params;
+            const challenge = await prisma.matchChallenge.findUnique({
+                where: { id }
+            });
+
+            if (!challenge) {
+                return res.status(404).json({ success: false, message: 'Challenge not found' });
+            }
+
+            await prisma.matchChallenge.delete({
+                where: { id }
+            });
+
+            const { getIO } = await import('../../socket');
+            getIO().emit(`challenge:new_arena`, { id, deleted: true });
+            getIO().emit(`challenge:update:${challenge.challengerId}`, { id, status: 'CANCELLED' });
+            if (challenge.opponentId) {
+                getIO().emit(`challenge:update:${challenge.opponentId}`, { id, status: 'CANCELLED' });
+            }
+
+            res.json({ success: true, message: 'Challenge deleted successfully' });
+        } catch (error) { next(error); }
+    }
+
     /**
      * PLAYER ACTION: Link an active session to an ongoing challenge
      */

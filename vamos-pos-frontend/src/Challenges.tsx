@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Swords, Search, Trophy, Loader2, User, Skull, Plus, Flame, X, CheckCircle2 } from 'lucide-react';
+import { Swords, Search, Trophy, Loader2, User, Skull, Plus, Flame, X, CheckCircle2, Trash2 } from 'lucide-react';
 import { api } from './api';
-import { vamosAlert } from './utils/dialog';
+import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { io } from 'socket.io-client';
 
 interface Player {
@@ -145,6 +145,20 @@ export default function Challenges() {
         }
     };
 
+    const handleDeleteChallenge = async (id: string) => {
+        const confirmed = await vamosConfirm('Are you sure you want to delete this challenge? This cannot be undone.');
+        if (!confirmed) return;
+
+        try {
+            await api.delete(`/player/challenge/${id}`);
+            vamosAlert('Challenge deleted successfully.');
+            fetchChallenges();
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            vamosAlert(error.response?.data?.message || 'Failed to delete challenge');
+        }
+    };
+
     const filteredChallenges = challenges.filter(c =>
         c.challenger.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.opponent.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -206,7 +220,19 @@ export default function Challenges() {
                                     {c.status === 'ACCEPTED' && <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-widest animate-pulse">In Progress</span>}
                                     {c.status === 'WAITING_VERIFICATION' && <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20 uppercase tracking-widest">Verification Required</span>}
                                 </div>
-                                <span className="text-gray-500 font-mono text-[10px]">#{c.id.substring(0, 8)}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-gray-500 font-mono text-[10px]">#{c.id.substring(0, 8)}</span>
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteChallenge(c.id);
+                                        }}
+                                        className="p-2 hover:bg-rose-500/20 text-gray-500 hover:text-rose-500 rounded-xl transition-all active:scale-90"
+                                        title="Delete Challenge"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-between gap-4 mb-8">
@@ -552,6 +578,16 @@ export default function Challenges() {
                                     REFUTE CLAIM
                                 </button>
                             )}
+                            <button
+                                onClick={() => {
+                                    handleDeleteChallenge(selectedChallenge.id);
+                                    setIsCompleteModalOpen(false);
+                                }}
+                                className="w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 font-bold rounded-2xl text-xs uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                DELETE CHALLENGE
+                            </button>
                             <button
                                 onClick={() => setIsCompleteModalOpen(false)}
                                 className="w-full py-2 text-gray-600 text-[10px] font-bold uppercase tracking-widest hover:text-gray-400 mt-2"

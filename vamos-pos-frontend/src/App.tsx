@@ -1066,7 +1066,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               <h1 className="text-base font-black tracking-wide text-white">
                 {activeTab === 'dashboard' ? 'Live Dashboard'
                   : activeTab === 'bills' ? 'Pending Bills'
-                    : activeTab === 'reports' ? 'Reports'
+                    : activeTab === 'challenges' ? 'Arena Challenges'
+                      : activeTab === 'reports' ? 'Reports'
                       : activeTab === 'expenses' ? 'Expenses'
                         : activeTab === 'fnb-order' ? 'New F&B Order'
                           : activeTab === 'waitlist' ? 'Waiting List'

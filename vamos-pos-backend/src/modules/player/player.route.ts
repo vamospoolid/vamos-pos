@@ -21,6 +21,7 @@ router.get('/venues', PlayerController.getVenues);
 router.get('/challenges/pending-verification', authenticate, PlayerController.getPendingVerifications);
 router.post('/challenges/admin-create', authenticate, PlayerController.adminCreateChallenge);
 router.put('/challenge/:id/complete', authenticate, PlayerController.completeChallenge);
+router.delete('/challenge/:id', authenticate, PlayerController.deleteChallenge);
 
 // --- PROTECTED ROUTES FOR PLAYERS (1-Device-1-ID) ---
 router.use(playerAuth);
