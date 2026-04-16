@@ -179,9 +179,6 @@ export default function Members() {
 
     return (
         <div className="fade-in">
-            <div className="bg-[#ff3333]/10 border border-[#ff3333]/30 p-2 rounded-lg mb-4 text-[10px] text-[#ff3333] font-black text-center uppercase tracking-widest">
-                DEBUG MODE: MEMBER CLICK LOGIC ACTIVE (VERSION 5)
-            </div>
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center">
                     {selectedIds.length > 0 && (

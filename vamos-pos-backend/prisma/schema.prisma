@@ -41,6 +41,7 @@ model Venue {
   splashImageUrl      String?
   phone               String?   @default("6281244047610")
   waVerificationText  String?   @default("Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:")
+  isRelayEnabled      Boolean   @default(true)
   tables              Table[]
 }
 

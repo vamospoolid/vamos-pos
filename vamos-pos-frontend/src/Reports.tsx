@@ -43,7 +43,7 @@ export default function Reports({
     const [topProducts, setTopProducts] = useState<any[]>([]);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [txLoading, setTxLoading] = useState(true);
-    const [txFilter, setTxFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
+    const [txFilter, setTxFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
     const [txStartDate, setTxStartDate] = useState(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD local
     const [txEndDate, setTxEndDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [txPaymentMethod, setTxPaymentMethod] = useState<'ALL' | 'CASH' | 'QRIS'>('ALL');
@@ -62,7 +62,7 @@ export default function Reports({
         if (now.getHours() < openHour) reportDate.setDate(reportDate.getDate() - 1);
         return reportDate.toLocaleDateString('en-CA');
     };
-    const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
+    const [timeFilter, setTimeFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
     const [startDate, setStartDate] = useState(''); // Initialize empty to force update
     const [endDate, setEndDate] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);
@@ -105,7 +105,10 @@ export default function Reports({
              let s = todayStr;
              let e = tomorrowStr;
 
-             if (timeFilter === 'weekly') {
+             if (timeFilter === 'yesterday') {
+                 s = new Date(todayDate.getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+                 e = todayStr;
+             } else if (timeFilter === 'weekly') {
                  s = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
                  e = todayStr;
              } else if (timeFilter === 'monthly') {
@@ -179,12 +182,15 @@ export default function Reports({
         fetchTransactions(txFilter, opDate, finalEnd);
     }, [venue?.openTime]);
 
-    const handleTxFilterChange = (f: 'daily' | 'weekly' | 'monthly' | 'custom') => {
+    const handleTxFilterChange = (f: 'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom') => {
         const todayStr = new Date().toLocaleDateString('en-CA');
         let newStart = todayStr;
 
         if (f === 'daily') {
             newStart = getOperationalDate();
+        } else if (f === 'yesterday') {
+            const opDate = new Date(getOperationalDate());
+            newStart = new Date(opDate.getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
         } else if (f === 'weekly') {
             newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
         } else if (f === 'monthly') {
@@ -193,7 +199,7 @@ export default function Reports({
 
         setTxFilter(f);
         setTxStartDate(newStart);
-        const finalEnd = (f === 'daily' || f === 'custom') ? newStart : todayStr;
+        const finalEnd = (f === 'daily' || f === 'yesterday' || f === 'custom') ? newStart : todayStr;
         setTxEndDate(finalEnd);
         fetchTransactions(f, newStart, finalEnd);
     };
@@ -693,7 +699,7 @@ export default function Reports({
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Time Filter */}
                     <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-1 flex items-center">
-                        {(['daily', 'weekly', 'monthly', 'custom'] as const).map(f => (
+                        {(['daily', 'yesterday', 'weekly', 'monthly', 'custom'] as const).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setTimeFilter(f)}
@@ -1081,11 +1087,11 @@ export default function Reports({
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="bg-[#0a0a0a] border border-[#333] rounded-xl p-1 flex items-center">
-                            {(['daily', 'weekly', 'monthly'] as const).map(f => (
+                            {(['daily', 'yesterday', 'weekly', 'monthly'] as const).map(f => (
                                 <button key={f} onClick={() => handleTxFilterChange(f)}
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all"
                                     style={{ background: txFilter === f ? '#00ff66' : 'transparent', color: txFilter === f ? '#0a0a0a' : '#6b7280' }}>
-                                    {f === 'daily' ? 'Harian' : f === 'weekly' ? 'Mingguan' : 'Bulanan'}
+                                    {f === 'daily' ? 'Harian' : f === 'yesterday' ? 'Kemarin' : f === 'weekly' ? 'Mingguan' : 'Bulanan'}
                                 </button>
                             ))}
                         </div>

@@ -987,8 +987,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
           {/* Management */}
           <p className="px-3 pt-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-widest">Management</p>
-          <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="🚀 SYSTEM SETTINGS" accent="gold" />
-          <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="🔑 LICENSE MANAGEMENT" accent="orange" />
+          {user?.role !== 'KASIR' && (
+            <>
+              <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon />} label="🚀 SYSTEM SETTINGS" accent="gold" />
+              <NavItem active={activeTab === 'license'} onClick={() => setActiveTab('license')} icon={<ShieldAlert />} label="🔑 LICENSE MANAGEMENT" accent="orange" />
+            </>
+          )}
           <NavItem active={activeTab === 'pricing'} onClick={() => setActiveTab('pricing')} icon={<span className="font-black text-sm w-5 text-center block">$</span>} label="Pricing" />
           <NavItem active={activeTab === 'discounts'} onClick={() => setActiveTab('discounts')} icon={<Tag />} label="Discounts" />
           <NavItem active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users />} label="Members" />
@@ -1241,7 +1245,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                           if (table.activeSession) setAddDurationSessionId(table.activeSession.id);
                         }}
                         onViewDetail={() => setDetailSession(table.activeSession)}
-                        onToggleRelay={async (tableId: string, command: 'on' | 'off') => {
+                        onToggleRelay={venueConfig?.isRelayEnabled !== false ? async (tableId: string, command: 'on' | 'off') => {
                           const t = tables.find(t => t.id === tableId);
                           if (!t) return;
                           try {
@@ -1255,7 +1259,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                           } catch (err: any) {
                             vamosAlert(err.response?.data?.message || `Failed to trigger relay ${command}`);
                           }
-                        }}
+                        } : undefined}
                       />
                     ))}
                   </div>

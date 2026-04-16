@@ -25,7 +25,8 @@ export default function Settings() {
         syncIntervalSeconds: 30,
         splashImageUrl: '',
         phone: '',
-        waVerificationText: ''
+        waVerificationText: '',
+        isRelayEnabled: true
     });
 
     // Form Table
@@ -92,7 +93,8 @@ export default function Settings() {
                     syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
                     splashImageUrl: serpongVenue.splashImageUrl || '',
                     phone: serpongVenue.phone || '',
-                    waVerificationText: serpongVenue.waVerificationText || ''
+                    waVerificationText: serpongVenue.waVerificationText || '',
+                    isRelayEnabled: serpongVenue.isRelayEnabled ?? true
                 });
             }
         } catch (err) {
@@ -506,6 +508,17 @@ export default function Settings() {
                                 </div>
                             </div>
                             <div className="space-y-4">
+                                <div className="flex items-center justify-between p-4 bg-[#111] border border-[#222] rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${venueForm.isRelayEnabled ? 'bg-[#00ff66]' : 'bg-gray-800'}`} onClick={() => setVenueForm({ ...venueForm, isRelayEnabled: !venueForm.isRelayEnabled })}>
+                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all ${venueForm.isRelayEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-white uppercase tracking-widest">Enable Relay Light Control</p>
+                                            <p className="text-[9px] text-gray-500 font-medium">Tampilkan tombol kontrol lampu di Table Card Kasir.</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Relay Master COM Port</label>
                                     <input type="text" value={venueForm.relayComPort} onChange={e => setVenueForm({ ...venueForm, relayComPort: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#00ff66] text-[#00ff66]" placeholder="e.g. COM3" />
