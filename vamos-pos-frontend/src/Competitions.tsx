@@ -5,6 +5,7 @@ import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { io } from 'socket.io-client';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { LiveDrawDisplay } from './components/LiveDrawDisplay';
 
 export default function Competitions() {
     const [tournaments, setTournaments] = useState<any[]>([]);
@@ -52,6 +53,8 @@ export default function Competitions() {
     const [manageTournamentId, setManageTournamentId] = useState<string | null>(null);
     const [isEditParticipantOpen, setIsEditParticipantOpen] = useState(false);
     const [editParticipantData, setEditParticipantData] = useState<any>(null);
+
+    const [activeLiveDraw, setActiveLiveDraw] = useState<any>(null);
 
     const fetchData = async () => {
         try {
@@ -509,7 +512,9 @@ export default function Competitions() {
                                 )}
                                 {t.status === 'ONGOING' && (
                                     <div className="flex space-x-2 w-full">
-                                        <button onClick={() => { setManageTournamentId(t.id); setIsManageParticipantsOpen(true); }} className="flex-1 px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-400 text-[10px] font-bold rounded transition-colors border border-white/5">Participants</button>
+                                        <button onClick={() => { setActiveLiveDraw(t); }} className="flex-1 px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-400 text-xs font-bold rounded transition-colors border border-cyan-500/30">
+                                            Live Draw
+                                        </button>
                                         <button onClick={() => { setFinishTournamentId(t.id); setIsFinishModalOpen(true); }} className="flex-[2] px-2 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold rounded transition-colors flex items-center justify-center">
                                             <Trophy className="w-3 h-3 mr-1" /> Conclude Event
                                         </button>
@@ -797,7 +802,6 @@ export default function Competitions() {
                 </div>
             )}
 
-            {/* Finish Tournament Modal */}
             {isFinishModalOpen && finishTournamentId && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-sm overflow-hidden border-yellow-500/30">
@@ -1032,6 +1036,12 @@ export default function Competitions() {
                         </div>
                     </div>
                 </div>
+            )}
+            {activeLiveDraw && (
+                <LiveDrawDisplay 
+                    tournament={activeLiveDraw} 
+                    onClose={() => setActiveLiveDraw(null)} 
+                />
             )}
         </div>
     );
