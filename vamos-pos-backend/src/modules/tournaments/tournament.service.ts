@@ -249,41 +249,52 @@ export class TournamentService {
         return this.generateSingleElimination(tournamentId);
     }
 
-    private static async generateSingleElimination(tournamentId: string) {
-        const tournament = await prisma.tournament.findUnique({
-            where: { id: tournamentId },
-            include: { participants: true }
-        });
-        if (!tournament) throw new AppError('Tournament not found', 404);
+    private static smartShuffleAndSeed(participants: any[], bracketSize: number) {
+        const groups = new Map<string, any[]>();
+        const singles: any[] = [];
+        
+        for (const p of participants) {
+            if (p.memberId) {
+                const arr = groups.get(p.memberId) || [];
+                arr.push(p);
+                groups.set(p.memberId, arr);
+            } else {
+                singles.push(p);
+            }
+        }
+        
+        const twins: any[][] = [];
+        for (const arr of groups.values()) {
+            if(arr.length >= 2) {
+                twins.push([arr[0], arr[1]]);
+                for(let i=2; i<arr.length; i++) singles.push(arr[i]);
+            } else {
+                singles.push(arr[0]);
+            }
+        }
+        
+        singles.sort(() => Math.random() - 0.5);
+        twins.sort(() => Math.random() - 0.5);
+        
+        const pairs: any[][] = [...twins];
+        for (let i = 0; i < singles.length; i += 2) {
+            if (singles[i + 1]) {
+                pairs.push([singles[i], singles[i + 1]]);
+            } else {
+                pairs.push([singles[i]]);
+            }
+        }
+        
+        pairs.sort(() => Math.random() - 0.5);
+        
+        const smartPlayers: any[] = [];
+        for (const pair of pairs) {
+            smartPlayers.push(pair[0]);
+            if (pair[1]) smartPlayers.push(pair[1]);
+        }
 
-        let participants = [...tournament.participants].sort(() => Math.random() - 0.5);
-        const N = participants.length;
-
-        if (N < 2) throw new AppError('Minimum 2 peserta untuk generate bracket', 400);
-
-        // --- Find next power of 2 (bracket size) ---
-        // Use maxPlayers as the intended bracket capacity, or N if it's larger
-        let bracketSize = 1;
-        const targetCapacity = Math.max(N, tournament.maxPlayers || 0);
-        while (bracketSize < targetCapacity) bracketSize *= 2;
-
-        const totalRounds = Math.log2(bracketSize);
-        const byes = bracketSize - N; // number of free passes to round 2
-
-        /**
-         * Smart Seeding with Byes:
-         * 
-         * Standard bracket seeding for bracketSize slots:
-         * slots[0] vs slots[bracketSize-1], slots[1] vs slots[bracketSize-2], etc.
-         * 
-         * The first `byes` seeded positions get a BYE (no opponent in Round 1).
-         * They are auto-advanced to Round 2.
-         * 
-         * We build a standard seeded slot array, then place participants into slots.
-         * Slots that have no participant = BYE.
-         */
         const buildSeededOrder = (size: number): number[] => {
-            if (size === 2) return [0, 1];
+            if (size <= 1) return [0];
             const prev = buildSeededOrder(size / 2);
             const result: number[] = [];
             for (const p of prev) {
@@ -293,27 +304,37 @@ export class TournamentService {
             return result;
         };
 
-        // seededOrder tells us: at bracket position i, which participant slot index goes there
         const seededOrder = buildSeededOrder(bracketSize);
-
-        // Build a participant map: bracketPosition -> participant (or null = bye)
-        // Top `byes` positions in seeded order get BYE (no participant fills opposing slot)
-        // Actually, a BYE means one of the two slots in a Round 1 match has no player.
-        // We assign participants to slots, and positions without a participant = BYE.
-        const slotMap: (typeof participants[0] | null)[] = Array(bracketSize).fill(null);
-        for (let i = 0; i < N; i++) {
-            slotMap[seededOrder[i]] = participants[i];
+        const slotMap: any[] = Array(bracketSize).fill(null);
+        
+        for (let i = 0; i < smartPlayers.length; i++) {
+            slotMap[seededOrder[i]] = smartPlayers[i];
         }
-        // slotMap[seededOrder[N]] through slotMap[seededOrder[bracketSize-1]] remain null = BYE
+
+        return slotMap;
+    }
+
+    private static async generateSingleElimination(tournamentId: string) {
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            include: { participants: true }
+        });
+        if (!tournament) throw new AppError('Tournament not found', 404);
+
+        const N = tournament.participants.length;
+        if (N < 2) throw new AppError('Minimum 2 peserta untuk generate bracket', 400);
+
+        let bracketSize = 1;
+        const targetCapacity = Math.max(N, tournament.maxPlayers || 0);
+        while (bracketSize < targetCapacity) bracketSize *= 2;
+        const totalRounds = Math.log2(bracketSize);
+
+        const slotMap = this.smartShuffleAndSeed(tournament.participants, bracketSize);
 
         const matchesData: any[] = [];
         let matchNumber = 1;
 
-        // --- Round 1 matches ---
-        // Create a match for every pair of bracket slots
-        // If a match has player1 but player2 = null, it's a BYE match
-        // We'll track which matches are bye matches, and auto-advance their player to round 2
-        const round1Matches: { idx: number; player1: typeof participants[0] | null; player2: typeof participants[0] | null; isBye: boolean }[] = [];
+        const round1Matches: { idx: number; player1: any; player2: any; isBye: boolean }[] = [];
 
         for (let i = 0; i < bracketSize; i += 2) {
             const p1 = slotMap[i];
@@ -322,22 +343,16 @@ export class TournamentService {
             round1Matches.push({ idx: Math.floor(i / 2), player1: p1, player2: p2, isBye });
         }
 
-        // Push round 1 matches to matchesData
-        const round1MatchIndices: number[] = [];
         for (const rm of round1Matches) {
-            round1MatchIndices.push(matchNumber);
             matchesData.push({
                 tournamentId,
                 round: 1,
                 matchNumber: matchNumber++,
                 player1Id: rm.player1?.id || null,
                 player2Id: rm.isBye ? null : (rm.player2?.id || null),
-                // For bye matches: mark as COMPLETED with the non-null player as winner
-                // We'll handle this after DB insert
             });
         }
 
-        // --- Subsequent rounds (empty placeholder matches) ---
         let prevRoundCount = bracketSize / 2;
         for (let r = 2; r <= totalRounds; r++) {
             const matchesInRound = prevRoundCount / 2;
@@ -354,8 +369,6 @@ export class TournamentService {
         }
 
         await prisma.tournamentMatch.createMany({ data: matchesData });
-
-        // (Auto-advance BYE removed to allow manual slot filling as requested by user)
         
         return prisma.tournament.update({
             where: { id: tournamentId },
@@ -371,96 +384,82 @@ export class TournamentService {
         });
         if (!tournament) throw new AppError('Tournament not found', 404);
 
-        const players = [...tournament.participants].sort(() => Math.random() - 0.5);
-        const N = players.length;
+        const N = tournament.participants.length;
         
-        // Find next power of 2 for WB size
         let wbSize = 1;
-        const target = Math.max(N, tournament.maxPlayers || 0);
-        while (wbSize < target) wbSize *= 2;
+        const targetCapacity = Math.max(N, tournament.maxPlayers || 0);
+        while (wbSize < targetCapacity) wbSize *= 2;
 
+        const slotMap = this.smartShuffleAndSeed(tournament.participants, wbSize);
+
+        const transitionSize = tournament.transitionSize || 32;
+        const targetSurvivors = Math.max(1, transitionSize / 2);
+
+        const lastWBRound = Math.max(1, Math.log2(wbSize) - Math.log2(targetSurvivors));
+        
         const matchesData: any[] = [];
         let matchNum = 1;
 
-        // --- WINNERS BRACKET ---
-        // Basic Single Elim generator for WB
-        const wbMatchMap: any[] = [];
-        let currentWBRoundSize = wbSize / 2;
-        let round = 1;
-
-        while (currentWBRoundSize >= 1) {
-            for (let i = 0; i < currentWBRoundSize; i++) {
+        // --- 1. WINNERS BRACKET ---
+        let wbMatchSize = wbSize / 2;
+        for (let r = 1; r <= lastWBRound; r++) {
+            for (let i = 0; i < wbMatchSize; i++) {
                 const m: any = {
                     tournamentId,
-                    round,
+                    round: r,
                     matchNumber: matchNum++,
                     bracket: 'WINNERS',
                     player1Id: null,
                     player2Id: null,
                 };
-                
-                // Assign initial players to Round 1
-                if (round === 1) {
-                    const p1Idx = i * 2;
-                    const p2Idx = i * 2 + 1;
-                    m.player1Id = players[p1Idx]?.id || null;
-                    m.player2Id = players[p2Idx]?.id || null;
+                if (r === 1) {
+                    m.player1Id = slotMap[i * 2]?.id || null;
+                    m.player2Id = slotMap[i * 2 + 1]?.id || null;
                 }
-                
                 matchesData.push(m);
-                wbMatchMap.push(m);
             }
-            // Transition to Single Elim for Final Phase: 
-            // In hybrid, if we reach Top 32, we stop generating "Double" structure and keep simple WB.
-            // But for simple implementation, we generate FULL WB/LB.
-            currentWBRoundSize /= 2;
-            round++;
+            wbMatchSize /= 2;
         }
 
-        // --- LOSERS BRACKET (Qualifying for Single Elim) ---
-        // We only generate LB until we have the same Number of survivors as WB at the transition point.
-        // Transition Point: WB has transitionSize/2 winners, LB has transitionSize/2 winners. Total transitionSize.
-        
-        let lbMatchNum = matchNum;
-        let currentLBRoundSize = wbSize / 4; 
-        let lbRound = 1;
+        // --- 2. LOSERS BRACKET ---
+        const lbSizes: number[] = [];
+        let sz = wbSize / 4;
+        while (sz >= targetSurvivors) {
+            lbSizes.push(sz);
+            lbSizes.push(sz);
+            sz /= 2;
+        }
 
-        const transitionSize = tournament.transitionSize || 32;
-        const targetSurvivors = transitionSize / 2; // When WB has this many survivors
-        let wbSurvivors = wbSize / 2;
-        
-        while (wbSurvivors > targetSurvivors) {
-            // Stage 1: LB winners play each other (if it's not the very first round)
-            if (lbRound > 1) {
-                const matchesInStage = currentLBRoundSize;
-                for (let i = 0; i < matchesInStage; i++) {
-                    matchesData.push({
-                        tournamentId,
-                        round: lbRound++,
-                        matchNumber: lbMatchNum++,
-                        bracket: 'LOSERS',
-                        player1Id: null,
-                        player2Id: null,
-                    });
-                }
-            }
-
-            // Stage 2: LB winners vs WB Losers
-            // The number of matches is same as WB losers incoming
-            const matchesInStage = wbSurvivors / 2;
-            for (let i = 0; i < matchesInStage; i++) {
+        for (let r = 0; r < lbSizes.length; r++) {
+            const lbSize = lbSizes[r];
+            for (let i = 0; i < lbSize; i++) {
                 matchesData.push({
                     tournamentId,
-                    round: lbRound++,
-                    matchNumber: lbMatchNum++,
+                    round: r + 1,
+                    matchNumber: matchNum++,
                     bracket: 'LOSERS',
                     player1Id: null,
                     player2Id: null,
                 });
             }
-            
-            wbSurvivors /= 2;
-            currentLBRoundSize = wbSurvivors / 2;
+        }
+
+        // --- 3. FINAL PHASE ---
+        let finalSize = targetSurvivors;
+        let finalRound = lastWBRound + 1;
+        while (finalSize >= 1) {
+            for (let i = 0; i < finalSize; i++) {
+                matchesData.push({
+                    tournamentId,
+                    round: finalRound,
+                    matchNumber: matchNum++,
+                    bracket: 'WINNERS',
+                    player1Id: null,
+                    player2Id: null,
+                });
+            }
+            finalSize /= 2;
+            finalRound++;
         }
 
         await prisma.tournamentMatch.createMany({ data: matchesData });
@@ -529,11 +528,14 @@ export class TournamentService {
 
             // Advance to next round
             if (tournament) {
-                const t = tournament as any; // Cast for bracket property
-                const transitionSize = t.transitionSize || 32;
-                const targetSurvivors = transitionSize / 2;
+                const t = tournament as any;
                 const wbSize = t.matches.filter((m: any) => m.bracket === 'WINNERS' && m.round === 1).length * 2;
                 
+                let targetBracket = '';
+                let targetRound = 0;
+                let targetMatchIndex = 0;
+                let targetSlot = 0;
+
                 const currentBracketMatches = t.matches.filter((m: any) => m.bracket === (match as any).bracket && m.round === match.round).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
                 const currentMatchIndex = currentBracketMatches.findIndex((m: any) => m.id === match.id);
 
@@ -541,74 +543,92 @@ export class TournamentService {
                     throw new AppError('Current match not found in its round/bracket', 500);
                 }
 
-                // --- ADVANCE WINNER ---
-                const nextRoundMatches = t.matches.filter((m: any) => m.bracket === (match as any).bracket && m.round === match.round + 1).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
-                
-                if (nextRoundMatches.length > 0) {
-                    const nextMatchIndex = Math.floor(currentMatchIndex / 2);
-                    const nextMatch = nextRoundMatches[nextMatchIndex];
-                    if (nextMatch) {
-                        const isSlot2 = currentMatchIndex % 2 === 1;
-                        await prisma.tournamentMatch.update({
-                            where: { id: nextMatch.id },
-                            data: { [isSlot2 ? 'player2Id' : 'player1Id']: data.winnerId }
-                        });
-                    }
-                } else if ((match as any).bracket === 'LOSERS') {
-                    // LB QUALIFIED: Merger Logic
-                    // Winner of the last LB round goes to the 'player2Id' of WB transition round
-                    const transitionRound = Math.log2(wbSize) - Math.log2(transitionSize / 2) + 1;
-                    const wbTransitionMatches = t.matches.filter((m: any) => m.bracket === 'WINNERS' && m.round === transitionRound).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
-                    
-                    if (wbTransitionMatches.length > 0) {
-                        const targetWBMatch = wbTransitionMatches[currentMatchIndex];
-                        if (targetWBMatch) {
-                            await prisma.tournamentMatch.update({
-                                where: { id: targetWBMatch.id },
-                                data: { player2Id: data.winnerId }
-                            });
+                if (t.eliminationType === 'DOUBLE') {
+                    const transitionSize = t.transitionSize || 32;
+                    const targetSurvivors = Math.max(1, transitionSize / 2);
+                    const lastWBRound = Math.max(1, Math.log2(wbSize) - Math.log2(targetSurvivors));
+                    const lastLBRound = 2 * (lastWBRound - 1);
+
+                    // --- ADVANCE WINNER ---
+                    if ((match as any).bracket === 'WINNERS') {
+                        if (match.round === lastWBRound) {
+                            targetBracket = 'WINNERS';
+                            targetRound = match.round + 1;
+                            targetMatchIndex = currentMatchIndex;
+                            targetSlot = 0;
+                        } else {
+                            targetBracket = 'WINNERS';
+                            targetRound = match.round + 1;
+                            targetMatchIndex = Math.floor(currentMatchIndex / 2);
+                            targetSlot = currentMatchIndex % 2;
+                        }
+                    } else if ((match as any).bracket === 'LOSERS') {
+                        if (match.round === lastLBRound) {
+                            targetBracket = 'WINNERS';
+                            targetRound = lastWBRound + 1;
+                            targetMatchIndex = currentMatchIndex;
+                            targetSlot = 1;
+                        } else {
+                            targetBracket = 'LOSERS';
+                            targetRound = match.round + 1;
+                            if (match.round % 2 === 1) {
+                                targetMatchIndex = currentMatchIndex;
+                                targetSlot = 0;
+                            } else {
+                                targetMatchIndex = Math.floor(currentMatchIndex / 2);
+                                targetSlot = currentMatchIndex % 2;
+                            }
                         }
                     }
+
+                    // --- ADVANCE LOSER ---
+                    if ((match as any).bracket === 'WINNERS' && match.round <= lastWBRound && data.winnerId) {
+                        const loserId = match.player1Id === data.winnerId ? match.player2Id : match.player1Id;
+                        if (loserId) {
+                            let loserTargetRound = 0;
+                            let loserTargetMatchIndex = 0;
+                            let loserTargetSlot = 0;
+
+                            if (match.round === 1) {
+                                loserTargetRound = 1;
+                                loserTargetMatchIndex = Math.floor(currentMatchIndex / 2);
+                                loserTargetSlot = currentMatchIndex % 2;
+                            } else {
+                                loserTargetRound = 2 * (match.round - 1);
+                                loserTargetMatchIndex = currentMatchIndex;
+                                loserTargetSlot = 1;
+                            }
+
+                            if (loserTargetRound > 0) {
+                                const lbTargetMatches = t.matches.filter((m: any) => m.bracket === 'LOSERS' && m.round === loserTargetRound).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
+                                const lbMatch = lbTargetMatches[loserTargetMatchIndex];
+                                if (lbMatch) {
+                                    await prisma.tournamentMatch.update({
+                                        where: { id: lbMatch.id },
+                                        data: { [loserTargetSlot === 1 ? 'player2Id' : 'player1Id']: loserId }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // --- SINGLE ELIMINATION WINNER ROUTING ---
+                    targetBracket = 'WINNERS';
+                    targetRound = match.round + 1;
+                    targetMatchIndex = Math.floor(currentMatchIndex / 2);
+                    targetSlot = currentMatchIndex % 2;
                 }
 
-                // --- DOUBLE ELIMINATION: Loser Routing ---
-                const currentWBSurvivors = wbSize / Math.pow(2, match.round);
-
-                if (t.eliminationType === 'DOUBLE' && (match as any).bracket === 'WINNERS' && data.winnerId && currentWBSurvivors > targetSurvivors) {
-                    const loserId = match.player1Id === data.winnerId ? match.player2Id : match.player1Id;
-                    if (loserId) {
-                        // Determine the target LB round based on WB round
-                        let targetLBRound;
-                        let lbMatchSlotIndex; // Which slot in the LB match the loser goes to
-
-                        if (match.round === 1) {
-                            // WB R1 losers go to LB R1
-                            targetLBRound = 1;
-                            lbMatchSlotIndex = currentMatchIndex % 2 === 0 ? 0 : 1; // 0 for player1 slot, 1 for player2 slot
-                        } else {
-                            // For WB R2 and beyond, losers go to a later LB round,
-                            // potentially merging with winners from previous LB rounds.
-                            // This logic needs to be more robust for full DE.
-                            // For now, a simplified mapping:
-                            // WB R2 losers -> LB R2 (merging with LB R1 winners)
-                            // WB R3 losers -> LB R4 (merging with LB R3 winners)
-                            // The pattern is: WB Round R losers go to LB Round 2*(R-1)
-                            targetLBRound = 2 * (match.round - 1);
-                            lbMatchSlotIndex = currentMatchIndex % 2 === 0 ? 0 : 1; // 0 for player1 slot, 1 for player2 slot
-                        }
-
-                        const lbMatchesInTargetRound = t.matches.filter((m: any) => m.bracket === 'LOSERS' && m.round === targetLBRound).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
-                        
-                        if (lbMatchesInTargetRound.length > 0) {
-                            const lbMatchIndex = Math.floor(currentMatchIndex / 2); // Simplified mapping for now
-                            const lbMatch = lbMatchesInTargetRound[lbMatchIndex];
-
-                            if (lbMatch) {
-                                await prisma.tournamentMatch.update({
-                                    where: { id: lbMatch.id },
-                                    data: lbMatchSlotIndex === 0 ? { player1Id: loserId } : { player2Id: loserId }
-                                });
-                            }
+                // Apply Winner Routing
+                if (targetBracket && targetRound) {
+                    const nextRoundMatches = t.matches.filter((m: any) => m.bracket === targetBracket && m.round === targetRound).sort((a: any, b: any) => a.matchNumber - b.matchNumber);
+                    if (nextRoundMatches.length > 0) {
+                        const nextMatch = nextRoundMatches[targetMatchIndex];
+                        if (nextMatch) {
+                            await prisma.tournamentMatch.update({
+                                where: { id: nextMatch.id },
+                                data: { [targetSlot === 1 ? 'player2Id' : 'player1Id']: data.winnerId }
+                            });
                         }
                     }
                 }
