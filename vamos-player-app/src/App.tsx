@@ -216,7 +216,8 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
               <FeaturedBookingCard 
                 title={t.name}
                 location={venueInfo?.name || "Vamos Arena"}
-                price={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : "Free Entry"}
+                prizePool={t.prizePool ? `RP ${(t.prizePool/1000).toLocaleString()}K` : undefined}
+                entryFee={t.entryFee ? `RP ${(t.entryFee/1000).toLocaleString()}K` : "FREE"}
                 players={`${t.participants?.length || 0}/${t.maxPlayers || 32}`}
                 status={t.status === 'ONGOING' ? 'Open' : 'Private'}
                 startsIn={t.status === 'ONGOING' ? "3h" : undefined}
@@ -251,7 +252,8 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                <FeaturedBookingCard 
                  title="Friday Night League"
                  location="Marina Green, 1.8km away"
-                 price="RP 150K"
+                 prizePool="RP 5,000K"
+                 entryFee="RP 150K"
                  players="12/16"
                  status="Open"
                  startsIn="3hrs"
@@ -261,7 +263,8 @@ function DashboardScreen({ member, tournaments = [], venueInfo }: { member: any,
                <FeaturedBookingCard 
                  title="Courtside Futsal Night"
                  location="City Sports Complex, 1.1 km"
-                 price="RP 85K"
+                 prizePool="RP 2,000K"
+                 entryFee="RP 85K"
                  players="8/12"
                  status="Open"
                  onJoin={() => { setSelectedTournament(null); setActiveTab('tournaments'); }}

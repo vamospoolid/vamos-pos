@@ -3,7 +3,8 @@ import { MapPin, Users, Zap } from 'lucide-react';
 interface FeaturedBookingCardProps {
   title: string;
   location: string;
-  price: string;
+  prizePool?: string;
+  entryFee?: string;
   players: string;
   startsIn?: string;
   status: 'Open' | 'Booked' | 'Private';
@@ -14,7 +15,8 @@ interface FeaturedBookingCardProps {
 export function FeaturedBookingCard({ 
   title, 
   location, 
-  price, 
+  prizePool,
+  entryFee,
   players, 
   startsIn, 
   status, 
@@ -57,11 +59,19 @@ export function FeaturedBookingCard({
             <p className="text-[10px] font-black uppercase tracking-widest italic truncate">{location}</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className={`text-xl font-black italic tracking-tighter leading-none ${isPremium ? 'text-white' : 'text-white'}`}>
-            {price}
-          </p>
-          <div className="flex items-center justify-end gap-2 mt-2 text-white/40">
+        <div className="text-right flex flex-col items-end">
+          {prizePool && (
+            <p className={`text-xl font-black italic tracking-tighter leading-none mb-1.5 ${isPremium ? 'text-amber-400' : 'text-amber-500'}`}>
+              🏆 {prizePool}
+            </p>
+          )}
+          {entryFee && (
+            <div className="bg-white/10 px-3 py-1 rounded-full flex items-center gap-1.5">
+               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Wildcard</span>
+               <span className="text-[11px] font-black text-white italic">{entryFee}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2 mt-3 text-white/40">
             <Users className="w-4 h-4" />
             <p className="text-[10px] font-black uppercase tracking-widest italic">{players} Players</p>
           </div>
