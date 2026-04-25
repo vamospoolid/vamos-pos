@@ -200,11 +200,11 @@ export class LoyaltyService {
             const member = await prisma.member.findUnique({ where: { id: memberId } });
             if (member) {
                 let newExp = (member.experience || 0) + xpEarned;
-                let newLevel = member.level || 1;
                 
-                // Simple level up logic: Each level requires level * 1000 XP
-                while (newExp >= (newLevel * 1000)) {
-                    newExp -= (newLevel * 1000);
+                // Determine level based on cumulative XP
+                // Level 1: 0-999, Level 2: 1000-2999, Level 3: 3000-5999, etc.
+                let newLevel = 1;
+                while (newExp >= (newLevel * (newLevel + 1) * 1000) / 2) {
                     newLevel++;
                 }
 
@@ -363,13 +363,17 @@ export class LoyaltyService {
         return { member, nextTier, nextTarget, progress };
     }
 
-    // ── Leaderboard top 10 ───────────────────────────────────────
+    // ── Leaderboard top 10 (ranked by XP) ───────────────────────
     static async getLeaderboard() {
         return prisma.member.findMany({
             where: { deletedAt: null },
-            orderBy: { loyaltyPoints: 'desc' },
+            orderBy: [
+                { experience: 'desc' },
+                { totalWins: 'desc' },
+                { loyaltyPoints: 'desc' }
+            ],
             take: 10,
-            select: { id: true, name: true, phone: true, tier: true, loyaltyPoints: true, streakCount: true },
+            select: { id: true, name: true, phone: true, tier: true, loyaltyPoints: true, experience: true, level: true, totalWins: true, streakCount: true },
         });
     }
 

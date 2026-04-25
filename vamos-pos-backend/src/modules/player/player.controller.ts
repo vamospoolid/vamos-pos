@@ -304,9 +304,9 @@ export class PlayerController {
             
             const stake = challenge.pointsStake || 0;
             
-            // Professional Rank Logic (Fixed XP Rewards)
+            // Professional Rank Logic (Competitive XP Rewards)
             const winReputation = 100; 
-            const lossReputation = 20; 
+            const lossReputation = -20; // Player loses XP on defeat
             
             const result = await prisma.$transaction(async (tx) => {
                 // 1. POINT TRANSFER (If stake > 0)
@@ -368,12 +368,9 @@ export class PlayerController {
                 // Update Winner
                 if (winner) {
                     let newRep = (winner.experience || 0) + winReputation;
-                    let newRank = winner.level || 1;
-                    const nextRankRep = newRank * 1000;
-
-                    if (newRep >= nextRankRep) {
+                    let newRank = 1;
+                    while (newRep >= (newRank * (newRank + 1) * 1000) / 2) {
                         newRank++;
-                        newRep -= nextRankRep;
                     }
 
                     const earnedBadges = winner.badges || [];
@@ -403,12 +400,11 @@ export class PlayerController {
                 // Update Loser
                 if (loser) {
                     let newRep = (loser.experience || 0) + lossReputation;
-                    let newRank = loser.level || 1;
-                    const nextRankRep = newRank * 1000;
-
-                    if (newRep >= nextRankRep) {
+                    if (newRep < 0) newRep = 0; // Prevent negative XP
+                    
+                    let newRank = 1;
+                    while (newRep >= (newRank * (newRank + 1) * 1000) / 2) {
                         newRank++;
-                        newRep -= nextRankRep;
                     }
 
                     await tx.member.update({
@@ -453,7 +449,7 @@ export class PlayerController {
                         memberId: loserId, 
                         points: 0, 
                         type: 'EARN_GAME', 
-                        description: `⭐ Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger?.name : challenge.opponent?.name} (+${lossReputation} XP)` 
+                        description: `⭐ Kekalahan Challenge vs ${winnerId === challenge.challengerId ? challenge.challenger?.name : challenge.opponent?.name} (${lossReputation} XP)` 
                     }
                 });
 
@@ -515,7 +511,7 @@ export class PlayerController {
                 winMsg += `\n(Sesi meja ini sepenuhnya ditangani oleh lawan)`;
             }
 
-            let lossMsg = `🧾 *CHALLENGE SELESAI*\n\nAnda telah menyelesaikan pertandingan melawan *${winObj.name}*.\n\n⭐ *XP:* +${lossReputation} XP`;
+            let lossMsg = `🧾 *CHALLENGE SELESAI*\n\nAnda telah menyelesaikan pertandingan melawan *${winObj.name}*.\n\n⭐ *XP:* ${lossReputation} XP`;
             if (challenge.isFightForTable && challenge.sessionId) {
                 lossMsg += `\n\n💰 *Billing:* Sesuai kesepakatan, tagihan sesi meja telah dialihkan ke akun Anda.`;
             }
@@ -823,6 +819,7 @@ export class PlayerController {
                     }
                 } : {},
                 orderBy: [
+                    { experience: 'desc' },
                     { totalWins: 'desc' },
                     { loyaltyPoints: 'desc' }
                 ],
