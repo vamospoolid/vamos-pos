@@ -59,7 +59,20 @@ function isDoublePointActive(cfg: any): boolean {
     return true;
 }
 
+import { QuestService } from './quest.service';
+
 export class LoyaltyService {
+
+    /**
+     * Unified gateway for all quest-related progress updates.
+     */
+    static async handleQuestProgress(memberId: string, key: 'MATCH_WIN' | 'STAKE_EARN' | 'TOURNAMENT_JOIN', value: number) {
+        try {
+            await QuestService.updateProgress(memberId, key, value);
+        } catch (error) {
+            logger.error(`[LoyaltyService] Failed to update quest progress for ${memberId}:`, error);
+        }
+    }
 
     // ── Calculate & Award points after a paid session ────────────
     static async awardGamePoints(sessionId: string, memberId: string, amount: number) {
@@ -427,6 +440,38 @@ export class LoyaltyService {
         return prisma.loyaltyConfig.update({
             where: { id: 'global' },
             data: { ...data, updatedBy: adminId, updatedAt: new Date() } as any,
+        });
+    }
+
+    /**
+     * Atomically adds experience and handles Level Up logic.
+     */
+    static async addExperience(memberId: string, xp: number, reason?: string) {
+        if (xp <= 0) return;
+
+        return prisma.$transaction(async (tx) => {
+            const member = await tx.member.findUnique({ where: { id: memberId } });
+            if (!member) throw new AppError('Member tidak ditemukan', 404);
+
+            let newExp = (member.experience || 0) + xp;
+            
+            // Level formula: (L * (L+1) * 1000) / 2
+            let newLevel = 1;
+            while (newExp >= (newLevel * (newLevel + 1) * 1000) / 2) {
+                newLevel++;
+            }
+
+            const updatedMember = await tx.member.update({
+                where: { id: memberId },
+                data: { 
+                    experience: newExp,
+                    level: newLevel
+                }
+            });
+
+            // If level up happened, we might want to sync tier or emit event
+            // Note: LoyaltyService.syncTier uses determineTier which depends on XP.
+            return updatedMember;
         });
     }
 
