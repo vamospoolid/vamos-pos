@@ -4,7 +4,7 @@ import { useAppStore } from './store/appStore';
 import { api } from './api';
 import { HorizontalDateSelector } from './components/HorizontalDateSelector';
 
-const TIME_SLOTS = [
+const DEFAULT_TIME_SLOTS = [
     "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", 
     "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", 
     "22:00", "23:00", "00:00"
@@ -29,7 +29,24 @@ interface Package {
 }
 
 export function BookingScreen() {
-    const { member, setActiveTab } = useAppStore();
+    const { member, setActiveTab, venueInfo, addToast } = useAppStore();
+    
+    const timeSlots = useMemo(() => {
+        if (!venueInfo?.openTime || !venueInfo?.closeTime) return DEFAULT_TIME_SLOTS;
+        
+        const slots = [];
+        let [startH] = venueInfo.openTime.split(':').map(Number);
+        let [endH] = venueInfo.closeTime.split(':').map(Number);
+        
+        // If closing is early morning (e.g. 02:00), adjust for loop
+        if (endH <= startH) endH += 24;
+        
+        for (let h = startH; h <= endH; h++) {
+            const displayH = h % 24;
+            slots.push(`${displayH.toString().padStart(2, '0')}:00`);
+        }
+        return slots;
+    }, [venueInfo]);
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedTableType, setSelectedTableType] = useState('REGULAR');
     const [selectedSlot, setSelectedSlot] = useState('');
@@ -95,7 +112,7 @@ export function BookingScreen() {
         const typeAvailability = availability.find(a => a.type === selectedTableType);
         const isToday = selectedDate.toDateString() === now.toDateString();
 
-        return TIME_SLOTS.filter(slot => {
+        return timeSlots.filter(slot => {
             const [h, m] = slot.split(':').map(Number);
             const slotTime = new Date(selectedDate);
             
@@ -244,7 +261,11 @@ export function BookingScreen() {
                 setActiveTab('dashboard');
             }, 4000);
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Failed to authorize booking.');
+            addToast({
+                title: 'BOOKING ERROR',
+                message: err?.response?.data?.message || 'Failed to authorize booking.',
+                type: 'error'
+            });
         } finally {
             setIsSubmitting(false);
         }

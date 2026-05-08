@@ -11,6 +11,6 @@ git commit -m "deploy: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Nothing new to com
 git push origin main
 
 echo "🚀 Deploying on VPS..."
-ssh root@5.189.165.222 "bash /root/deploy.sh"
+ssh root@144.91.73.36 "bash /root/deploy.sh"
 
 echo "✅ Deployment complete!"

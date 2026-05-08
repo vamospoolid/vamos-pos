@@ -1,4 +1,5 @@
 import { prisma } from '../../database/db';
+import { getIO } from '../../socket';
 
 export class KingService {
     /**
@@ -18,6 +19,7 @@ export class KingService {
         if (!table || !table.isKingTable) return null;
 
         const currentKing = table.kingStatus;
+        const io = getIO();
 
         if (!currentKing) {
             // No king yet, first king for this table
@@ -31,6 +33,13 @@ export class KingService {
                 include: { king: true }
             });
             await this.updateMemberStreak(winnerId, 1);
+            
+            io.emit('arena:news', {
+                type: 'KING_ASCENDED',
+                message: `👑 ${newKing.king.name} has claimed the Throne at Table ${table.name}!`,
+                data: newKing
+            });
+
             return { action: 'NEW_KING', data: newKing };
         }
 
@@ -44,6 +53,15 @@ export class KingService {
                 include: { king: true }
             });
             await this.updateMemberStreak(winnerId, updatedKing.streak);
+
+            if (updatedKing.streak % 3 === 0) { // Only announce high streaks
+                io.emit('arena:news', {
+                    type: 'KING_STREAK',
+                    message: `🔥 ${updatedKing.king.name} is on a ${updatedKing.streak} MATCH STREAK at Table ${table.name}!`,
+                    data: updatedKing
+                });
+            }
+
             return { action: 'KING_DEFENDED', data: updatedKing };
         } else {
             // King is dethroned!
@@ -57,6 +75,13 @@ export class KingService {
                 include: { king: true }
             });
             await this.updateMemberStreak(winnerId, 1);
+
+            io.emit('arena:news', {
+                type: 'KING_DETHRONED',
+                message: `⚡ ${newKing.king.name} has DETHRONED the King at Table ${table.name}!`,
+                data: newKing
+            });
+
             return { action: 'KING_DETHRONED', data: newKing };
         }
     }

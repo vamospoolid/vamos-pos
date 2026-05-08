@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Users, X, Crown, Volume2, VolumeX, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trophy, X, Crown, Volume2, VolumeX, Zap } from 'lucide-react';
 
 interface LiveDrawDisplayProps {
   tournament: any;

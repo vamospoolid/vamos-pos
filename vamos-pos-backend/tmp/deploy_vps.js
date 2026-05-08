@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 
 function runSsh(command) {
     return new Promise((resolve, reject) => {
-        const ssh = spawn('ssh', ['-o', 'StrictHostKeyChecking=no', 'root@5.189.165.222', command], {
+        const ssh = spawn('ssh', ['-o', 'StrictHostKeyChecking=no', 'root@144.91.73.36', command], {
             stdio: ['pipe', 'inherit', 'inherit']
         });
 

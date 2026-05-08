@@ -29,4 +29,4 @@ conn.on('ready', () => {
         stream.stderr.on('data', d => process.stderr.write(d.toString()));
         stream.on('close', () => { console.log('\nDone!'); conn.end(); });
     });
-}).connect({ host: '5.189.165.222', port: 22, username: 'root', password: 'Ahmaddcc07' });
+}).connect({ host: '144.91.73.36', port: 22, username: 'root', password: 'Ahmaddcc07' });

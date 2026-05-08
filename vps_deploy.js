@@ -9,6 +9,7 @@ conn.on('ready', () => {
         cd /var/www/vamos-pos
         
         echo "=== SYNCING CODE FROM GITHUB (FORCE) ==="
+        git config --global --add safe.directory /var/www/vamos-pos
         git fetch --all
         git reset --hard origin/main
         
@@ -47,7 +48,7 @@ conn.on('ready', () => {
         }); 
     }); 
 }).connect({ 
-    host: '5.189.165.222', 
+    host: '144.91.73.36', 
     port: 22, 
     username: 'root', 
     password: 'Ahmaddcc07' 

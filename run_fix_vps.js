@@ -15,7 +15,7 @@ conn.on('ready', () => {
         readStream.pipe(writeStream);
     });
 }).connect({
-    host: '5.189.165.222',
+    host: '144.91.73.36',
     port: 22,
     username: 'root',
     password: 'Ahmaddcc07'

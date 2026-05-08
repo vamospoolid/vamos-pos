@@ -24,6 +24,7 @@ export default function Settings() {
         isSyncEnabled: true,
         syncIntervalSeconds: 30,
         splashImageUrl: '',
+        qrisImageUrl: '',
         phone: '',
         waVerificationText: '',
         isRelayEnabled: true
@@ -92,6 +93,7 @@ export default function Settings() {
                     isSyncEnabled: serpongVenue.isSyncEnabled ?? true,
                     syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
                     splashImageUrl: serpongVenue.splashImageUrl || '',
+                    qrisImageUrl: serpongVenue.qrisImageUrl || '',
                     phone: serpongVenue.phone || '',
                     waVerificationText: serpongVenue.waVerificationText || '',
                     isRelayEnabled: serpongVenue.isRelayEnabled ?? true
@@ -150,7 +152,7 @@ export default function Settings() {
         }
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'splash' | 'qris' = 'splash') => {
         const file = e.target.files?.[0];
         if (!file) return;
         
@@ -160,7 +162,11 @@ export default function Settings() {
 
         const reader = new FileReader();
         reader.onloadend = () => {
-            setVenueForm({ ...venueForm, splashImageUrl: reader.result as string });
+            if (type === 'splash') {
+                setVenueForm({ ...venueForm, splashImageUrl: reader.result as string });
+            } else {
+                setVenueForm({ ...venueForm, qrisImageUrl: reader.result as string });
+            }
         };
         reader.readAsDataURL(file);
     };
@@ -408,7 +414,7 @@ export default function Settings() {
                                                 id="splash-upload" 
                                                 accept="image/*" 
                                                 className="hidden" 
-                                                onChange={handleImageUpload} 
+                                                onChange={(e) => handleImageUpload(e, 'splash')} 
                                             />
                                             <label 
                                                 htmlFor="splash-upload" 
@@ -425,6 +431,45 @@ export default function Settings() {
                                                 </button>
                                             )}
                                             <p className="text-[8px] text-gray-600 mt-2 font-medium italic">* Recommend: PNG Transparan atau SVG 1:1</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-[#111] border border-[#222] rounded-xl">
+
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Manual QRIS Image</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] border border-[#222] overflow-hidden flex items-center justify-center">
+                                            {venueForm.qrisImageUrl ? (
+                                                <img src={venueForm.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center">
+                                                    <Download className="w-5 h-5 text-orange-500" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <input 
+                                                type="file" 
+                                                id="qris-upload" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={(e) => handleImageUpload(e, 'qris')} 
+                                            />
+                                            <label 
+                                                htmlFor="qris-upload" 
+                                                className="inline-block px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[9px] font-bold rounded cursor-pointer hover:bg-orange-500 hover:text-white transition-all uppercase tracking-widest"
+                                            >
+                                                {venueForm.qrisImageUrl ? 'Ganti QRIS' : 'Upload QRIS'}
+                                            </label>
+                                            {venueForm.qrisImageUrl && (
+                                                <button 
+                                                    onClick={() => setVenueForm({ ...venueForm, qrisImageUrl: '' })}
+                                                    className="ml-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-500 text-[9px] font-bold rounded hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            )}
+                                            <p className="text-[8px] text-gray-600 mt-2 font-medium italic">* Gunakan gambar QRIS statis dari bank/e-wallet Anda.</p>
                                         </div>
                                     </div>
                                 </div>

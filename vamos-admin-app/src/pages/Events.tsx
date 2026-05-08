@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Trophy, MoreVertical, Calendar, MapPin, RefreshCw, AlertCircle, Swords, Target, ArrowRight } from 'lucide-react';
+import { Plus, Search, Filter, Trophy, MoreVertical, Calendar, MapPin, RefreshCw, AlertCircle, Swords, Target, ArrowRight, Wand2, Copy, Check, X, ImageIcon, Sparkles } from 'lucide-react';
 import { tournamentsApi } from '../services/api';
 import type { Tournament } from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
@@ -18,6 +18,15 @@ const Events: React.FC = () => {
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreate, setShowCreate] = useState(false);
+
+    // Flyer Prompt Generator
+    const [flyerTournament, setFlyerTournament] = useState<Tournament | null>(null);
+    const [flyerPrizePool, setFlyerPrizePool] = useState('');
+    const [flyerSlots, setFlyerSlots] = useState('');
+    const [flyerVenueName, setFlyerVenueName] = useState('');
+    const [flyerHandicap, setFlyerHandicap] = useState('');
+    const [flyerEntryFee, setFlyerEntryFee] = useState('');
+    const [copied, setCopied] = useState(false);
 
     // Create form state
     const [form, setForm] = useState({ 
@@ -87,6 +96,66 @@ const Events: React.FC = () => {
         } catch {
             vamosAlert('Termination protocol failed.');
         }
+    };
+
+    const openFlyerModal = (t: Tournament) => {
+        setFlyerTournament(t);
+        setFlyerPrizePool('');
+        setFlyerSlots(String(t.maxPlayers || 32));
+        setFlyerVenueName(t.venue || '');
+        setFlyerHandicap('');
+        setFlyerEntryFee('');
+        setCopied(false);
+    };
+
+    const buildFlyerPrompt = () => {
+        if (!flyerTournament) return '';
+        const t = flyerTournament;
+        const dateStr = t.startDate
+            ? new Date(t.startDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+            : 'Tanggal Menyusul';
+        const prizeDisplay = flyerPrizePool ? `Rp ${flyerPrizePool}` : 'PRIZE POOL MENYUSUL';
+        const slotsDisplay = flyerSlots || String(t.maxPlayers || 32);
+        const venueDisplay = flyerVenueName || t.venue || 'VAMOS BILLIARD';
+        const formatDisplay = (t.format || '9 Ball').toUpperCase();
+        const elimDisplay = t.eliminationType === 'DOUBLE' ? 'Double Elimination' : 'Single Elimination';
+        const handicapLine = flyerHandicap ? `Double - Handicap ${flyerHandicap}` : '';
+        const entryFee = flyerEntryFee ? `Rp ${flyerEntryFee}/pasangan` : '';
+
+        return `Create a professional billiard tournament flyer with a dark, dramatic background (dark navy/black with cyan/teal accent colors and subtle pool table texture).
+
+FLYER CONTENT TO INCLUDE:
+- LOGO/VENUE NAME (top-left, bold): "${venueDisplay}"
+- MAIN TITLE (large, bold, white): "${t.name.toUpperCase()}"
+${handicapLine ? `- SUBTITLE below title: "${handicapLine}"` : ''}
+- HIGHLIGHT BADGE (cyan/teal box): "${slotsDisplay} SLOT · ${elimDisplay.toUpperCase()}"
+- PRIZE POOL SECTION (very large, gold/white text): "PRIZE POOL : ${prizeDisplay}"
+${t.prizeChampion ? `- CHAMPION prize: Rp ${t.prizeChampion.toLocaleString('id-ID')} + TROPHY` : ''}
+${t.prizeRunnerUp ? `- RUNNER UP prize: Rp ${t.prizeRunnerUp.toLocaleString('id-ID')} + TROPHY` : ''}
+${t.prizeSemiFinal ? `- SEMIFINALIST prize: Rp ${t.prizeSemiFinal.toLocaleString('id-ID')} + TROPHY` : ''}
+- FORMAT: ${formatDisplay} · ${elimDisplay.toUpperCase()}
+- DATE (bottom section, large): "${dateStr.toUpperCase()}"
+- TIME: "10.00 WITA s/d SELESAI"
+- VENUE (with location pin icon): "${venueDisplay}"
+${entryFee ? `- REGISTRATION: ${entryFee} · Max. 2 Nama` : ''}
+
+DESIGN STYLE:
+- Dark moody background with billiard/pool table green felt texture subtle overlay
+- Cyan/teal (#00D4C8) and white as primary accent colors
+- Bold condensed typography (Impact or Bebas Neue style)
+- Trophy or billiard ball graphic element on the side
+- Grunge/brush stroke effect on the highlight badge
+- Bottom strip with contact/location info
+- Portrait orientation (9:16 ratio), print-ready quality
+- Overall aesthetic similar to professional sports tournament flyers`;
+    };
+
+    const handleCopyPrompt = () => {
+        const prompt = buildFlyerPrompt();
+        navigator.clipboard.writeText(prompt).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 3000);
+        });
     };
 
     const filtered = (tournaments || []).filter(t =>
@@ -236,6 +305,13 @@ const Events: React.FC = () => {
                                         Command Center
                                     </button>
                                     <button
+                                        onClick={(e) => { e.stopPropagation(); openFlyerModal(t); }}
+                                        className="p-4 rounded-2xl bg-[#101423] border border-white/5 text-cyan-600 hover:text-cyan-400 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all"
+                                        title="Generate Flyer Prompt"
+                                    >
+                                        <Wand2 size={18} />
+                                    </button>
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); handleDelete(t.id, t.name || ''); }}
                                         className="p-4 rounded-2xl bg-[#101423] border border-white/5 text-slate-600 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/5 transition-all"
                                     >
@@ -363,6 +439,134 @@ const Events: React.FC = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── FLYER PROMPT GENERATOR MODAL ─────────────────────────────────── */}
+            {flyerTournament && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#0a0d18]/92 backdrop-blur-2xl animate-in" onClick={() => setFlyerTournament(null)} />
+                    <div className="w-full max-w-2xl relative animate-in flex flex-col max-h-[92vh]">
+                        {/* Modal Card */}
+                        <div className="fiery-card rounded-[40px] border-2 border-cyan-500/30 shadow-[0_0_80px_rgba(0,212,200,0.15)] overflow-hidden flex flex-col">
+
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-10 pt-10 pb-6 border-b border-white/5 bg-[#0d1020] flex-shrink-0">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shadow-[0_0_20px_rgba(0,212,200,0.2)]">
+                                        <ImageIcon size={24} className="text-cyan-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.4em] italic flex items-center gap-2">
+                                            <Sparkles size={10} /> AI Flyer Prompt Generator
+                                        </p>
+                                        <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase leading-tight">
+                                            {flyerTournament.name}
+                                        </h2>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setFlyerTournament(null)}
+                                    className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Customization Fields */}
+                            <div className="px-10 py-6 bg-[#0d1020] border-b border-white/5 flex-shrink-0">
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] italic mb-4">Sesuaikan Data Flyer</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Prize Pool (Rp)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cth: 9.500.000"
+                                            value={flyerPrizePool}
+                                            onChange={e => setFlyerPrizePool(e.target.value)}
+                                            className="fiery-input w-full !py-3 !text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Jumlah Slot</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cth: 64"
+                                            value={flyerSlots}
+                                            onChange={e => setFlyerSlots(e.target.value)}
+                                            className="fiery-input w-full !py-3 !text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Nama Venue / Logo</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cth: 72 BILLIARD"
+                                            value={flyerVenueName}
+                                            onChange={e => setFlyerVenueName(e.target.value)}
+                                            className="fiery-input w-full !py-3 !text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Handicap (opsional)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cth: 3"
+                                            value={flyerHandicap}
+                                            onChange={e => setFlyerHandicap(e.target.value)}
+                                            className="fiery-input w-full !py-3 !text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 col-span-2">
+                                        <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Entry Fee / Registrasi</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cth: 200.000"
+                                            value={flyerEntryFee}
+                                            onChange={e => setFlyerEntryFee(e.target.value)}
+                                            className="fiery-input w-full !py-3 !text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Generated Prompt Preview */}
+                            <div className="flex-1 overflow-y-auto no-scrollbar px-10 py-6">
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] italic flex items-center gap-2">
+                                        <Wand2 size={10} className="text-cyan-500" /> Generated Prompt
+                                    </p>
+                                    <span className="text-[8px] text-slate-600 italic">Paste ke Midjourney / DALL-E / Claude / Gemini</span>
+                                </div>
+                                <pre className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap font-mono bg-[#080b14] border border-white/5 rounded-2xl p-6 max-h-64 overflow-y-auto no-scrollbar">
+                                    {buildFlyerPrompt()}
+                                </pre>
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="px-10 pb-10 pt-4 flex gap-4 flex-shrink-0 border-t border-white/5 bg-[#0d1020]">
+                                <button
+                                    onClick={() => setFlyerTournament(null)}
+                                    className="flex-1 py-4 rounded-[20px] bg-white/5 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-white transition-all italic border border-white/5"
+                                >
+                                    Tutup
+                                </button>
+                                <button
+                                    onClick={handleCopyPrompt}
+                                    className={`flex-[2] py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest italic flex items-center justify-center gap-3 transition-all duration-300 ${
+                                        copied
+                                            ? 'bg-emerald-500 text-white shadow-[0_0_30px_rgba(16,185,129,0.4)]'
+                                            : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-white shadow-[0_0_20px_rgba(0,212,200,0.2)]'
+                                    }`}
+                                >
+                                    {copied
+                                        ? <><Check size={16} strokeWidth={3} /> Prompt Tersalin!</>
+                                        : <><Copy size={16} /> Salin Prompt Flyer</>
+                                    }
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

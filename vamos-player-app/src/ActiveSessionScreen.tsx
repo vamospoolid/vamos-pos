@@ -175,6 +175,33 @@ export function ActiveSessionScreen() {
                 {/* Timer Card (Only if table session exists) */}
                 {activeSession ? (
                     <div className="bg-[#1a1f35]/30 p-12 rounded-[40px] text-center relative overflow-hidden flex flex-col items-center border border-white/5 shadow-lg">
+                        {activeSession?.durationOpts && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none scale-[1.5]">
+                                <svg className="w-64 h-64 -rotate-90">
+                                    <circle
+                                        cx="128"
+                                        cy="128"
+                                        r="120"
+                                        stroke="currentColor"
+                                        strokeWidth="8"
+                                        fill="transparent"
+                                        className="text-white/5"
+                                    />
+                                    <circle
+                                        cx="128"
+                                        cy="128"
+                                        r="120"
+                                        stroke="currentColor"
+                                        strokeWidth="8"
+                                        fill="transparent"
+                                        strokeDasharray={2 * Math.PI * 120}
+                                        strokeDashoffset={2 * Math.PI * 120 * (1 - Math.min(1, Math.max(0, (new Date().getTime() - new Date(activeSession.startTime).getTime()) / (activeSession.durationOpts * 60000))))}
+                                        className="text-primary"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                            </div>
+                        )}
                         
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">
                             {activeSession?.durationOpts ? 'Waktu Misi Tersisa' : 'Durasi Sesi Biliar'}

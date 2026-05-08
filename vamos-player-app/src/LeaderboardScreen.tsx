@@ -1,12 +1,16 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Crown, User, Swords, X, Zap, Trophy, Flame, Loader2 } from 'lucide-react';
+import { Search, Crown, User, Zap, Trophy, Flame, Loader2 } from 'lucide-react';
 import { api, getAvatarUrl } from './api';
+import { RivalComparison } from './components/RivalComparison';
+import { LeaderboardSkeleton } from './components/Skeleton';
 
-export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser }: { leaderboard: {allTime: any[], monthly: any[], activeKings: any[]}, currentUser: any }) {
+export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser, loading }: { leaderboard: {allTime: any[], monthly: any[], activeKings: any[]}, currentUser: any, loading?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRival, setSelectedRival] = useState<any>(null);
     const [h2hStats, setH2hStats] = useState<any>(null);
     const [loadingH2H, setLoadingH2H] = useState(false);
+
+    if (loading) return <LeaderboardSkeleton />;
     const [activeTab, setActiveTab] = useState<'allTime' | 'monthly' | 'streak' | 'hof'>('allTime');
     const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
     
@@ -36,9 +40,10 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
     const fetchH2H = async (rivalId: string) => {
         setLoadingH2H(true);
         try {
-            const res = await api.get(`/player/${currentUser.id}/h2h`);
-            const rivalData = res.data.data.find((r: any) => r.opponentId === rivalId);
-            setH2hStats(rivalData || { wins: 0, losses: 0, total: 0 });
+            const res = await api.get(`/player/${currentUser.id}/h2h-detail`, {
+                params: { rivalId }
+            });
+            setH2hStats(res.data.data);
         } catch (err) {
             console.error(err);
         } finally {
@@ -78,6 +83,28 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                     <span className="text-3xl text-primary transform -skew-x-12 inline-block mt-1"> FAME</span>
                 </h1>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-4 italic">Peringkat Elit • Musim {new Date().getFullYear()}</p>
+                
+                {activeTab === 'monthly' && (
+                    <div className="mt-8 flex justify-center gap-6">
+                        <div className="text-center">
+                            <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mb-1">Season Ends In</p>
+                            <div className="flex gap-2">
+                                <div className="bg-[#101423] px-3 py-2 rounded-lg border border-primary/20">
+                                    <span className="text-lg font-black text-white font-mono italic">
+                                        {Math.max(0, Math.floor((new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
+                                    </span>
+                                    <span className="text-[7px] font-black text-slate-500 uppercase ml-1">Days</span>
+                                </div>
+                                <div className="bg-[#101423] px-3 py-2 rounded-lg border border-primary/20">
+                                    <span className="text-lg font-black text-white font-mono italic">
+                                        {Math.floor((Date.now() / 3600000) % 24)}
+                                    </span>
+                                    <span className="text-[7px] font-black text-slate-500 uppercase ml-1">Hrs</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Category Tabs */}
@@ -253,48 +280,18 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
             </div>
 
             {/* Rivalry Modal (H2H) */}
-            {selectedRival && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8">
-                    <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" onClick={() => setSelectedRival(null)} />
-                    <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-2 border-primary/20 text-center fade-in overflow-hidden shadow-[0_0_100px_rgba(31,34,255,0.2)]">
-                        <div className="flex justify-between items-center mb-12">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Statistik Tanding</span>
-                            <button onClick={() => setSelectedRival(null)} className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 hover:text-white border border-white/5 active:scale-90 transition-all">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="flex items-center justify-between gap-6 mb-12 relative">
-                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                                <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary fiery-glow z-10 backdrop-blur-md">
-                                    <Swords className="w-7 h-7" />
-                                </div>
-                            </div>
-                            <div className="flex-1">
-                                <div className="w-24 h-24 rounded-[32px] bg-[#1a1f35] mb-4 mx-auto overflow-hidden border-2 border-white/5 shadow-xl">
-                                    {getAvatarUrl(currentUser.photo) ? <img src={getAvatarUrl(currentUser.photo)!} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">YOU</div>}
-                                </div>
-                                <p className="text-[10px] font-black text-white uppercase italic tracking-widest">{currentUser.name.split(' ')[0]}</p>
-                            </div>
-                            <div className="flex-1">
-                                <div className="w-24 h-24 rounded-[32px] bg-[#1a1f35] mb-4 mx-auto overflow-hidden border-2 border-white/5 shadow-xl">
-                                    {getAvatarUrl(selectedRival.photo) ? <img src={getAvatarUrl(selectedRival.photo)!} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black italic">{selectedRival.name?.[0]}</div>}
-                                </div>
-                                <p className="text-[10px] font-black text-white uppercase italic tracking-widest">{(selectedRival.name || '').split(' ')[0]}</p>
-                            </div>
-                        </div>
-                        {loadingH2H ? (
-                            <div className="py-16"><Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" /></div>
-                        ) : (
-                            <div className="space-y-8">
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-[#101423] rounded-[24px] p-5 border border-white/5"><p className="text-[9px] font-black text-slate-600 uppercase mb-2 italic">Menang</p><p className="text-3xl font-black text-emerald-500 italic tracking-tighter">{h2hStats?.wins || 0}</p></div>
-                                    <div className="bg-[#101423] rounded-[24px] p-5 border border-white/5"><p className="text-[9px] font-black text-slate-600 uppercase mb-2 italic">Kalah</p><p className="text-3xl font-black text-rose-500 italic tracking-tighter">{h2hStats?.losses || 0}</p></div>
-                                    <div className="bg-[#101423] rounded-[24px] p-5 border border-white/5"><p className="text-[9px] font-black text-slate-600 uppercase mb-2 italic">Seri</p><p className="text-3xl font-black text-slate-500 italic tracking-tighter">0</p></div>
-                                </div>
-                                <button onClick={() => setSelectedRival(null)} className="w-full py-5 fiery-btn-secondary rounded-[24px] text-[10px] font-black uppercase tracking-[0.3em] italic">Tutup</button>
-                            </div>
-                        )}
-                    </div>
+            {selectedRival && h2hStats && (
+                <RivalComparison 
+                    currentUser={currentUser} 
+                    rival={selectedRival} 
+                    stats={h2hStats} 
+                    onClose={() => setSelectedRival(null)} 
+                />
+            )}
+            
+            {loadingH2H && (
+                <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
                 </div>
             )}
         </div>

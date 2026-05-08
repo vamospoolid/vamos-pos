@@ -1,5 +1,15 @@
 import axios from 'axios';
+import { io, Socket } from 'socket.io-client';
 import { useAppStore } from './store/appStore';
+
+let socket: Socket | null = null;
+
+export function getSocket() {
+    if (!socket) {
+        socket = io((import.meta.env.VITE_API_URL || 'https://pos.vamospool.id').replace('/api', ''));
+    }
+    return socket;
+}
 
 // Get or Generate a persistent Device ID for 1-Device-1-ID policy
 let deviceId = localStorage.getItem('playerDeviceId');

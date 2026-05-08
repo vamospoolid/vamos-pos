@@ -11,7 +11,7 @@ export function DiscoveryHeader({ member }: DiscoveryHeaderProps) {
       {/* Top Profile Row */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#1a1f35] p-0.5 border border-white/10 shadow-lg overflow-hidden relative">
+          <div className="w-10 h-10 rounded-2xl bg-[#1a1f35] p-0.5 border border-white/10 shadow-lg overflow-hidden relative">
             {member.photo ? (
               <img 
                 src={getAvatarUrl(member.photo)!} 
@@ -23,13 +23,12 @@ export function DiscoveryHeader({ member }: DiscoveryHeaderProps) {
                 <span className="text-primary font-black text-lg">{member.name?.[0]}</span>
               </div>
             )}
-            <div className="absolute inset-0 border border-white/5 rounded-2xl pointer-events-none" />
           </div>
           <div>
-            <h2 className="text-base font-black text-white italic uppercase tracking-tighter leading-none flex items-center gap-1.5">
-              Hey {member.name?.split(' ')[0] || 'Player'}
+            <h2 className="text-sm font-black text-white italic uppercase tracking-tighter leading-none">
+              VAMOS <span className="text-primary">DISCOVERY</span>
             </h2>
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1.5 italic opacity-80">Ready to play?</p>
+            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">Find your next match</p>
           </div>
         </div>
         

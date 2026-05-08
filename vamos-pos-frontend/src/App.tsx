@@ -1804,6 +1804,46 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         </div>
                       </div>
                     </div>
+
+                    {/* QRIS Display Drawer */}
+                    <div className={`transition-all duration-500 overflow-hidden ${checkoutMethod === 'QRIS' ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'}`}>
+                      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-xl flex flex-col items-center">
+                        <div className="flex items-center gap-3 mb-4">
+                          <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_QRIS.svg" alt="QRIS Logo" className="h-6" />
+                        </div>
+                        
+                        <div className="bg-[#f8f8f8] p-4 rounded-2xl border border-gray-100 mb-4 w-full flex items-center justify-center">
+                          {venueConfig?.qrisImageUrl ? (
+                            <img 
+                              src={venueConfig.qrisImageUrl} 
+                              alt="QRIS Code" 
+                              className="w-full max-w-[240px] aspect-square object-contain"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-gray-400 gap-3">
+                              <AlertCircle className="w-10 h-10" />
+                              <p className="text-[10px] font-black uppercase tracking-widest text-center">
+                                QRIS Belum Diupload<br/>
+                                <span className="text-gray-500 font-medium normal-case">Silahkan upload di menu Settings Admin</span>
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-center space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Scan & Bayar Sejumlah</p>
+                          <p className="text-xl font-black text-blue-600 font-mono tracking-tighter">
+                            Rp {(
+                              (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
+                                (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
+                                (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
+                              checkoutDiscount
+                            ).toLocaleString('id-ID')}
+                          </p>
+                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest pt-2">⚠️ Pastikan status pembayaran Berhasil di HP Pelanggan</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

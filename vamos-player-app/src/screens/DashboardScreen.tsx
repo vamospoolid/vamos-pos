@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Flame, Target } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import { useAppStore } from '../store/appStore';
 import { DiscoveryHeader } from '../components/DiscoveryHeader';
@@ -11,7 +11,6 @@ import { QuestCard } from '../components/QuestCard';
 import { DashboardSkeleton } from '../components/Skeleton';
 
 export function DashboardScreen({ member, tournaments = [], venueInfo, loading }: { member: any, tournaments?: any[], venueInfo: any, loading?: boolean }) {
-  const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const [quests, setQuests] = useState<any[]>([]);
   const { setActiveTab, setSelectedTournament, addToast, refreshMemberData } = useAppStore();
 

@@ -50,6 +50,7 @@ export class VenueService {
         isSyncEnabled?: boolean; 
         syncIntervalSeconds?: number; 
         splashImageUrl?: string;
+        qrisImageUrl?: string;
         phone?: string;
         waVerificationText?: string;
     }) {

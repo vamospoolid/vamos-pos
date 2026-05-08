@@ -54,4 +54,4 @@ conn.on('ready', () => {
         });
     });
 }).on('error', err => console.error('SSH Error:', err))
-.connect({ host: '5.189.165.222', port: 22, username: 'root', password: 'Ahmaddcc07' });
+.connect({ host: '144.91.73.36', port: 22, username: 'root', password: 'Ahmaddcc07' });
