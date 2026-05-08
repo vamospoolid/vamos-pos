@@ -6,14 +6,21 @@ interface AppState {
     // --- Auth & Profile ---
     member: any | null;
     setMember: (member: any) => void;
+    venueInfo: any | null;
+    setVenueInfo: (venue: any) => void;
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger';
-    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger') => void;
+    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training';
+    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training') => void;
 
     rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
     setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;
+
+    // --- Notifications ---
+    toasts: any[];
+    addToast: (toast: { message: string, type?: 'success' | 'error' | 'info' | 'warning' | 'match', title?: string, duration?: number, actionLabel?: string, onAction?: () => void }) => void;
+    removeToast: (id: string) => void;
 
     // --- Session Tracking ---
     activeSession: any | null;
@@ -36,6 +43,8 @@ export const useAppStore = create<AppState>()(
         (set, get) => ({
             member: null,
             setMember: (member) => set({ member }),
+            venueInfo: null,
+            setVenueInfo: (venueInfo) => set({ venueInfo }),
             logout: () => {
                 localStorage.removeItem('playerToken');
                 set({ member: null, activeSession: null, activeTab: 'dashboard' });
@@ -46,6 +55,13 @@ export const useAppStore = create<AppState>()(
 
             rewardsTab: 'catalog',
             setRewardsTab: (tab) => set({ rewardsTab: tab }),
+
+            toasts: [],
+            addToast: (toast) => {
+                const id = Math.random().toString(36).substring(2, 9);
+                set(state => ({ toasts: [...state.toasts, { ...toast, id }] }));
+            },
+            removeToast: (id) => set(state => ({ toasts: state.toasts.filter(t => t.id !== id) })),
 
             activeSession: null,
             setActiveSession: (session) => set({ activeSession: session }),
