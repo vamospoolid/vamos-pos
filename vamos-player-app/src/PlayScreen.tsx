@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, ShieldAlert, CheckCircle2, Copy } from 'lucide-react';
+import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, CheckCircle2, Copy, Target, ChevronRight } from 'lucide-react';
 import { TableCard } from './components/TableCard';
 import { BulletinCarousel } from './components/BulletinCarousel';
-import { io } from 'socket.io-client';
+import { LiveTicker } from './components/LiveTicker';
 import { Html5Qrcode } from 'html5-qrcode';
-import { api } from './api';
+import { api, getSocket } from './api';
+import { useAppStore } from './store/appStore';
 
 export function PlayScreen({ member }: { member: any }) {
+  const { setActiveTab } = useAppStore();
   const [kings, setKings] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [lobbyChallenges, setLobbyChallenges] = useState<any[]>([]);
@@ -14,7 +16,6 @@ export function PlayScreen({ member }: { member: any }) {
   const [isScanning, setIsScanning] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
   const [pendingOpponentId, setPendingOpponentId] = useState<string | null>(null);
-  const [incomingChallenge, setIncomingChallenge] = useState<any | null>(null);
   const [isChoosingStake, setIsChoosingStake] = useState(false);
   const [selectedStake, setSelectedStake] = useState(0);
   const [isFightForTable, setIsFightForTable] = useState(false);
@@ -54,14 +55,10 @@ export function PlayScreen({ member }: { member: any }) {
     const chalInterval = setInterval(fetchChallenges, 5000);
     const lobbyInterval = setInterval(fetchLobbyChallenges, 10000);
 
-    const socket = io('https://pos.vamospool.id');
+    const socket = getSocket();
     socket.on('king:updated', fetchKings);
     
-    // Listen for new challenges sent to ME
-    socket.on(`challenge:new:${member.id}`, (challenge) => {
-        setIncomingChallenge(challenge);
-        fetchChallenges();
-    });
+    socket.on(`challenge:update:${member.id}`, fetchChallenges);
 
     // Listen for updates on my active challenges
     socket.on(`challenge:update:${member.id}`, fetchChallenges);
@@ -76,7 +73,9 @@ export function PlayScreen({ member }: { member: any }) {
       clearInterval(kingInterval);
       clearInterval(chalInterval);
       clearInterval(lobbyInterval);
-      socket.disconnect();
+      socket.off('king:updated', fetchKings);
+      socket.off(`challenge:update:${member.id}`, fetchChallenges);
+      socket.off('challenge:new_arena');
     };
   }, [fetchKings, fetchChallenges, fetchLobbyChallenges, member.id]);
 
@@ -152,9 +151,19 @@ export function PlayScreen({ member }: { member: any }) {
           setIsChoosingStake(false);
           fetchChallenges();
           fetchLobbyChallenges();
-          alert(isLobby ? "CHALLENGE POSTED TO LOBBY." : "PROTOCOL DEPLOYED. WAITING FOR RIVAL CONFIRMATION.");
+          useAppStore.getState().addToast({
+            title: 'PROTOCOL DEPLOYED',
+            message: isLobby ? "CHALLENGE POSTED TO LOBBY." : "WAITING FOR RIVAL CONFIRMATION.",
+            type: 'success'
+          });
         }
-      } catch (err: any) { alert(err.response?.data?.message || "DEPLOYMENT FAILED."); }
+      } catch (err: any) { 
+        useAppStore.getState().addToast({
+            title: 'DEPLOYMENT FAILED',
+            message: err.response?.data?.message || "CHECK CONNECTION.",
+            type: 'error'
+        });
+      }
   };
 
   const reportVictory = async (challengeId: string, s1: number = 0, s2: number = 0) => {
@@ -167,32 +176,21 @@ export function PlayScreen({ member }: { member: any }) {
         });
         if (res.data.success) {
             fetchChallenges();
-            alert("VICTORY REPORTED. AWAITING CASHIER VERIFICATION.");
-        }
-    } catch (err: any) { alert(err.response?.data?.message || "REPORT FAILED."); }
-  };
-
-  const respondToChallenge = async (id: string, status: 'ACCEPTED' | 'DECLINED') => {
-    if (!id) return alert("PROTOCOL ERROR: MISSING CHALLENGE ID.");
-    try {
-        const res = await api.put(`/player/challenge/${id}/respond`, { status });
-        if (res.data.success) {
-            setIncomingChallenge(null);
-            // Wait slightly for DB to propagate before fetching
-            setTimeout(() => {
-                fetchChallenges();
-                if (status === 'ACCEPTED') {
-                    alert("MATCH PROTOCOL INITIATED.");
-                } else {
-                    alert("PROTOCOL ABORTED.");
-                }
-            }, 500);
+            useAppStore.getState().addToast({
+                title: 'VICTORY REPORTED',
+                message: "AWAITING CASHIER VERIFICATION.",
+                type: 'success'
+            });
         }
     } catch (err: any) { 
-        alert(err.response?.data?.message || "RESPONSE FAILED."); 
-        setIncomingChallenge(null);
+        useAppStore.getState().addToast({
+            title: 'REPORT FAILED',
+            message: err.response?.data?.message || "SYSTEM ERROR",
+            type: 'error'
+        });
     }
   };
+
 
   const handleAcceptLobby = async (challengeId: string) => {
     try {
@@ -223,6 +221,26 @@ export function PlayScreen({ member }: { member: any }) {
         </h1>
         <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
       </div>
+
+      {/* ─── TRAINING MODE ENTRY (MOVED FROM DASHBOARD) ─── */}
+      <button 
+        onClick={() => setActiveTab('training')}
+        className="bg-[#1a1f35]/50 border border-white/5 rounded-[28px] p-6 flex items-center gap-6 group active:scale-95 transition-all shadow-lg"
+      >
+        <div className="w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+          <Target className="w-7 h-7 text-primary" strokeWidth={2.5} />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic mb-1">Skill Protocol</p>
+          <h3 className="text-lg font-black text-white italic uppercase tracking-tighter leading-none mb-1">MODE LATIHAN</h3>
+          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest italic">Asah skill & klaim XP reward</p>
+        </div>
+        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-600 group-hover:text-white transition-colors">
+          <ChevronRight className="w-5 h-5" />
+        </div>
+      </button>
+
+      <LiveTicker />
 
       <BulletinCarousel />
 
@@ -488,48 +506,7 @@ export function PlayScreen({ member }: { member: any }) {
 
       {/* ─── MODALS ────────────────────────────────────────────────────────── */}
 
-      {/* Incoming Challenge Modal */}
-      {incomingChallenge && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8">
-            <div className="absolute inset-0 bg-[#0a0d18]/98 backdrop-blur-3xl animate-pulse" />
-            <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-12 border-4 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_150px_rgba(31,34,255,0.4)]">
-                <button 
-                  onClick={() => setIncomingChallenge(null)}
-                  className="absolute top-8 right-8 p-3 rounded-2xl bg-white/5 text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-90 z-50"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
-                
-                <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center mx-auto mb-8 fiery-glow">
-                    <ShieldAlert size={40} className="text-white" />
-                </div>
-
-                <h3 className="text-xl font-black text-white italic tracking-tighter uppercase mb-2 leading-none">WAR PROTOCOL</h3>
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-10 italic animate-pulse">Incoming Strike Detected</p>
-                
-                <div className="bg-white/5 p-6 rounded-3xl border border-white/10 mb-10">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">CHALLENGER</p>
-                    <p className="text-2xl font-black text-white italic tracking-tighter uppercase">{incomingChallenge.challenger?.name || 'UNIDENTIFIED RIVAL'}</p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                    <button 
-                        onClick={() => respondToChallenge(incomingChallenge.id, 'ACCEPTED')}
-                        className="w-full fiery-btn-primary py-6 flex items-center justify-center gap-3 text-sm tracking-[0.2em] font-black italic shadow-xl shadow-primary/30"
-                    >
-                        <CheckCircle2 className="w-5 h-5" /> LADENI DUEL
-                    </button>
-                    <button 
-                        onClick={() => respondToChallenge(incomingChallenge.id, 'DECLINED')}
-                        className="w-full py-5 rounded-[24px] bg-white/5 text-slate-500 font-black text-[10px] uppercase tracking-[0.4em] italic hover:bg-rose-500/10 hover:text-rose-500 transition-all"
-                    >
-                        KABUR / DECLINE
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
+      {/* Incoming Challenge Modal Removed - Handled by Toast */}
 
       {/* Identity QR Modal */}
       {showMyQR && (
