@@ -38,6 +38,7 @@ router.put('/challenge/:id/respond', PlayerController.respondToChallenge);
 router.post('/challenge/:id/respond', PlayerController.respondToChallenge);
 router.put('/challenge/:id/link-session', PlayerController.linkSession);
 router.put('/challenge/:id/claim-victory', PlayerController.claimVictory);
+router.post('/training/submit', PlayerController.submitTraining);
 
 // Rewards
 router.get('/rewards', PlayerController.getRewards);
@@ -59,6 +60,9 @@ router.get('/:id', PlayerController.getProfile);
 router.get('/:id/dashboard', PlayerController.getDashboard);
 router.get('/:id/history', PlayerController.getMatchHistory);
 router.get('/:id/h2h', PlayerController.getH2H);
+router.get('/:id/h2h-detail', PlayerController.getSpecificH2H);
+router.get('/:id/quests', PlayerController.getQuests);
+router.post('/:id/quests/:questId/claim', PlayerController.claimQuest);
 router.post('/tournaments/:id/register', PlayerController.registerTournament);
 router.get('/:id/transactions', PlayerController.getTransactions);
 router.get('/:id/unpaid-bills', PlayerController.getUnpaidBills);

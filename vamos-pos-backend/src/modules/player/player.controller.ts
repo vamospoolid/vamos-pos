@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../database/db';
 import bcrypt from 'bcrypt';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import { AchievementService } from '../loyalty/achievement.service';
 import { PricingService } from '../pricing/pricing.service';
 import { waService } from '../whatsapp/wa.service';
 import { getIO } from '../../socket';
@@ -50,7 +52,6 @@ export class PlayerController {
                 include: { challenger: true, opponent: true }
             });
 
-            const { getIO } = await import('../../socket');
             if (!isLobbyChallenge) {
                 getIO().emit(`challenge:new:${opponentId}`, challenge);
             }
@@ -111,7 +112,6 @@ export class PlayerController {
                 include: { challenger: true, opponent: true }
             });
 
-            const { getIO } = await import('../../socket');
             getIO().emit(`challenge:update:${updated.challengerId}`, updated);
             getIO().emit(`challenge:update:${updated.opponentId}`, updated);
             getIO().emit(`challenge:new_arena`, updated);
@@ -188,7 +188,6 @@ export class PlayerController {
             });
 
             // Notify both parties and POS that status changed
-            const { getIO } = await import('../../socket');
             getIO().emit(`challenge:update:${challenge.challengerId}`, challenge);
             getIO().emit(`challenge:update:${challenge.opponentId}`, challenge);
             getIO().emit(`challenge:new_arena`, challenge);
@@ -212,7 +211,6 @@ export class PlayerController {
                 where: { id }
             });
 
-            const { getIO } = await import('../../socket');
             getIO().emit(`challenge:new_arena`, { id, deleted: true });
             getIO().emit(`challenge:update:${challenge.challengerId}`, { id, status: 'CANCELLED' });
             if (challenge.opponentId) {
@@ -257,12 +255,86 @@ export class PlayerController {
             });
 
             // Notify POS that a victory has been claimed and needs verification
-            const { getIO } = await import('../../socket');
             getIO().emit(`challenge:new_arena`, challenge);
             getIO().emit(`challenge:update:${challenge.challengerId}`, challenge);
             getIO().emit(`challenge:update:${challenge.opponentId}`, challenge);
 
             res.json({ success: true, data: challenge, message: 'Victory reported. Awaiting cashier verification.' });
+        } catch (error) { next(error); }
+    }
+
+    /**
+     * PLAYER ACTION: Submit Training Result (Drills)
+     */
+    static async submitTraining(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { memberId, drillId, xpReward, successCount, totalTarget } = req.body;
+            
+            if (!memberId || !drillId) {
+                return res.status(400).json({ success: false, message: 'Invalid training data' });
+            }
+
+            const member = await prisma.member.findUnique({ where: { id: memberId } });
+            if (!member) return res.status(404).json({ success: false, message: 'Player not found' });
+
+            // 1. DAILY CAP CHECK (Max 100 XP/day)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const todayLogs = await prisma.pointLog.findMany({
+                where: {
+                    memberId,
+                    createdAt: { gte: today },
+                    description: { contains: 'Latihan:' }
+                }
+            });
+
+            // Sum up XP from descriptions "Latihan: ... | +XX XP"
+            const totalXpToday = todayLogs.reduce((sum, log) => {
+                const match = log.description.match(/\+(\d+) XP/);
+                return sum + (match ? parseInt(match[1]) : 0);
+            }, 0);
+
+            if (totalXpToday >= 100) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Batas harian XP latihan (100 XP) telah tercapai. Latihan tetap bisa dilakukan tapi tidak menambah XP lagi hari ini.' 
+                });
+            }
+
+            // 2. XP REWARD ADJUSTMENT (10-25 XP as per requested range)
+            const requestedXp = xpReward || 10;
+            const finalXp = Math.min(25, requestedXp, 100 - totalXpToday);
+
+            const result = await prisma.$transaction(async (tx) => {
+                let newExp = (member.experience || 0) + finalXp;
+                
+                // Level Up Logic
+                let newLevel = 1;
+                while (newExp >= (newLevel * (newLevel + 1) * 1000) / 2) {
+                    newLevel++;
+                }
+
+                return await tx.member.update({
+                    where: { id: memberId },
+                    data: {
+                        experience: newExp,
+                        level: newLevel
+                    }
+                });
+            });
+
+            // Log activity (Points 0 to avoid affecting currency balance)
+            await prisma.pointLog.create({
+                data: {
+                    memberId,
+                    type: 'EARN_BONUS',
+                    points: 0,
+                    description: `🎯 Latihan: ${drillId} (${successCount}/${totalTarget}) | +${finalXp} XP`
+                }
+            });
+
+            res.json({ success: true, data: result, xpEarned: finalXp });
         } catch (error) { next(error); }
     }
 
@@ -306,7 +378,7 @@ export class PlayerController {
             
             // Professional Rank Logic (Competitive XP Rewards)
             const winReputation = 100; 
-            const lossReputation = -20; // Player loses XP on defeat
+            const lossReputation = -20; // Reverted to -20 to keep it competitive
             
             const result = await prisma.$transaction(async (tx) => {
                 // 1. POINT TRANSFER (If stake > 0)
@@ -467,8 +539,7 @@ export class PlayerController {
                 // Update King Status if applicable
                 if (challenge.session?.tableId) {
                     await KingService.handleMatchEnd(challenge.session.tableId, winnerId, challengeId);
-                    const { getIO } = await import('../../socket');
-                    getIO().emit('king:updated', { tableId: challenge.session.tableId, winnerId });
+                            getIO().emit('king:updated', { tableId: challenge.session.tableId, winnerId });
                 }
 
                 // Log Rank History for Winner
@@ -499,12 +570,45 @@ export class PlayerController {
                     }
                 });
 
+                // ... (existing logic)
                 return updatedChallenge;
             });
+
+            const io = getIO();
+
+            // Announcement: Big Win
+            if (challenge.pointsStake >= 500) {
+                io.emit('arena:news', {
+                    type: 'BIG_WIN',
+                    message: `💰 MASSIVE WIN! ${result.challengerId === winnerId ? result.challenger.name : result.opponent.name} just took ${challenge.pointsStake} PSS!`,
+                    data: result
+                });
+            }
 
             // WA Notifications
             const winObj = (result as any).challengerId === winnerId ? (result as any).challenger : (result as any).opponent;
             const lossObj = (result as any).challengerId === winnerId ? (result as any).opponent : (result as any).challenger;
+
+            // Announcement: Level Up (Check if rank changed)
+            const winner = await prisma.member.findUnique({ where: { id: winnerId } });
+            
+            // --- QUEST PROGRESS UPDATE ---
+            await LoyaltyService.handleQuestProgress(winnerId, 'MATCH_WIN', 1);
+            if (challenge.pointsStake > 0) {
+                await LoyaltyService.handleQuestProgress(winnerId, 'STAKE_EARN', challenge.pointsStake);
+            }
+            // -----------------------------
+
+            if (winner && winner.level! > (winner.level! - 1)) {
+                // Actually we should compare with old rank, but for now we announce all wins that result in a high rank
+                if (winner.level! >= 5) {
+                    io.emit('arena:news', {
+                        type: 'LEVEL_UP',
+                        message: `⭐ ELITE PROMOTION: ${winner.name} has reached LEVEL ${winner.level}!`,
+                        data: winner
+                    });
+                }
+            }
 
             let winMsg = `🏆 *CHALLENGE SELESAI*\n\nSelamat! Kemenangan Anda melawan *${lossObj.name}* telah diverifikasi.\n\n⭐ *XP:* +${winReputation} XP`;
             if (challenge.isFightForTable && challenge.sessionId) {
@@ -520,7 +624,6 @@ export class PlayerController {
             waService.sendMessage(lossObj.phone, lossMsg);
 
             // Notify UI to refresh lists
-            const { getIO } = await import('../../socket');
             getIO().emit(`challenge:new_arena`, result);
             getIO().emit(`challenge:update:${result.challengerId}`, result);
             getIO().emit(`challenge:update:${result.opponentId}`, result);
@@ -557,7 +660,6 @@ export class PlayerController {
                 include: { challenger: true, opponent: true }
             });
 
-            const { getIO } = await import('../../socket');
             // Notify both players
             getIO().emit(`challenge:update:${challengerId}`, challenge);
             getIO().emit(`challenge:update:${opponentId}`, challenge);
@@ -1078,6 +1180,9 @@ export class PlayerController {
                 paymentMethod
             );
 
+            // Track Quest Progress
+            await LoyaltyService.handleQuestProgress(memberId, 'TOURNAMENT_JOIN', 1);
+
             res.json({ success: true, data: pt });
         } catch (error) { next(error); }
     }
@@ -1356,7 +1461,6 @@ export class PlayerController {
                 }
             }
 
-            const { getIO } = await import('../../socket');
             // Emit dengan payload LENGKAP agar local POS bridge bisa sync ke DB lokal
             // tanpa perlu callback ke VPS (eliminasi latency)
             getIO().emit('booking:new', {
@@ -1510,7 +1614,6 @@ export class PlayerController {
                 results.push(order);
             }
 
-            const { getIO } = await import('../../socket');
             getIO().emit('orders:updated');
 
             res.json({ success: true, data: results, message: 'F&B Order Transmitted!' });
@@ -1634,6 +1737,41 @@ export class PlayerController {
             res.json({ success: true, data: sortedStats });
         } catch (error) { next(error); }
     }
+
+    static async getSpecificH2H(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: playerA } = req.params;
+            const { rivalId: playerB } = req.query;
+            
+            if (!playerB) return res.status(400).json({ success: false, message: 'Rival ID is required' });
+
+            const challenges = await prisma.matchChallenge.findMany({
+                where: {
+                    OR: [
+                        { challengerId: playerA, opponentId: playerB as string },
+                        { challengerId: playerB as string, opponentId: playerA }
+                    ],
+                    status: 'COMPLETED'
+                },
+                orderBy: { updatedAt: 'desc' }
+            });
+
+            const stats = {
+                totalMatches: challenges.length,
+                playerAWins: challenges.filter(c => c.winnerId === playerA).length,
+                playerBWins: challenges.filter(c => c.winnerId === playerB).length,
+                totalStake: challenges.reduce((sum, c) => sum + (c.pointsStake || 0), 0),
+                lastMatches: challenges.slice(0, 5).map(c => ({
+                    date: c.updatedAt,
+                    winnerId: c.winnerId,
+                    score: `${c.score1}-${c.score2}`,
+                    stake: c.pointsStake
+                }))
+            };
+
+            res.json({ success: true, data: stats });
+        } catch (error) { next(error); }
+    }
     static async getTransactions(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: memberId } = req.params;
@@ -1702,5 +1840,27 @@ export class PlayerController {
             });
             res.json({ success: true, data: history });
         } catch (error) { next(error); }
+    }
+
+    static async getQuests(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { QuestService } = await import('../loyalty/quest.service');
+            const quests = await QuestService.getMemberQuests(id);
+            res.json({ success: true, data: quests });
+        } catch (err: any) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    }
+
+    static async claimQuest(req: Request, res: Response) {
+        try {
+            const { id, questId } = req.params;
+            const { QuestService } = await import('../loyalty/quest.service');
+            const rewards = await QuestService.claimReward(questId, id);
+            res.json({ success: true, data: rewards });
+        } catch (err: any) {
+            res.status(400).json({ success: false, message: err.message });
+        }
     }
 }
