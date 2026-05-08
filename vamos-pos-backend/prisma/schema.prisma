@@ -39,6 +39,7 @@ model Venue {
   isSyncEnabled       Boolean   @default(true)
   syncIntervalSeconds Int       @default(30)
   splashImageUrl      String?
+  qrisImageUrl        String?
   phone               String?   @default("6281244047610")
   waVerificationText  String?   @default("Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:")
   isRelayEnabled      Boolean   @default(true)
@@ -159,6 +160,7 @@ model Member {
   tournamentParticipant       TournamentParticipant[]
   waitlist                    Waitlist[]
   rankHistory                 RankHistory[]
+  memberQuests                MemberQuest[]
 
   @@index([syncStatus])
 }
@@ -682,4 +684,39 @@ model RankHistory {
 
   @@index([memberId])
   @@index([createdAt])
+}
+
+model Quest {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  type        String   // "DAILY", "WEEKLY", "SPECIAL"
+  key         String   // "MATCH_WIN", "STAKE_EARN", "TOURNAMENT_JOIN"
+  targetValue Int
+  rewardXp    Int      @default(0)
+  rewardPts   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberQuests MemberQuest[]
+}
+
+model MemberQuest {
+  id          String   @id @default(uuid())
+  memberId    String
+  questId     String
+  currentValue Int      @default(0)
+  isCompleted  Boolean  @default(false)
+  isClaimed    Boolean  @default(false)
+  completedAt  DateTime?
+  claimedAt    DateTime?
+  resetKey     String   // E.g., "2024-05-05" for daily uniqueness
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+  quest  Quest  @relation(fields: [questId], references: [id])
+
+  @@unique([memberId, questId, resetKey])
 }
