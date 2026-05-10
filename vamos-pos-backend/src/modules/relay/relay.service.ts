@@ -162,21 +162,48 @@ export class RelayService {
         if (!comPortPath) {
             try {
                 const venue: any = await prisma.venue.findFirst();
-                comPortPath = process.env.RELAY_COM_PORT || venue?.relayComPort || 'COM3';
-            } catch (e) { comPortPath = process.env.RELAY_COM_PORT || 'COM3'; }
+                comPortPath = process.env.RELAY_COM_PORT || venue?.relayComPort;
+            } catch (e) { 
+                comPortPath = process.env.RELAY_COM_PORT; 
+            }
+        }
+
+        // If explicitly set to AUTO or empty, run auto-detection
+        if (!comPortPath || comPortPath.toUpperCase() === 'AUTO') {
+            logger.info('🔍 [RELAY_INIT] Port set to AUTO. Scanning system...');
+            const found = await this.autoDetectPort();
+            if (found) {
+                this.init(found);
+                return;
+            } else {
+                logger.error('❌ [RELAY_INIT] Auto-detection found no suitable ports.');
+                // Fallback to COM3 if everything fails
+                comPortPath = 'COM3';
+            }
         }
 
         try {
+            logger.info(`🔌 [RELAY_INIT] Attempting to open: ${comPortPath}...`);
             self.port = new SerialPort({ path: comPortPath as string, baudRate: 9600, autoOpen: false });
             self.port.open((err: any) => {
                 if (err) {
                     logger.error(`❌ HARDWARE ERROR: ${comPortPath} - ${err.message}`);
+                    self.lastError = err.message;
                     self.updateConnectionStatus(false);
-                    this.autoDetectPort(comPortPath as string).then(found => { if (found) this.init(found); });
+                    logger.info(`🔍 [RELAY_INIT] Falling back to Auto-Detection...`);
+                    this.autoDetectPort(comPortPath as string).then(found => { 
+                        if (found) {
+                            logger.info(`✨ [RELAY_INIT] Auto-detected working port: ${found}`);
+                            this.init(found); 
+                        } else {
+                            logger.error(`💀 [RELAY_INIT] Auto-detection failed. No valid relay found.`);
+                        }
+                    });
                 } else {
-                    logger.info(`✅ HARDWARE SUCCESS: ${comPortPath}`);
+                    logger.info(`✅ HARDWARE SUCCESS: ${comPortPath} is now OPEN.`);
                     self.updateConnectionStatus(true);
                     self.lastKnownPort = comPortPath as string;
+                    self.lastError = null;
                 }
             });
 

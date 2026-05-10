@@ -108,7 +108,8 @@ const initCloudBridge = () => {
         reconnectionAttempts: Infinity,
         reconnectionDelay: 5000,
         reconnectionDelayMax: 30000,
-        timeout: 10000,
+        timeout: 20000,
+        transports: ['websocket']
     });
 
     const cloudSocket = cloudSocketInstance;

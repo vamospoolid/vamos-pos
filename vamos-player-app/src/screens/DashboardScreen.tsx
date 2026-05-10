@@ -1,56 +1,23 @@
-import { useState, useEffect } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { api } from '../api';
 import { useAppStore } from '../store/appStore';
 import { DiscoveryHeader } from '../components/DiscoveryHeader';
 import { FeaturedBookingCard } from '../components/FeaturedBookingCard';
 import { VerificationCard } from '../components/VerificationCard';
 import { QuickBooking } from '../components/QuickBooking';
 import { TierCard } from '../components/TierCard';
-import { QuestCard } from '../components/QuestCard';
 import { DashboardSkeleton } from '../components/Skeleton';
 
 export function DashboardScreen({ member, tournaments = [], venueInfo, loading }: { member: any, tournaments?: any[], venueInfo: any, loading?: boolean }) {
-  const [quests, setQuests] = useState<any[]>([]);
-  const { setActiveTab, setSelectedTournament, addToast, refreshMemberData } = useAppStore();
+  const { setActiveTab, setSelectedTournament } = useAppStore();
 
-  useEffect(() => {
-    if (member?.id) {
-        api.get(`/player/${member.id}/quests`)
-           .then(res => setQuests(res.data.data || []))
-           .catch(err => console.error("Quest fetch error:", err));
-    }
-  }, [member?.id]);
 
-  const handleClaimQuest = async (memberQuestId: string) => {
-    try {
-        const res = await api.post(`/player/${member.id}/quests/${memberQuestId}/claim`);
-        if (res.data.success) {
-            addToast({ title: 'PROTOCOL SYNC', message: `Reward claimed! +${res.data.data.xp} XP added.`, type: 'success' });
-            refreshMemberData();
-            // Refresh local quests
-            setQuests(prev => prev.map(q => q.id === memberQuestId ? { ...q, isClaimed: true } : q));
-        }
-    } catch (err: any) {
-        addToast({ title: 'CLAIM FAILED', message: err.response?.data?.message || "Sync error.", type: 'error' });
-    }
-  };
 
   if (loading) return <DashboardSkeleton />;
 
-  // Transform backend MemberQuest to UI Quest format
-  const formattedQuests = quests.map(mq => ({
-    id: mq.id,
-    title: mq.quest.title,
-    desc: mq.quest.description,
-    reward: mq.quest.rewardXp,
-    progress: mq.currentValue,
-    target: mq.quest.targetValue,
-    isClaimed: mq.isClaimed
-  }));
+
 
   return (
-    <div className="fade-in space-y-6 pb-32">
+    <div className="fade-in space-y-6 pb-10">
       {/* ─── NEW DISCOVERY HEADER ─── */}
       <DiscoveryHeader member={member} />
 
@@ -60,11 +27,7 @@ export function DashboardScreen({ member, tournaments = [], venueInfo, loading }
       {/* ─── QUICK BOOKING (Visible Immediately) ─── */}
       <QuickBooking />
 
-      {/* ─── DAILY QUESTS ─── */}
-      <QuestCard 
-        quests={formattedQuests} 
-        onClaim={handleClaimQuest} 
-      />
+
 
       {/* ─── ONGOING EVENTS ─── */}
       <div className="space-y-6">

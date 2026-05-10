@@ -129,7 +129,7 @@ function MainApp() {
   if (!member) return <LoginScreen onLogin={setMember} />;
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-white flex flex-col relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-white/5">
+    <div className="h-screen bg-[#070b14] text-white flex flex-col relative max-w-md mx-auto shadow-2xl overflow-hidden border-x border-white/5">
       {/* Global Notifications */}
       {activeVictory && (
         <VictoryNotification 
@@ -175,7 +175,7 @@ function MainApp() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 relative z-10 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto px-6 pt-2 pb-10 relative z-10 scrollbar-hide">
         {activeTab === 'dashboard' && <DashboardScreen member={member} tournaments={tournaments} venueInfo={venueInfo} loading={loadingTournaments} />}
         {activeTab === 'play' && <PlayScreen member={member} />}
         {activeTab === 'leaderboard' && <LeaderboardScreen leaderboard={leaderboard} currentUser={member} loading={loadingLeaderboard} />}

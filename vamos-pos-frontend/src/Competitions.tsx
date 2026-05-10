@@ -6,6 +6,8 @@ import { io } from 'socket.io-client';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { LiveDrawDisplay } from './components/LiveDrawDisplay';
+import { FlyerBuilder } from './components/FlyerBuilder';
+import { Image as ImageIcon } from 'lucide-react';
 
 export default function Competitions() {
     const [tournaments, setTournaments] = useState<any[]>([]);
@@ -55,6 +57,7 @@ export default function Competitions() {
     const [editParticipantData, setEditParticipantData] = useState<any>(null);
 
     const [activeLiveDraw, setActiveLiveDraw] = useState<any>(null);
+    const [flyerTournament, setFlyerTournament] = useState<any>(null);
 
     const fetchData = async () => {
         try {
@@ -531,6 +534,12 @@ export default function Competitions() {
                                         PDF
                                     </button>
                                 )}
+                                <button 
+                                    onClick={() => setFlyerTournament(t)} 
+                                    className="ml-2 px-3 py-1 bg-[#00ff66]/10 hover:bg-[#00ff66]/20 text-xs font-bold rounded transition-colors text-[#00ff66] flex items-center border border-[#00ff66]/20"
+                                >
+                                    <ImageIcon className="w-3 h-3 mr-1" /> Flyer
+                                </button>
                             </div>
                         </div>
 
@@ -801,6 +810,14 @@ export default function Competitions() {
                     </div>
                 </div>
             )}
+
+            {flyerTournament && (
+                <FlyerBuilder 
+                    tournament={flyerTournament} 
+                    onClose={() => setFlyerTournament(null)} 
+                />
+            )}
+
 
             {isFinishModalOpen && finishTournamentId && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">

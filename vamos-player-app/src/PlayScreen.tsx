@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, CheckCircle2, Copy, Target, ChevronRight } from 'lucide-react';
 import { TableCard } from './components/TableCard';
 import { BulletinCarousel } from './components/BulletinCarousel';
+import { QuestCard } from './components/QuestCard';
 import { LiveTicker } from './components/LiveTicker';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, getSocket } from './api';
@@ -12,6 +13,7 @@ export function PlayScreen({ member }: { member: any }) {
   const [kings, setKings] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [lobbyChallenges, setLobbyChallenges] = useState<any[]>([]);
+  const [quests, setQuests] = useState<any[]>([]);
   const [loadingLobby, setLoadingLobby] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
@@ -47,13 +49,23 @@ export function PlayScreen({ member }: { member: any }) {
     } catch (err) { console.error(err); } finally { setLoadingLobby(false); }
   }, []);
 
+  const fetchQuests = useCallback(async () => {
+    if (!member?.id) return;
+    try {
+        const res = await api.get(`/player/${member.id}/quests`);
+        if (res.data.success) setQuests(res.data.data || []);
+    } catch (err) { console.error("Quest fetch error:", err); }
+  }, [member?.id]);
+
   useEffect(() => {
     fetchKings();
     fetchChallenges();
     fetchLobbyChallenges();
+    fetchQuests();
     const kingInterval = setInterval(fetchKings, 10000);
     const chalInterval = setInterval(fetchChallenges, 5000);
     const lobbyInterval = setInterval(fetchLobbyChallenges, 10000);
+    const questInterval = setInterval(fetchQuests, 30000);
 
     const socket = getSocket();
     socket.on('king:updated', fetchKings);
@@ -73,11 +85,12 @@ export function PlayScreen({ member }: { member: any }) {
       clearInterval(kingInterval);
       clearInterval(chalInterval);
       clearInterval(lobbyInterval);
+      clearInterval(questInterval);
       socket.off('king:updated', fetchKings);
       socket.off(`challenge:update:${member.id}`, fetchChallenges);
       socket.off('challenge:new_arena');
     };
-  }, [fetchKings, fetchChallenges, fetchLobbyChallenges, member.id]);
+  }, [fetchKings, fetchChallenges, fetchLobbyChallenges, fetchQuests, member.id]);
 
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
@@ -213,8 +226,32 @@ export function PlayScreen({ member }: { member: any }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleClaimQuest = async (memberQuestId: string) => {
+    try {
+        const res = await api.post(`/player/${member.id}/quests/${memberQuestId}/claim`);
+        if (res.data.success) {
+            useAppStore.getState().addToast({ title: 'PROTOCOL SYNC', message: `Reward claimed! +${res.data.data.xp} XP added.`, type: 'success' });
+            useAppStore.getState().refreshMemberData();
+            // Refresh local quests
+            setQuests(prev => prev.map(q => q.id === memberQuestId ? { ...q, isClaimed: true } : q));
+        }
+    } catch (err: any) {
+        useAppStore.getState().addToast({ title: 'CLAIM FAILED', message: err.response?.data?.message || "Sync error.", type: 'error' });
+    }
+  };
+
+  const formattedQuests = quests.map(mq => ({
+    id: mq.id,
+    title: mq.quest.title,
+    desc: mq.quest.description,
+    reward: mq.quest.rewardXp,
+    progress: mq.currentValue,
+    target: mq.quest.targetValue,
+    isClaimed: mq.isClaimed
+  }));
+
   return (
-    <div className="fade-in space-y-10 pb-40">
+    <div className="fade-in space-y-10 pb-10">
       <div className="pt-6">
         <h1 className="text-xl font-black italic tracking-tighter uppercase text-white">
           PLAY <span className="text-primary">ARENA</span>
@@ -222,7 +259,25 @@ export function PlayScreen({ member }: { member: any }) {
         <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
       </div>
 
-      {/* ─── TRAINING MODE ENTRY (MOVED FROM DASHBOARD) ─── */}
+      {/* ─── BOOKING MEJA ─── */}
+      <button 
+        onClick={() => setActiveTab('booking')}
+        className="w-full bg-gradient-to-r from-[#1a2535]/80 to-[#0d1a2a]/80 border border-blue-500/20 rounded-[28px] p-6 flex items-center gap-6 group active:scale-95 transition-all shadow-lg hover:border-blue-400/40"
+      >
+        <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+          <LayoutGrid className="w-7 h-7 text-blue-400" strokeWidth={2.5} />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] italic mb-1">Reserve Protocol</p>
+          <h3 className="text-lg font-black text-white italic uppercase tracking-tighter leading-none mb-1">BOOKING MEJA</h3>
+          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest italic">Pesan meja & pilih jadwal main</p>
+        </div>
+        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400/60 group-hover:text-blue-400 transition-colors border border-blue-500/10">
+          <ChevronRight className="w-5 h-5" />
+        </div>
+      </button>
+
+      {/* ─── TRAINING MODE ENTRY ─── */}
       <button 
         onClick={() => setActiveTab('training')}
         className="bg-[#1a1f35]/50 border border-white/5 rounded-[28px] p-6 flex items-center gap-6 group active:scale-95 transition-all shadow-lg"
@@ -239,6 +294,12 @@ export function PlayScreen({ member }: { member: any }) {
           <ChevronRight className="w-5 h-5" />
         </div>
       </button>
+
+      {/* ─── DAILY OPERATIONS (MOVED FROM DASHBOARD) ─── */}
+      <QuestCard 
+        quests={formattedQuests} 
+        onClaim={handleClaimQuest} 
+      />
 
       <LiveTicker />
 

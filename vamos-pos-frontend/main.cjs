@@ -24,7 +24,9 @@ function startBackend() {
         : path.join(__dirname, '../vamos-pos-backend/.env');
 
     // 2. LOAD ENVIRONMENT VARIABLES
+    console.log('--- ENVIRONMENT LOADING ---');
     if (fs.existsSync(internalEnv)) {
+        console.log('Loading internal .env from:', internalEnv);
         Object.assign(process.env, dotenv.parse(fs.readFileSync(internalEnv)));
     }
 
@@ -32,8 +34,16 @@ function startBackend() {
     const portableDir = process.env.PORTABLE_EXECUTABLE_DIR || process.cwd();
     const externalEnv = path.join(portableDir, '.env');
     if (fs.existsSync(externalEnv)) {
-        Object.assign(process.env, dotenv.parse(fs.readFileSync(externalEnv)));
+        console.log('Loading external .env from:', externalEnv);
+        const extConfig = dotenv.parse(fs.readFileSync(externalEnv));
+        Object.assign(process.env, extConfig);
+        if (extConfig.RELAY_COM_PORT) {
+            console.log('DEBUG: RELAY_COM_PORT set to', extConfig.RELAY_COM_PORT, 'from external .env');
+        }
+    } else {
+        console.log('No external .env found at:', externalEnv);
     }
+    console.log('---------------------------');
 
     console.log('Starting Vamos Backend at:', backendPath);
 
