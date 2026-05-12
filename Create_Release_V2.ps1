@@ -3,7 +3,7 @@
 # ======================================================
 
 $ErrorActionPreference = "Stop"
-$ReleaseDir = "d:\APPS\vamosmobile\RELEASE_KASIR_V2"
+$ReleaseDir = "d:\APPS\vamosmobile\RELEASE_KASIR_V2_FIXED"
 
 Write-Host "######################################################" -ForegroundColor Cyan
 Write-Host "#       VAMOS POOL & CAFE - RELEASE V2 SYSTEM        #" -ForegroundColor Cyan
@@ -45,9 +45,33 @@ Write-Host "   -> Electron packaging COMPLETE." -ForegroundColor Green
 # 5. COPY TO RELEASE FOLDER
 Write-Host "`n[4/4] Preparing Release V2 folder..." -ForegroundColor Yellow
 $distDir = "d:\APPS\vamosmobile\vamos-pos-frontend\dist"
-Copy-Item -Path "$distDir\Vamos_POS_Portable.exe" -Destination "$ReleaseDir\" -Force
-Copy-Item -Path "$distDir\Vamos_POS_Setup_*.exe" -Destination "$ReleaseDir\" -Force
+
+# Check if Standalone Exe exists, if not copy Unpacked folder
+if (Test-Path "$distDir\Vamos_POS_Portable.exe") {
+    Copy-Item -Path "$distDir\Vamos_POS_Portable.exe" -Destination "$ReleaseDir\" -Force
+}
+if (Test-Path "$distDir\Vamos_POS_Setup_*.exe") {
+    Copy-Item -Path "$distDir\Vamos_POS_Setup_*.exe" -Destination "$ReleaseDir\" -Force
+}
+
+if (Test-Path "$distDir\win-unpacked") {
+    Write-Host "   -> Copying Unpacked App (Fallback)..." -ForegroundColor Gray
+    Copy-Item -Path "$distDir\win-unpacked" -Destination "$ReleaseDir\Vamos_POS_App" -Recurse -Force
+}
+
+# Copy Backend to root for diagnostic scripts
+Copy-Item -Path "d:\APPS\vamosmobile\vamos-pos-backend\vamous-pos.exe" -Destination "$ReleaseDir\" -Force
+
+# Copy Backend to the expected internal path for the Unpacked App
+$InternalBackendDir = "$ReleaseDir\Vamos_POS_App\resources\backend"
+if (!(Test-Path $InternalBackendDir)) { New-Item -ItemType Directory -Path $InternalBackendDir -Force }
+Copy-Item -Path "d:\APPS\vamosmobile\vamos-pos-backend\vamous-pos.exe" -Destination "$InternalBackendDir\" -Force
+Copy-Item -Path "d:\APPS\vamosmobile\vamos-pos-backend\.env" -Destination "$InternalBackendDir\" -Force
+
 Copy-Item -Path "d:\APPS\vamosmobile\CARA_INSTALL_V2.txt" -Destination "$ReleaseDir\CARA_INSTALL.txt" -Force
+Copy-Item -Path "d:\APPS\vamosmobile\diagnose_hardware.js" -Destination "$ReleaseDir\" -Force
+Copy-Item -Path "d:\APPS\vamosmobile\DIAGNOSE_HARDWARE.bat" -Destination "$ReleaseDir\" -Force
+Copy-Item -Path "d:\APPS\vamosmobile\MASTER_SETUP.bat" -Destination "$ReleaseDir\" -Force
 
 # Create a fresh .env for the user with AUTO support
 $envContent = @"
@@ -61,7 +85,7 @@ RELAY_API_KEY="relay_secret_key"
 IS_LOCAL_ELECTRON=true
 ENABLE_BRIDGE=true
 CLOUD_BASE_URL=https://api.vamospool.id
-RELAY_COM_PORT=COM3
+RELAY_COM_PORT=AUTO
 SYNC_SECRET=sync_secret_key
 VPS_SYNC_URL=https://api.vamospool.id
 "@

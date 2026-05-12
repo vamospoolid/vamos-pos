@@ -29,7 +29,8 @@ LANGKAH 4: SETTING PRINTER
 LANGKAH 5: JALANKAN APLIKASI
 1. Buka VAMOS POOL POS.
 2. Cek pojok kanan atas: Indikator Hardware harus berwarna HIJAU.
-3. Jika tetap MERAH, cek kabel USB Relay dan pastikan driver CH340 terinstall.
+3. Jika tetap MERAH, jalankan file "DIAGNOSE_HARDWARE.bat" untuk melihat apa yang salah.
+4. Pastikan driver CH340 sudah terinstall.
 
 TIPS: Jika port hardware berubah, aplikasi akan otomatis mendeteksi ulang saat restart.
 ===========================================================

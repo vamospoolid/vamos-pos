@@ -47,6 +47,14 @@
       {
         "from": "../vamos-pos-backend/node_modules/@serialport/bindings-cpp/prebuilds/win32-x64/@serialport+bindings-cpp.node",
         "to": "backend/@serialport+bindings-cpp.node"
+      },
+      {
+        "from": "../diagnose_hardware.js",
+        "to": "backend/diagnose_hardware.js"
+      },
+      {
+        "from": "../DIAGNOSE_HARDWARE.bat",
+        "to": "backend/DIAGNOSE_HARDWARE.bat"
       }
     ],
     "win": {
@@ -56,7 +64,8 @@
       ],
       "icon": "public/favicon.png",
       "requestedExecutionLevel": "requireAdministrator",
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "publish": null
     },
     "nsis": {
       "oneClick": false,

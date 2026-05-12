@@ -1,5 +1,7 @@
 # Ignore Large Folders (Biang Kerok Berat)
 RELEASE_KASIR_V1/
+RELEASE_KASIR_V2/
+RELEASE_KASIR_V2_FIXED/
 node_modules/
 dist/
 .next/

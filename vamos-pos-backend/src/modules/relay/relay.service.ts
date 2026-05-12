@@ -61,9 +61,15 @@ export class RelayService {
 
     static async scanPorts(): Promise<any[]> {
         try {
-            const ports = await SerialPort.list();
-            return ports.map(p => ({ path: p.path, manufacturer: (p as any).manufacturer }));
+            const scanPromise = SerialPort.list();
+            const timeoutPromise = new Promise<any[]>((_, reject) => 
+                setTimeout(() => reject(new Error('Scan timeout')), 5000)
+            );
+
+            const ports = await Promise.race([scanPromise, timeoutPromise]);
+            return ports;
         } catch (err: any) {
+            logger.error(`⚠️ [SERIAL_SCAN] Error or Timeout: ${err.message}`);
             return [];
         }
     }
@@ -72,7 +78,7 @@ export class RelayService {
         if (this.isScanning) return null;
         this.isScanning = true;
         try {
-            const allPorts = await SerialPort.list();
+            const allPorts = await this.scanPorts();
             
             // 1. Filter only CH340-like ports which are common for our relay (VendorId: 1a86, ProductId: 7523)
             // But we keep others as fallback if CH340 filter is too strict.
@@ -129,7 +135,13 @@ export class RelayService {
             let testPort: SerialPort;
             try {
                 testPort = new SerialPort({ path: portPath, baudRate: 9600, autoOpen: false });
+                const timeout = setTimeout(() => {
+                    if (testPort.isOpen) testPort.close();
+                    resolve(false);
+                }, 1000);
+
                 testPort.open((err) => {
+                    clearTimeout(timeout);
                     if (err) resolve(false);
                     else {
                         testPort.close(() => resolve(true));
@@ -184,19 +196,29 @@ export class RelayService {
 
         try {
             logger.info(`🔌 [RELAY_INIT] Attempting to open: ${comPortPath}...`);
-            self.port = new SerialPort({ path: comPortPath as string, baudRate: 9600, autoOpen: false });
+            self.port = new SerialPort({ 
+                path: comPortPath as string, 
+                baudRate: 9600, 
+                autoOpen: false,
+                lock: false // Allow other processes to potentially see it if needed, though usually true is better.
+            });
+
             self.port.open((err: any) => {
                 if (err) {
                     logger.error(`❌ HARDWARE ERROR: ${comPortPath} - ${err.message}`);
                     self.lastError = err.message;
                     self.updateConnectionStatus(false);
+                    
+                    // If we failed to open the explicitly set port, try AUTO as fallback
                     logger.info(`🔍 [RELAY_INIT] Falling back to Auto-Detection...`);
                     this.autoDetectPort(comPortPath as string).then(found => { 
-                        if (found) {
+                        if (found && found !== comPortPath) {
                             logger.info(`✨ [RELAY_INIT] Auto-detected working port: ${found}`);
                             this.init(found); 
                         } else {
-                            logger.error(`💀 [RELAY_INIT] Auto-detection failed. No valid relay found.`);
+                            logger.error(`💀 [RELAY_INIT] Auto-detection failed or found same port. No valid relay found.`);
+                            // Retry after delay
+                            setTimeout(() => this.init(), 10000);
                         }
                     });
                 } else {
@@ -207,8 +229,17 @@ export class RelayService {
                 }
             });
 
-            self.port.on('close', () => { self.updateConnectionStatus(false); setTimeout(() => this.init(), 5000); });
-            self.port.on('error', () => { self.updateConnectionStatus(false); });
+            self.port.on('close', () => { 
+                logger.warn(`🔌 [RELAY] Port closed unexpectedly: ${comPortPath}`);
+                self.updateConnectionStatus(false); 
+                self.port = null; // Clear reference
+                setTimeout(() => this.init(), 5000); 
+            });
+
+            self.port.on('error', (err: any) => { 
+                logger.error(`🔌 [RELAY] Port Error: ${err.message}`);
+                self.updateConnectionStatus(false); 
+            });
         } catch (e) { self.updateConnectionStatus(false); }
 
         for (let i = 1; i <= 20; i++) { if (self.mockStates[i] === undefined) self.mockStates[i] = false; }

@@ -357,9 +357,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [checkoutBill, setCheckoutBill] = useState<any>(null);
   const [checkoutMethod, setCheckoutMethod] = useState<string>('CASH');
   const [checkoutDiscount, setCheckoutDiscount] = useState<number>(0);
+  const [selectedDiscountCategoryId, setSelectedDiscountCategoryId] = useState<string>('');
   const [checkoutReceived, setCheckoutReceived] = useState<number>(0);
   const [applyTax, setApplyTax] = useState(false);
   const [applyService, setApplyService] = useState(false);
+
+  const openCheckout = (bill: any, initialMethod: string = 'CASH') => {
+    setCheckoutBill(bill);
+    setCheckoutMethod(initialMethod);
+    setCheckoutDiscount(0);
+    setSelectedDiscountCategoryId('');
+    setCheckoutReceived(0);
+    setApplyTax(false);
+    setApplyService(false);
+  };
 
   const [startTableId, setStartTableId] = useState<string | null>(null);
   const [memberId, setMemberId] = useState<string>('');
@@ -537,11 +548,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           setTimeout(() => setShowHwProgress(false), 5000);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       setHwStatus('ERROR');
+      const msg = err.response?.data?.message || err.message || 'Could not communicate with Backend';
+      setHwMessage(msg);
       if (!silent) {
-        setHwMessage('Could not communicate with Backend');
-        setTimeout(() => setShowHwProgress(false), 5000);
+        setTimeout(() => setShowHwProgress(false), 8000);
       }
     }
   };
@@ -618,6 +630,27 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Reactive discount calculation
+  useEffect(() => {
+    if (!selectedDiscountCategoryId || !checkoutBill) return;
+    const cat = discountCategories.find(c => c.id === selectedDiscountCategoryId);
+    if (!cat) return;
+
+    const subtotal = (checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0);
+    const servicePercent = checkoutBill.table?.venue?.servicePercent ?? venueConfig?.servicePercent ?? 5;
+    const taxPercent = checkoutBill.table?.venue?.taxPercent ?? venueConfig?.taxPercent ?? 11;
+
+    const serviceCharge = applyService ? Math.round(subtotal * (servicePercent / 100)) : 0;
+    const taxValue = applyTax ? Math.round((subtotal + serviceCharge) * (taxPercent / 100)) : 0;
+    const totalWithCharges = subtotal + serviceCharge + taxValue;
+
+    if (cat.type === 'PERCENTAGE') {
+      setCheckoutDiscount(Math.round((totalWithCharges * cat.value) / 100));
+    } else {
+      setCheckoutDiscount(cat.value);
+    }
+  }, [selectedDiscountCategoryId, checkoutBill?.tableAmount, checkoutBill?.fnbAmount, applyTax, applyService, discountCategories, venueConfig]);
 
   // Update dynamic price estimate
   useEffect(() => {
@@ -730,9 +763,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       const newlyEnded = pendingRes.data.data?.find((s: any) => s.id === sessionId) || pendingRes.data.find((s: any) => s.id === sessionId);
 
       if (newlyEnded) {
-        setApplyTax(false);
-        setApplyService(false);
-        setCheckoutBill(newlyEnded);
+        openCheckout(newlyEnded);
       }
 
       fetchData();
@@ -823,6 +854,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         await api.post('/sessions/pending', { id: checkoutBill.id });
       }
       setCheckoutBill(null);
+      setSelectedDiscountCategoryId('');
       setCheckoutDiscount(0);
       setCheckoutReceived(0);
       fetchData();
@@ -1100,11 +1132,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     try {
                       await api.put(`/venues/${venueConfig.id}`, { 
                         ...venueConfig, 
-                        relayComPort: 'COM3' 
+                        relayComPort: 'AUTO' 
                       });
-                      setVenueConfig({ ...venueConfig, relayComPort: 'COM3' });
+                      setVenueConfig({ ...venueConfig, relayComPort: 'AUTO' });
                     } catch (err) {
-                      console.error('Failed to auto-set COM3', err);
+                      console.error('Failed to auto-set AUTO', err);
                     }
                   }
                   checkHardware();
@@ -1309,7 +1341,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                       <tbody>
                         {pendingBills.map(bill => (
                           <tr key={bill.id} 
-                            onClick={() => setCheckoutBill(bill)}
+                            onClick={() => openCheckout(bill)}
                             className="group border-t border-[#1a1a1a] hover:bg-white/[0.05] cursor-pointer transition-colors"
                           >
                             <td className="px-5 py-4">
@@ -1363,26 +1395,10 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                               <div className="flex gap-2 justify-end">
                                 {bill.id && (
                                   <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (!bill.memberId) {
-                                          setCheckoutBill(bill);
-                                          vamosAlert('Pilih member terlebih dahulu di modal checkout untuk melakukan BON');
-                                          return;
-                                        }
-                                        if (!(await vamosConfirm(`Catat tagihan ${bill.table?.name || 'FNB'} sebesar Rp ${(bill.totalAmount || 0).toLocaleString('id-ID')} sebagai BON?`))) return;
-                                        try {
-                                          await api.post(`/sessions/${bill.id}/pay-debt`, {
-                                            discount: 0,
-                                            taxAmount: 0,
-                                            serviceAmount: 0
-                                          });
-                                          fetchData();
-                                          vamosAlert('Bill berhasil dicatat sebagai BON');
-                                        } catch (err: any) {
-                                          vamosAlert(err.response?.data?.message || 'Gagal menyimpan sebagai BON');
-                                        }
-                                      }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openCheckout(bill, 'BON');
+                                    }}
                                     className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105"
                                     style={{ background: 'rgba(255, 153, 0, 0.1)', color: '#ff9900', border: '1px solid rgba(255, 153, 0, 0.25)' }}
                                   >
@@ -1399,9 +1415,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setApplyTax(false);
-                                    setApplyService(false);
-                                    setCheckoutBill(bill);
+                                    openCheckout(bill);
                                   }}
                                   className="px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105"
                                   style={{ background: '#ff3333', color: '#fff', boxShadow: '0 0 12px rgba(255,51,51,0.25)' }}
@@ -1657,23 +1671,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-2">Discount Category</span>
                         <select
                           className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-3 py-2.5 text-xs text-yellow-500 font-bold uppercase outline-none focus:border-yellow-500 transition-colors cursor-pointer appearance-none"
+                          value={selectedDiscountCategoryId}
                           onChange={(e) => {
-                            const catId = e.target.value;
-                            if (!catId) {
+                            setSelectedDiscountCategoryId(e.target.value);
+                            if (!e.target.value) {
                               setCheckoutDiscount(0);
-                              return;
-                            }
-                            const cat = discountCategories.find(c => c.id === catId);
-                            if (cat) {
-                              if (cat.type === 'PERCENTAGE') {
-                                const subtotal = (checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0);
-                                const serviceCharge = applyService ? Math.round(subtotal * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0;
-                                const taxValue = applyTax ? Math.round((subtotal + serviceCharge) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0;
-                                const totalWithCharges = subtotal + serviceCharge + taxValue;
-                                setCheckoutDiscount(Math.round((totalWithCharges * cat.value) / 100));
-                              } else {
-                                setCheckoutDiscount(cat.value);
-                              }
                             }
                           }}
                         >
@@ -1688,7 +1690,10 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         <input
                           type="text"
                           value={checkoutDiscount ? checkoutDiscount.toLocaleString('id-ID') : ''}
-                          onChange={e => setCheckoutDiscount(parseInt(e.target.value.replace(/\D/g, '')) || 0)}
+                          onChange={e => {
+                            setSelectedDiscountCategoryId(''); // Clear category if manual value is entered
+                            setCheckoutDiscount(parseInt(e.target.value.replace(/\D/g, '')) || 0);
+                          }}
                           placeholder="0"
                           className="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-2.5 text-right font-mono text-yellow-500 font-bold focus:outline-none focus:border-yellow-500 transition-colors"
                         />

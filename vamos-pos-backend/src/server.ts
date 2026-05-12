@@ -12,6 +12,51 @@ import { logger } from './utils/logger';
 import { RelayService } from './modules/relay/relay.service';
 import { getCloudSocket, getLastCloudError } from './socket';
 
+// ── DIAGNOSTIC MODE ──────────────────────────────────────────────────────
+if (process.argv.includes('--diagnose')) {
+    const { SerialPort } = require('serialport');
+    console.log('\n======================================================');
+    console.log('VAMOS POS - HARDWARE DIAGNOSTIC MODE');
+    console.log('======================================================');
+    
+    async function runDiag() {
+        try {
+            const ports = await SerialPort.list();
+            console.log(`\nTerdeteksi ${ports.length} port serial:\n`);
+            
+            for (const port of ports) {
+                const isCH340 = port.vendorId?.toLowerCase() === '1a86' || port.manufacturer?.toLowerCase().includes('wch');
+                console.log(`${isCH340 ? '[RELAY]' : '[PORT]'} ${port.path}`);
+                console.log(`   - Manufacturer: ${port.manufacturer || 'Unknown'}`);
+                console.log(`   - Vendor ID:    ${port.vendorId || 'N/A'}`);
+                
+                try {
+                    const testPort = new SerialPort({ path: port.path, baudRate: 9600, autoOpen: false });
+                    await new Promise<void>((res) => {
+                        testPort.open((err: any) => {
+                            if (err) console.log(`   - Status:       ❌ SIBUK (${err.message})`);
+                            else {
+                                console.log(`   - Status:       ✅ TERSEDIA`);
+                                testPort.close(() => res());
+                            }
+                        });
+                    });
+                } catch (e) { }
+                console.log('');
+            }
+            console.log('======================================================');
+            console.log('Saran: Gunakan port [RELAY] di .env (RELAY_COM_PORT)');
+            console.log('Atau set RELAY_COM_PORT=AUTO agar otomatis.');
+            console.log('======================================================\n');
+        } catch (err: any) {
+            console.error('Diagnostic error:', err.message);
+        }
+        process.exit(0);
+    }
+    runDiag();
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 // --- PKG NATIVE MODULES WORKAROUND ---
 // Memaksa pkg untuk membundel dan men-extract file .node yang dibutuhkan serialport
 // Ini memperbaiki bug CRASH saat app portable (vamous-pos.exe) dijalankan.
