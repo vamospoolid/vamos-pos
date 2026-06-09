@@ -1582,8 +1582,19 @@ export class PlayerController {
                 orderBy: { category: 'asc' }
             });
 
+            // Merchandise categories filter helper
+            const merchKeywords = ['merchandise', 'jersey', 'baju kaos', 'kaos tangan', 'aksesoris', 'gloves', 't-shirt', 'shirt', 'kaos', 'glove', 'merch', 'stiker', 'sticker', 'gantungan kunci', 'sleeve', 'chalk', 'kapur'];
+            const isMerch = (cat: string | null) => {
+                if (!cat) return false;
+                const lower = cat.toLowerCase().trim();
+                return merchKeywords.some(kw => lower.includes(kw));
+            };
+
+            // Filter out merchandise
+            const fnbProducts = products.filter(p => !isMerch(p.category));
+
             // Group by category
-            const menu = products.reduce((acc: any, product) => {
+            const menu = fnbProducts.reduce((acc: any, product) => {
                 const category = product.category || 'Other';
                 if (!acc[category]) acc[category] = [];
                 acc[category].push(product);
@@ -1594,11 +1605,53 @@ export class PlayerController {
         } catch (error) { next(error); }
     }
 
+    static async getStoreProducts(req: Request, res: Response, next: NextFunction) {
+        try {
+            const products = await prisma.product.findMany({
+                where: { deletedAt: null, stock: { gt: 0 } },
+                orderBy: { category: 'asc' }
+            });
+
+            // Merchandise categories filter helper
+            const merchKeywords = ['merchandise', 'jersey', 'baju kaos', 'kaos tangan', 'aksesoris', 'gloves', 't-shirt', 'shirt', 'kaos', 'glove', 'merch', 'stiker', 'sticker', 'gantungan kunci', 'sleeve', 'chalk', 'kapur'];
+            const isMerch = (cat: string | null) => {
+                if (!cat) return false;
+                const lower = cat.toLowerCase().trim();
+                return merchKeywords.some(kw => lower.includes(kw));
+            };
+
+            // Filter ONLY merchandise
+            const merchProducts = products.filter(p => isMerch(p.category));
+
+            // Group by category
+            const storeProducts = merchProducts.reduce((acc: any, product) => {
+                const category = product.category || 'Merchandise';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(product);
+                return acc;
+            }, {});
+
+            res.json({ success: true, data: storeProducts });
+        } catch (error) { next(error); }
+    }
+
     static async placeOrder(req: Request, res: Response, next: NextFunction) {
         try {
             const { memberId, sessionId, items } = req.body;
-            if (!memberId || !sessionId || !items || !items.length) {
+            if (!memberId || !items || !items.length) {
                 return res.status(400).json({ success: false, message: 'Missing required order details' });
+            }
+
+            let targetSessionId = sessionId;
+            if (!targetSessionId) {
+                const { SessionService } = await import('../sessions/session.service');
+                const member = await prisma.member.findUnique({ where: { id: memberId } });
+                const newSession = await SessionService.createFnbSession(
+                    `PLAYER_${memberId}`,
+                    memberId,
+                    member?.name || 'Guest Player'
+                );
+                targetSessionId = newSession.id;
             }
 
             const { OrderService } = await import('../orders/order.service');
@@ -1606,7 +1659,7 @@ export class PlayerController {
             const results = [];
             for (const item of items) {
                 const order = await OrderService.addOrder(
-                    sessionId,
+                    targetSessionId,
                     item.productId,
                     item.quantity,
                     `PLAYER_${memberId}`
@@ -1616,7 +1669,7 @@ export class PlayerController {
 
             getIO().emit('orders:updated');
 
-            res.json({ success: true, data: results, message: 'F&B Order Transmitted!' });
+            res.json({ success: true, data: results, message: 'Order Transmitted!' });
         } catch (error) { next(error); }
     }
 

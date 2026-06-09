@@ -53,6 +53,7 @@ router.post('/booking', PlayerController.createBooking);
 
 // Direct FNB Order
 router.get('/menu', PlayerController.getMenu);
+router.get('/store-products', PlayerController.getStoreProducts);
 router.post('/order', PlayerController.placeOrder);
 
 // Parameterized routes (Catch-alls for /:id, must be at the bottom)

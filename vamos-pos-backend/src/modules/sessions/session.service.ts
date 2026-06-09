@@ -415,6 +415,153 @@ export class SessionService {
         return result;
     }
 
+    /**
+     * SPLIT BILL: Bayar satu sesi dengan 2 metode berbeda (misal: QRIS + CASH).
+     * Membuat 2 record Payment terpisah agar laporan QRIS vs Cash tetap akurat.
+     * Session.paymentMethod diset ke 'SPLIT'.
+     */
+    static async paySessionSplit(
+        sessionId: string,
+        qrisAmount: number,
+        cashAmount: number,
+        cashReceived: number,
+        userId: string,
+        discount: number = 0,
+        taxAmount: number = 0,
+        serviceAmount: number = 0
+    ) {
+        const session = await prisma.session.findUnique({
+            where: { id: sessionId },
+            include: { table: true }
+        });
+
+        if (!session || !['FINISHED', 'PENDING'].includes(session.status)) {
+            throw new AppError('Invalid session for payment', 400);
+        }
+
+        const subtotal = session.tableAmount + session.fnbAmount;
+        const totalWithCharges = subtotal + (taxAmount || 0) + (serviceAmount || 0);
+        const finalAmount = Math.max(0, totalWithCharges - discount);
+
+        // Validate split totals match the bill
+        const splitTotal = qrisAmount + cashAmount;
+        if (Math.abs(splitTotal - finalAmount) > 1) { // allow Rp1 rounding diff
+            throw new AppError(`Split total (${splitTotal}) tidak sama dengan tagihan (${finalAmount})`, 400);
+        }
+
+        const cashChange = cashReceived > cashAmount ? cashReceived - cashAmount : 0;
+        const memberId = session.memberId;
+
+        const result = await prisma.$transaction(async (tx) => {
+            const activeShift = await tx.cashierShift.findFirst({
+                where: { userId, status: 'OPEN' }
+            });
+
+            const shiftId = activeShift ? activeShift.id : null;
+
+            // Create QRIS payment record
+            const qrisPayment = await tx.payment.create({
+                data: {
+                    sessionId,
+                    amount: qrisAmount,
+                    discount: 0, // discount applied to cash portion
+                    received: qrisAmount,
+                    change: 0,
+                    method: 'QRIS',
+                    status: 'SUCCESS',
+                    cashierId: userId,
+                    shiftId,
+                    notes: 'SPLIT_PAYMENT'
+                }
+            });
+
+            // Create CASH payment record
+            const cashPayment = await tx.payment.create({
+                data: {
+                    sessionId,
+                    amount: cashAmount,
+                    discount: discount || 0,
+                    received: cashReceived,
+                    change: cashChange,
+                    method: 'CASH',
+                    status: 'SUCCESS',
+                    cashierId: userId,
+                    shiftId,
+                    notes: 'SPLIT_PAYMENT'
+                }
+            });
+
+            // Update session to PAID with method = SPLIT
+            await tx.session.update({
+                where: { id: sessionId },
+                data: {
+                    status: 'PAID',
+                    taxAmount: taxAmount || 0,
+                    serviceAmount: serviceAmount || 0,
+                    totalAmount: totalWithCharges,
+                    paymentMethod: 'SPLIT'
+                } as any
+            });
+
+            // Award loyalty points
+            if (memberId && finalAmount > 0) {
+                try {
+                    const { LoyaltyService } = await import('../loyalty/loyalty.service');
+                    if (session.tableAmount > 0 && session.memberId) {
+                        await LoyaltyService.awardGamePoints(sessionId, session.memberId, session.tableAmount);
+                    }
+                    if (session.fnbAmount > 0 && session.memberId) {
+                        await LoyaltyService.awardFnbPoints(session.memberId, session.fnbAmount, sessionId);
+                    }
+                    await MemberService.updateSpend(memberId, finalAmount);
+                    if (session.memberId) {
+                        await LoyaltyService.checkAndUpdateStreak(session.memberId);
+                    }
+                } catch (e) {
+                    console.error('Loyalty award error (split):', e);
+                }
+            }
+
+            return { qrisPayment, cashPayment };
+        });
+
+        await AuditService.log(userId, 'SESSION_SPLIT_PAYMENT', 'Payment', {
+            sessionId,
+            qrisAmount,
+            cashAmount,
+            qrisPaymentId: result.qrisPayment.id,
+            cashPaymentId: result.cashPayment.id
+        });
+        emitSocket('session:paid', { sessionId, amount: finalAmount, method: 'SPLIT' });
+
+        // WA receipt for member
+        if (memberId) {
+            try {
+                const venue = await prisma.venue.findFirst();
+                const venueName = venue?.name || 'VAMOS';
+                const member = await prisma.member.findUnique({ where: { id: memberId } });
+                if (member && member.phone) {
+                    const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
+                    const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.PAYMENT_RECEIPT, {
+                        name: member.name,
+                        venue: venueName,
+                        table: session.table?.name || 'VAMOS',
+                        amount: finalAmount.toLocaleString('id-ID'),
+                    });
+                    if (waTemplate) {
+                        import('../whatsapp/wa.service').then(({ waService }) => {
+                            waService.sendMessage(member.phone as string, waTemplate.body, waTemplate.imageUrl || undefined);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to send WA receipt (split):', error);
+            }
+        }
+
+        return result;
+    }
+
     static remapSession(s: any) {
         if (!s) return null;
         return {
