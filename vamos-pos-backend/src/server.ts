@@ -11,6 +11,10 @@ import routes from './routes';
 import { logger } from './utils/logger';
 import { RelayService } from './modules/relay/relay.service';
 import { getCloudSocket, getLastCloudError } from './socket';
+import { initializeTimezoneFromVenue } from './utils/timezone.utils';
+
+// Initialize timezone offset from DB
+initializeTimezoneFromVenue();
 
 // ── DIAGNOSTIC MODE ──────────────────────────────────────────────────────
 if (process.argv.includes('--diagnose')) {

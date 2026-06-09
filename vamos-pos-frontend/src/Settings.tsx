@@ -27,7 +27,8 @@ export default function Settings() {
         qrisImageUrl: '',
         phone: '',
         waVerificationText: '',
-        isRelayEnabled: true
+        isRelayEnabled: true,
+        timezoneOffset: 8
     });
 
     // Form Table
@@ -96,7 +97,8 @@ export default function Settings() {
                     qrisImageUrl: serpongVenue.qrisImageUrl || '',
                     phone: serpongVenue.phone || '',
                     waVerificationText: serpongVenue.waVerificationText || '',
-                    isRelayEnabled: serpongVenue.isRelayEnabled ?? true
+                    isRelayEnabled: serpongVenue.isRelayEnabled ?? true,
+                    timezoneOffset: serpongVenue.timezoneOffset ?? 8
                 });
             }
         } catch (err) {
@@ -427,6 +429,19 @@ export default function Settings() {
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Address / Tagline</label>
                                     <textarea rows={2} value={venueForm.address} onChange={e => setVenueForm({ ...venueForm, address: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Timezone / Zona Waktu</label>
+                                    <select 
+                                        value={venueForm.timezoneOffset} 
+                                        onChange={e => setVenueForm({ ...venueForm, timezoneOffset: Number(e.target.value) })} 
+                                        className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors text-white"
+                                    >
+                                        <option value={7}>WIB (UTC+7) - Jawa, Sumatera, dll</option>
+                                        <option value={8}>WITA (UTC+8) - Bali, Sulawesi, dll</option>
+                                        <option value={9}>WIT (UTC+9) - Papua, Maluku</option>
+                                    </select>
+                                    <p className="text-[10px] text-gray-600 mt-2 font-medium px-1 italic">* Digunakan untuk sinkronisasi laporan harian di Cloud/VPS.</p>
                                 </div>
                                 <div className="p-4 bg-[#111] border border-[#222] rounded-xl">
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Splash Screen Logo</label>

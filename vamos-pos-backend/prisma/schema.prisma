@@ -43,6 +43,8 @@ model Venue {
   phone               String?   @default("6281244047610")
   waVerificationText  String?   @default("Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:")
   isRelayEnabled      Boolean   @default(true)
+  /// UTC offset in hours: 7=WIB, 8=WITA, 9=WIT. Used by VPS for timezone-aware reports.
+  timezoneOffset      Int       @default(8)
   tables              Table[]
 }
 

@@ -1,12 +1,15 @@
 import { prisma } from '../../database/db';
 import { AppError } from '../../utils/errors';
 import { RelayService } from '../relay/relay.service';
+import { refreshTimezoneCache } from '../../utils/timezone.utils';
 
 export class VenueService {
-    static async createVenue(data: { name: string; address?: string; openTime?: string; closeTime?: string; relayComPort?: string; taxPercent?: number; servicePercent?: number }) {
-        return prisma.venue.create({
+    static async createVenue(data: { name: string; address?: string; openTime?: string; closeTime?: string; relayComPort?: string; taxPercent?: number; servicePercent?: number; timezoneOffset?: number }) {
+        const venue = await prisma.venue.create({
             data
         });
+        await refreshTimezoneCache();
+        return venue;
     }
 
     static async getVenues() {
@@ -53,6 +56,7 @@ export class VenueService {
         qrisImageUrl?: string;
         phone?: string;
         waVerificationText?: string;
+        timezoneOffset?: number;
     }) {
         const venue = await prisma.venue.findFirst({ where: { id, deletedAt: null } });
         if (!venue) {
@@ -77,6 +81,8 @@ export class VenueService {
             // JUGA UPDATE LOKAL (JIKA SEDANG RUN DI MODE LOKAL)
             RelayService.init(data.relayComPort);
         }
+        
+        await refreshTimezoneCache();
 
         return updated;
     }
