@@ -1,10 +1,17 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { createTournament, getTournaments, getTournamentById, registerParticipant, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, updateParticipant } from './tournament.controller';
+import { generateTournamentPromo, analyzePromoImage } from './tournament.creative.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.use(authenticate);
+
+// AI Creative & Content Automation routes
+router.post('/creative/generate', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), generateTournamentPromo);
+router.post('/creative/analyze-image', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), upload.single('image'), analyzePromoImage);
 
 router.post('/', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), createTournament);
 router.get('/', getTournaments);
@@ -24,3 +31,4 @@ router.delete('/:id/participants', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', '
 router.delete('/:id', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), deleteTournament);
 
 export default router;
+

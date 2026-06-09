@@ -179,4 +179,76 @@ export class BackupService {
             return [];
         }
     }
+
+    /**
+     * Restore database dari file .sql yang ada di folder backups/.
+     * Ini akan MENGHAPUS SEMUA DATA saat ini dan menggantinya dengan isi dari backup.
+     */
+    static async restoreBackup(fileName: string): Promise<{ success: boolean; message: string }> {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) {
+            return { success: false, message: 'DATABASE_URL tidak ditemukan.' };
+        }
+
+        const creds = parseDbUrl(dbUrl);
+        if (!creds) {
+            return { success: false, message: 'Format DATABASE_URL tidak valid.' };
+        }
+
+        const filePath = path.join(BACKUP_DIR, fileName);
+        if (!fs.existsSync(filePath)) {
+            return { success: false, message: `File backup ${fileName} tidak ditemukan.` };
+        }
+
+        logger.info(`🔄 Memulai restore database dari → ${fileName} ...`);
+
+        try {
+            // 1. Drop schema public & re-create (Hati-hati: ini akan menghapus semua tabel)
+            const dropCmd = [
+                `set PGPASSWORD=${creds.password}`,
+                `&&`,
+                `psql`,
+                `-h ${creds.host}`,
+                `-p ${creds.port}`,
+                `-U ${creds.user}`,
+                `-d ${creds.database}`,
+                `-c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
+            ].join(' ');
+
+            await execAsync(dropCmd, { shell: 'cmd.exe' });
+            logger.info(`🧹 Schema public berhasil di-reset.`);
+
+            // 2. Restore data dari file SQL
+            const psqlCmd = [
+                `set PGPASSWORD=${creds.password}`,
+                `&&`,
+                `psql`,
+                `-h ${creds.host}`,
+                `-p ${creds.port}`,
+                `-U ${creds.user}`,
+                `-d ${creds.database}`,
+                `-f "${filePath}"`
+            ].join(' ');
+
+            await execAsync(psqlCmd, {
+                timeout: 10 * 60 * 1000, // 10 menit
+                shell: 'cmd.exe',
+            });
+
+            logger.info(`✅ Restore database selesai: ${fileName}`);
+
+            return {
+                success: true,
+                message: `Restore berhasil dari file ${fileName}. Sistem telah kembali ke state backup.`,
+            };
+
+        } catch (err: any) {
+            const errMsg = err.stderr || err.message || 'Unknown error';
+            logger.error(`❌ Restore gagal: ${errMsg}`);
+            return {
+                success: false,
+                message: `Restore gagal: ${errMsg}`,
+            };
+        }
+    }
 }

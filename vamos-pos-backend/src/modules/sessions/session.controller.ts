@@ -65,6 +65,26 @@ export const paySession = catchAsync(async (req: AuthRequest, res: Response) => 
     res.json(result);
 });
 
+export const paySessionSplit = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const schema = z.object({
+        qrisAmount: z.number().min(0),
+        cashAmount: z.number().min(0),
+        cashReceived: z.number().min(0),
+        discount: z.number().min(0).optional(),
+        taxAmount: z.number().min(0).optional(),
+        serviceAmount: z.number().min(0).optional(),
+    });
+    const { qrisAmount, cashAmount, cashReceived, discount, taxAmount, serviceAmount } = schema.parse(req.body);
+    const result = await SessionService.paySessionSplit(
+        id, qrisAmount, cashAmount, cashReceived,
+        req.user!.id, discount ?? 0, taxAmount ?? 0, serviceAmount ?? 0
+    );
+    getIO().emit('sessions:updated');
+    PrinterService.printReceipt(id);
+    res.json(result);
+});
+
 export const payAsDebt = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { discount, taxAmount, serviceAmount } = req.body;

@@ -75,7 +75,8 @@ export default function Challenges() {
         fetchChallenges();
         const interval = setInterval(fetchChallenges, 5000);
 
-        const socket = io('http://localhost:3000');
+        const socketUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
+        const socket = io(socketUrl);
         socket.on('challenge:new_arena', () => {
             fetchChallenges();
         });

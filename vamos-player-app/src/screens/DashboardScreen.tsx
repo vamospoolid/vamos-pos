@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-import { DiscoveryHeader } from '../components/DiscoveryHeader';
+
 import { FeaturedBookingCard } from '../components/FeaturedBookingCard';
 import { VerificationCard } from '../components/VerificationCard';
 import { QuickBooking } from '../components/QuickBooking';
@@ -18,8 +18,6 @@ export function DashboardScreen({ member, tournaments = [], venueInfo, loading }
 
   return (
     <div className="fade-in space-y-6 pb-10">
-      {/* ─── NEW DISCOVERY HEADER ─── */}
-      <DiscoveryHeader member={member} />
 
       <TierCard member={member} />
 

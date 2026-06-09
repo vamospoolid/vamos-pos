@@ -14,6 +14,8 @@ router.post('/fix-tables', authenticate, authorizeRoles('ADMIN', 'OWNER'), Syste
 // Database backup (pg_dump)
 router.post('/backup', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.runBackup);
 router.get('/backup/list', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.listBackups);
+router.post('/backup/restore', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.restoreBackup);
+router.post('/import', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.importDatabase);
 
 // Local-First Sync
 router.post('/sync-now', authenticate, SystemController.syncNow);

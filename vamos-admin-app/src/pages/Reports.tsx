@@ -399,25 +399,25 @@ const Reports: React.FC = () => {
             {/* ── COMMAND HEADER ─────────────────────────────────────────────────── */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2 italic">Pusat Laporan</p>
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-3xl xl:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">
+                    <p className="text-[11px] font-bold text-blue-200  tracking-wider mb-1">Pusat Laporan</p>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-3xl xl:text-5xl font-bold text-slate-800 tracking-tight   leading-none">
                         Laporan <span className="text-primary">Sektor</span>
                     </h1>
                     <div className="flex items-center gap-3 mt-4">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_var(--primary)]" />
-                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">PENGAMBILAN DATA REAL-TIME AKTIF</span>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-sm" />
+                        <span className="text-[11px] text-blue-100 font-medium tracking-wide">PENGAMBILAN DATA REAL-TIME AKTIF</span>
                     </div>
                 </div>
                 <div className="flex gap-4">
                     <button
                         onClick={fetchLive}
-                        className="p-4 rounded-2xl bg-[#1a1f35]/40 border border-white/5 text-slate-500 hover:text-primary transition-all active:scale-95 group"
+                        className="p-4 rounded-2xl bg-white/20 border border-white/20 text-white hover:bg-white/30 transition-all active:scale-95 group"
                     >
                         <RefreshCw size={22} className={loadingLive ? 'animate-spin text-primary' : 'group-hover:rotate-180 transition-transform duration-500'} />
                     </button>
                     <button
                         onClick={exportPDF}
-                        className="fiery-btn-primary px-8 py-4 text-[10px] flex items-center gap-3"
+                        className="bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-md transition-all active:scale-95 px-8 py-4 text-[10px] flex items-center gap-3"
                     >
                         <Download size={18} strokeWidth={3} />
                         Export Laporan PDF
@@ -429,15 +429,15 @@ const Reports: React.FC = () => {
             {fetchError && (
                 <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-[32px] flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
                     <div className="w-12 h-12 rounded-2xl bg-rose-500 flex items-center justify-center fiery-glow shadow-rose-500/20 shrink-0">
-                        <Activity className="text-white w-6 h-6" />
+                        <Activity className="text-slate-800 w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest italic mb-1">Data Sync Interrupted</p>
-                        <p className="text-sm font-bold text-slate-300">{fetchError}</p>
+                        <p className="text-[10px] font-bold text-rose-500  tracking-wider  mb-1">Data Sync Interrupted</p>
+                        <p className="text-sm font-bold text-slate-600">{fetchError}</p>
                     </div>
                     <button 
                         onClick={fetchLive}
-                        className="ml-auto px-6 py-3 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+                        className="ml-auto px-6 py-3 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-bold  tracking-wider border border-rose-500/20 hover:bg-rose-500/20 transition-all"
                     >
                         Retry Protocol
                     </button>
@@ -490,17 +490,17 @@ const Reports: React.FC = () => {
                         accent: '#d946ef',
                     },
                 ].map((card) => (
-                    <div key={card.label} className="fiery-card p-4 sm:p-5 flex flex-col gap-3 transition-all hover:scale-[1.02] border-white/5 hover:border-white/10" style={{ background: '#111528' }}>
+                    <div key={card.label} className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-4 sm:p-5 flex flex-col gap-3 transition-all hover:scale-[1.02] border-slate-100 hover:border-slate-200" >
                         <div className="flex items-center justify-between">
-                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-white/[0.03] border border-white/5">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-slate-50 border border-slate-100">
                                 <span style={{ color: card.accent }}>{card.icon}</span>
                             </div>
                             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: card.accent, boxShadow: `0 0 8px ${card.accent}` }} />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1 italic truncate">{card.label}</p>
-                            <p className="text-lg sm:text-xl font-black tracking-tight text-white italic truncate">{card.value}</p>
-                            <p className="text-[8px] sm:text-[9px] text-slate-500 mt-1 italic font-medium truncate">{card.sub}</p>
+                            <p className="text-[8px] sm:text-[9px] font-bold  tracking-wider text-slate-500 mb-1  truncate">{card.label}</p>
+                            <p className="text-lg sm:text-xl font-bold tracking-tight text-slate-800  truncate">{card.value}</p>
+                            <p className="text-[8px] sm:text-[9px] text-slate-500 mt-1  font-medium truncate">{card.sub}</p>
                         </div>
                     </div>
                 ))}
@@ -509,25 +509,25 @@ const Reports: React.FC = () => {
             {todayStats && (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-6 sm:px-8 py-4 rounded-[24px] bg-primary/5 border border-primary/10 animate-pulse">
                     <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_15px_var(--primary)]"></div>
-                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] italic whitespace-nowrap">Live Sektor Saat Ini:</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-sm"></div>
+                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-500  tracking-wider sm:tracking-wider  whitespace-nowrap">Live Sektor Saat Ini:</span>
                     </div>
-                    <span className="text-lg sm:text-xl font-black text-white tracking-tighter italic uppercase">Rp {todayStats.revenue.toLocaleString('id-ID')}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight  ">Rp {todayStats.revenue.toLocaleString('id-ID')}</span>
                     <div className="sm:ml-auto flex items-center gap-2">
-                        <span className="text-[8px] sm:text-[9px] font-black text-slate-600 uppercase italic">Siklus: {todayStats.openHour}:00 - {todayStats.openHour}:00</span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-600 ">Siklus: {todayStats.openHour}:00 - {todayStats.openHour}:00</span>
                     </div>
                 </div>
             )}
 
             {/* ── SECTOR TABS ─────────────────────────────────────────────────── */}
-            <div className="flex gap-2 p-2 rounded-[32px] sticky top-4 z-40 bg-[#101423]/80 backdrop-blur-2xl border border-white/5 shadow-2xl overflow-x-auto no-scrollbar">
+            <div className="flex gap-2 p-2 rounded-[32px] sticky top-4 z-40 bg-white/80 backdrop-blur-xl border border-slate-200 shadow-sm overflow-x-auto no-scrollbar">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 sm:gap-3 flex-none lg:flex-1 justify-center px-4 sm:px-6 lg:px-0 py-3 sm:py-4 rounded-[22px] text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] transition-all duration-300 italic whitespace-nowrap ${activeTab === tab.id
-                            ? 'bg-primary text-white shadow-[0_0_20px_rgba(59,130,246,0.4)] scale-105 z-10'
-                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                        className={`flex items-center gap-2 sm:gap-3 flex-none lg:flex-1 justify-center px-4 sm:px-6 lg:px-0 py-3 sm:py-4 rounded-[22px] text-[9px] sm:text-[10px] font-bold  tracking-wider sm:tracking-wider transition-all duration-300  whitespace-nowrap ${activeTab === tab.id
+                            ? 'bg-blue-600 text-white shadow-md scale-105 z-10'
+                            : 'text-slate-500 hover:text-slate-600 hover:bg-slate-100'
                             }`}
                     >
                         {tab.icon} {tab.label}
@@ -540,20 +540,20 @@ const Reports: React.FC = () => {
                 {activeTab === 'daily' && (
                     <div className="space-y-8 animate-in">
                         {/* PERFORMANCE CHART */}
-                        <div className="fiery-card p-6 md:p-10 relative overflow-hidden group">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 md:p-10 relative overflow-hidden group">
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 relative">
                                 <div>
-                                    <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Tren Pendapatan Sektor</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Grafik omzet dan statistik harian harian</p>
+                                    <h3 className="text-2xl font-bold text-slate-800  tracking-tight ">Tren Pendapatan Sektor</h3>
+                                    <p className="text-[10px] font-bold text-slate-500  tracking-wider mt-1">Grafik omzet dan statistik harian harian</p>
                                 </div>
                                 <div className="flex gap-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]"></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Total Pendapatan</span>
+                                        <div className="w-3 h-3 rounded-full bg-primary shadow-sm"></div>
+                                        <span className="text-[10px] font-bold text-slate-500  tracking-wider">Total Pendapatan</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pengeluaran</span>
+                                        <div className="w-3 h-3 rounded-full bg-rose-500 shadow-sm"></div>
+                                        <span className="text-[10px] font-bold text-slate-500  tracking-wider">Pengeluaran</span>
                                     </div>
                                 </div>
                             </div>
@@ -601,24 +601,24 @@ const Reports: React.FC = () => {
                         </div>
 
                         {/* VECTOR LOGS */}
-                        <div className="fiery-card overflow-hidden">
-                            <div className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/[0.02] gap-6">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 gap-6">
                                 <div>
-                                    <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Riwayat Laporan Harian</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Ringkasan operasional kronologis</p>
+                                    <h3 className="text-lg font-bold text-slate-800  tracking-tight ">Riwayat Laporan Harian</h3>
+                                    <p className="text-[10px] font-bold text-slate-500  tracking-wider mt-1">Ringkasan operasional kronologis</p>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="fiery-input !py-2 !px-4 !text-[10px] !w-auto !rounded-xl italic" />
+                                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all !py-2 !px-4 !text-[10px] !w-auto !rounded-xl" />
                                     <ArrowRight size={16} className="text-slate-700" />
-                                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="fiery-input !py-2 !px-4 !text-[10px] !w-auto !rounded-xl italic" />
+                                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all !py-2 !px-4 !text-[10px] !w-auto !rounded-xl" />
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
-                                        <tr className="border-b border-white/5 bg-[#101423]">
+                                        <tr className="border-b border-slate-100 bg-slate-50">
                                             {['Tanggal', 'Total Pendapatan', 'Keuntungan Bersih', 'Margin Operasional'].map(h => (
-                                                <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
+                                                <th key={h} className="p-6 text-[10px] font-bold text-slate-500  tracking-wider">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -629,16 +629,16 @@ const Reports: React.FC = () => {
                                                 <tr key={i} className="hover:bg-primary/5 transition-all group">
                                                     <td className="p-6">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-2xl bg-[#101423] flex items-center justify-center border border-white/5 group-hover:border-primary/30 transition-all">
+                                                            <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:border-primary/30 transition-all">
                                                                 <Calendar size={18} className="text-slate-500 group-hover:text-primary transition-colors" />
                                                             </div>
-                                                            <span className="text-base font-black text-white italic uppercase tracking-tighter">{new Date(d.date).toLocaleDateString()}</span>
+                                                            <span className="text-base font-bold text-slate-800   tracking-tight">{new Date(d.date).toLocaleDateString()}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="p-6 text-base font-black text-white italic">{fmtK(d.revenue)}</td>
-                                                    <td className={`p-6 text-base font-black italic ${isPos ? 'text-primary' : 'text-rose-500'}`}>{fmtK(d.profit)}</td>
+                                                    <td className="p-6 text-base font-bold text-slate-800">{fmtK(d.revenue)}</td>
+                                                    <td className={`p-6 text-base font-bold  ${isPos ? 'text-primary' : 'text-rose-500'}`}>{fmtK(d.profit)}</td>
                                                     <td className="p-6">
-                                                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full border italic tracking-widest ${isPos ? 'bg-primary/10 text-primary border-primary/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'}`}>
+                                                        <span className={`text-[10px] font-bold px-4 py-1.5 rounded-full border  tracking-wider ${isPos ? 'bg-primary/10 text-primary border-primary/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'}`}>
                                                             {((d.profit / Math.max(d.revenue, 1)) * 100).toFixed(1)}% MARGIN
                                                         </span>
                                                     </td>
@@ -656,7 +656,7 @@ const Reports: React.FC = () => {
                     <div className="space-y-8 animate-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {tablesToShow.map(t => (
-                                <div key={t.id} className="fiery-card p-8 flex flex-col items-center text-center group hover:border-primary/40 transition-all relative overflow-hidden">
+                                <div key={t.id} className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-8 flex flex-col items-center text-center group hover:border-primary/40 transition-all relative overflow-hidden">
                                     <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/5 blur-3xl pointer-events-none" />
                                     <div className="relative w-28 h-28 mb-8">
                                         <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -666,19 +666,19 @@ const Reports: React.FC = () => {
                                                 stroke="var(--primary)" strokeWidth="3"
                                                 strokeDasharray={`${t.utilization} 100`}
                                                 strokeLinecap="round"
-                                                className="drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]"
+                                                className="drop-shadow-sm"
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-2xl font-black text-white italic leading-none">{t.utilization}</span>
-                                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">% UTIL</span>
+                                            <span className="text-2xl font-bold text-slate-800  leading-none">{t.utilization}</span>
+                                            <span className="text-[8px] font-bold text-slate-500  tracking-wider mt-1">% UTIL</span>
                                         </div>
                                     </div>
-                                    <h4 className="text-xl font-black text-white italic tracking-tighter uppercase group-hover:text-primary transition-colors">{t.name.split(' - ')[0]}</h4>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-3 italic">{t.totalSessions} SESI AKTIF</p>
-                                    <div className="mt-6 pt-6 border-t border-white/5 w-full">
-                                        <p className="text-2xl font-black text-primary italic tracking-tighter">{fmtK(t.revenue)}</p>
-                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">Total Pendapatan Meja</p>
+                                    <h4 className="text-xl font-bold text-slate-800  tracking-tight  group-hover:text-primary transition-colors">{t.name.split(' - ')[0]}</h4>
+                                    <p className="text-[10px] font-bold text-slate-500  tracking-wider mt-3">{t.totalSessions} SESI AKTIF</p>
+                                    <div className="mt-6 pt-6 border-t border-slate-100 w-full">
+                                        <p className="text-2xl font-bold text-primary  tracking-tight">{fmtK(t.revenue)}</p>
+                                        <p className="text-[9px] font-bold text-slate-600  tracking-wider mt-1">Total Pendapatan Meja</p>
                                     </div>
                                 </div>
                             ))}
@@ -690,26 +690,26 @@ const Reports: React.FC = () => {
                     <div className="animate-in space-y-4">
                         <div className="grid grid-cols-1 gap-4">
                             {playersToShow.map((p, i) => (
-                                <div key={p.id} className="fiery-card p-6 flex items-center gap-6 group hover:bg-[#1e2540]/60 transition-all duration-300 border-2 border-transparent hover:border-primary/20">
-                                    <div className={`w-16 h-16 rounded-[28px] flex items-center justify-center font-black text-2xl italic shadow-inner border transition-all duration-500 ${i === 0
-                                        ? 'bg-primary text-white border-primary/30 shadow-[0_0_20px_rgba(59,130,246,0.5)]'
-                                        : 'bg-[#101423] border-white/5 text-slate-500 group-hover:text-primary'
+                                <div key={p.id} className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex items-center gap-6 group hover:bg-[#1e2540]/60 transition-all duration-300 border-2 border-transparent hover:border-primary/20">
+                                    <div className={`w-16 h-16 rounded-[28px] flex items-center justify-center font-bold text-2xl  shadow-inner border transition-all duration-500 ${i === 0
+                                        ? 'bg-primary text-slate-800 border-primary/30 shadow-sm'
+                                        : 'bg-slate-50 border-slate-100 text-slate-500 group-hover:text-primary'
                                         }`}>
                                         #{i + 1}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-2xl font-black text-white italic tracking-tighter uppercase group-hover:text-primary transition-all truncate">{p.name}</h4>
+                                        <h4 className="text-2xl font-bold text-slate-800  tracking-tight  group-hover:text-primary transition-all truncate">{p.name}</h4>
                                         <div className="flex items-center gap-4 mt-2">
-                                            <span className="text-[9px] font-black px-3 py-1 rounded-full bg-[#101423] text-slate-400 border border-white/5 uppercase tracking-widest italic flex items-center gap-2">
+                                            <span className="text-[9px] font-bold px-3 py-1 rounded-full bg-slate-50 text-slate-500 border border-slate-100  tracking-wider  flex items-center gap-2">
                                                 <Target size={12} className="text-primary" />
                                                 FAVORITE: {p.favoriteTable}
                                             </span>
-                                            <span className="text-[10px] font-bold text-slate-500 italic uppercase tracking-widest">{p.sessions} TOTAL SESI</span>
+                                            <span className="text-[10px] font-bold text-slate-500   tracking-wider">{p.sessions} TOTAL SESI</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-3xl font-black text-primary italic tracking-tighter shadow-primary/20">{fmtK(p.totalSpend)}</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1 italic">TOTAL BELANJA MEMBER</p>
+                                        <p className="text-3xl font-bold text-primary  tracking-tight shadow-primary/20">{fmtK(p.totalSpend)}</p>
+                                        <p className="text-[10px] font-bold text-slate-600  tracking-wider mt-1">TOTAL BELANJA MEMBER</p>
                                     </div>
                                 </div>
                             ))}
@@ -719,17 +719,17 @@ const Reports: React.FC = () => {
 
                 {activeTab === 'transactions' && (
                     <div className="space-y-8 animate-in">
-                        <div className="fiery-card overflow-hidden">
-                            <div className="p-8 border-b border-white/5 bg-white/[0.02]">
-                                <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Catatan Transaksi</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Verifikasi real-time semua transaksi lunas</p>
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-8 border-b border-slate-100 bg-slate-50">
+                                <h3 className="text-lg font-bold text-slate-800  tracking-tight ">Catatan Transaksi</h3>
+                                <p className="text-[10px] font-bold text-slate-500  tracking-wider mt-1">Verifikasi real-time semua transaksi lunas</p>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
-                                        <tr className="border-b border-white/5 bg-[#101423]">
+                                        <tr className="border-b border-slate-100 bg-slate-50">
                                             {['Waktu', 'Nama Member', 'Meja', 'Durasi', 'Total', 'Metode'].map(h => (
-                                                <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
+                                                <th key={h} className="p-6 text-[10px] font-bold text-slate-500  tracking-wider">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -739,30 +739,30 @@ const Reports: React.FC = () => {
                                                 <td colSpan={6} className="p-20 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <Shield size={48} className="text-slate-800 mb-6" />
-                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">Tidak Ada Transaksi</h3>
-                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">CATATAN KOSONG UNTUK PERIODE INI</p>
+                                                        <h3 className="text-xl font-bold text-slate-700   tracking-tight">Tidak Ada Transaksi</h3>
+                                                        <p className="text-slate-500 text-[10px] font-bold  tracking-wider mt-3">CATATAN KOSONG UNTUK PERIODE INI</p>
                                                     </div>
                                                 </td>
                                             </tr>
                                         ) : (
                                             liveTransactions.map(tx => (
-                                                <tr key={tx.id} className="hover:bg-white/[0.03] transition-all group">
-                                                    <td className="p-6 text-[12px] font-black text-slate-500 font-mono italic">
+                                                <tr key={tx.id} className="hover:bg-slate-50 transition-all group">
+                                                    <td className="p-6 text-[12px] font-bold text-slate-500 font-mono">
                                                         {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </td>
                                                     <td className="p-6">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-2xl bg-[#101423] border border-white/5 flex items-center justify-center text-xs font-black text-primary italic shadow-inner">
+                                                            <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xs font-bold text-primary  shadow-inner">
                                                                 {tx.customer.charAt(0).toUpperCase()}
                                                             </div>
-                                                            <span className="font-black text-white text-base italic uppercase tracking-tighter group-hover:text-primary transition-colors">{tx.customer}</span>
+                                                            <span className="font-bold text-slate-800 text-base   tracking-tight group-hover:text-primary transition-colors">{tx.customer}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="p-6 text-sm font-black text-slate-400 italic uppercase tracking-tighter">{tx.table}</td>
-                                                    <td className="p-6 text-sm font-black text-slate-400 italic uppercase tracking-tighter">{tx.duration}</td>
-                                                    <td className="p-6 text-xl font-black text-primary italic tracking-tighter">{tx.amount.toLocaleString('id-ID')}</td>
+                                                    <td className="p-6 text-sm font-bold text-slate-500   tracking-tight">{tx.table}</td>
+                                                    <td className="p-6 text-sm font-bold text-slate-500   tracking-tight">{tx.duration}</td>
+                                                    <td className="p-6 text-xl font-bold text-primary  tracking-tight">{tx.amount.toLocaleString('id-ID')}</td>
                                                     <td className="p-6">
-                                                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full border italic tracking-widest ${tx.method === 'QRIS' ? 'bg-primary/10 text-primary border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]'}`}>
+                                                        <span className={`text-[10px] font-bold px-4 py-1.5 rounded-full border  tracking-wider ${tx.method === 'QRIS' ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-sm'}`}>
                                                             {tx.method.toUpperCase()}
                                                         </span>
                                                     </td>
@@ -782,35 +782,35 @@ const Reports: React.FC = () => {
                             {['Makanan', 'Minuman', 'Snack'].map(cat => {
                                 const total = liveFnb.filter(f => f.category === cat).reduce((s, f) => s + f.revenue, 0);
                                 return (
-                                    <div key={cat} className="fiery-card p-8 flex items-center gap-6 group hover:border-primary/20 transition-all">
-                                        <div className="w-16 h-16 rounded-[24px] bg-[#1a1f35] border border-white/5 flex items-center justify-center group-hover:bg-primary transition-all duration-500">
-                                            {cat === 'Makanan' ? <Utensils size={30} className="text-orange-500 group-hover:text-white" /> : cat === 'Minuman' ? <Coffee size={30} className="text-primary group-hover:text-white" /> : <LayoutGrid size={30} className="text-yellow-500 group-hover:text-white" />}
+                                    <div key={cat} className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-8 flex items-center gap-6 group hover:border-primary/20 transition-all">
+                                        <div className="w-16 h-16 rounded-[24px] bg-white border border-slate-100 flex items-center justify-center group-hover:bg-primary transition-all duration-500">
+                                            {cat === 'Makanan' ? <Utensils size={30} className="text-orange-500 group-hover:text-slate-800" /> : cat === 'Minuman' ? <Coffee size={30} className="text-primary group-hover:text-slate-800" /> : <LayoutGrid size={30} className="text-yellow-500 group-hover:text-slate-800" />}
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">Sektor {cat}</p>
-                                            <p className="text-3xl font-black text-white italic tracking-tighter">{fmtK(total)}</p>
+                                            <p className="text-[10px] font-bold text-slate-500  tracking-wider mb-1">Sektor {cat}</p>
+                                            <p className="text-3xl font-bold text-slate-800  tracking-tight">{fmtK(total)}</p>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        <div className="fiery-card overflow-hidden">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
                             <div className="overflow-x-auto scrollbar-hide">
                                 <table className="w-full text-left min-w-[600px]">
                                     <thead>
-                                        <tr className="bg-[#101423] border-b border-white/5">
+                                        <tr className="bg-slate-50 border-b border-slate-100">
                                             {['Nama Produk', 'Jumlah Terjual', 'Total Pendapatan'].map(h => (
-                                                <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
+                                                <th key={h} className="p-6 text-[10px] font-bold text-slate-500  tracking-wider">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
                                         {liveFnb.map(f => (
-                                            <tr key={f.id} className="hover:bg-white/[0.03] transition-all group">
-                                                <td className="p-6 font-black text-white italic text-lg uppercase tracking-tighter group-hover:text-primary transition-all">{f.product}</td>
-                                                <td className="p-6 font-black text-slate-400 italic text-base uppercase">{f.qty} UNIT</td>
-                                                <td className="p-6 font-black text-primary italic text-xl tracking-tighter">{fmtK(f.revenue)}</td>
+                                            <tr key={f.id} className="hover:bg-slate-50 transition-all group">
+                                                <td className="p-6 font-bold text-slate-800  text-lg  tracking-tight group-hover:text-primary transition-all">{f.product}</td>
+                                                <td className="p-6 font-bold text-slate-500  text-base ">{f.qty} UNIT</td>
+                                                <td className="p-6 font-bold text-primary  text-xl tracking-tight">{fmtK(f.revenue)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -826,26 +826,26 @@ const Reports: React.FC = () => {
                             {['Gaji', 'Operasional', 'Bahan Baku', 'Maintenance', 'Lainnya'].map(cat => {
                                 const total = expenseList.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
                                 return (
-                                    <div key={cat} className="fiery-card p-8 flex items-center gap-6 group hover:border-rose-500/20 transition-all">
+                                    <div key={cat} className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-8 flex items-center gap-6 group hover:border-rose-500/20 transition-all">
                                         <div className="w-16 h-16 rounded-[24px] bg-rose-500/5 border border-rose-500/10 flex items-center justify-center group-hover:bg-rose-500 transition-all duration-500">
-                                            <TrendingDown size={30} className="text-rose-500 group-hover:text-white" />
+                                            <TrendingDown size={30} className="text-rose-500 group-hover:text-slate-800" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">Pengeluaran {cat}</p>
-                                            <p className="text-3xl font-black text-white italic tracking-tighter">{fmtK(total)}</p>
+                                            <p className="text-[10px] font-bold text-slate-500  tracking-wider mb-1">Pengeluaran {cat}</p>
+                                            <p className="text-3xl font-bold text-slate-800  tracking-tight">{fmtK(total)}</p>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        <div className="fiery-card overflow-hidden">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
                             <div className="overflow-x-auto scrollbar-hide">
                                 <table className="w-full text-left min-w-[800px]">
                                     <thead>
-                                        <tr className="bg-[#101423] border-b border-white/5">
+                                        <tr className="bg-slate-50 border-b border-slate-100">
                                             {['Tanggal', 'Kategori', 'Keterangan', 'Jumlah'].map(h => (
-                                                <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{h}</th>
+                                                <th key={h} className="p-6 text-[10px] font-bold text-slate-500  tracking-wider">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -855,20 +855,20 @@ const Reports: React.FC = () => {
                                                 <td colSpan={4} className="p-20 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <Shield size={48} className="text-slate-800 mb-6" />
-                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">Anggaran Aman</h3>
-                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">TIDAK ADA PENGELUARAN TERCATAT</p>
+                                                        <h3 className="text-xl font-bold text-slate-700   tracking-tight">Anggaran Aman</h3>
+                                                        <p className="text-slate-500 text-[10px] font-bold  tracking-wider mt-3">TIDAK ADA PENGELUARAN TERCATAT</p>
                                                     </div>
                                                 </td>
                                             </tr>
                                         ) : (
                                             expenseList.map(e => (
                                                 <tr key={e.id} className="hover:bg-rose-500/5 transition-all group">
-                                                    <td className="p-6 text-sm font-black text-slate-500 italic uppercase">{new Date(e.date).toLocaleDateString()}</td>
+                                                    <td className="p-6 text-sm font-bold text-slate-500  ">{new Date(e.date).toLocaleDateString()}</td>
                                                     <td className="p-6">
-                                                        <span className="text-[10px] font-black px-4 py-1.5 rounded-full bg-[#101423] text-slate-400 border border-white/5 uppercase italic tracking-widest">{e.category}</span>
+                                                        <span className="text-[10px] font-bold px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100   tracking-wider">{e.category}</span>
                                                     </td>
-                                                    <td className="p-6 font-black text-slate-200 italic uppercase tracking-tighter text-base group-hover:text-rose-500/80 transition-all">{e.description || '-'}</td>
-                                                    <td className="p-6 font-black text-rose-500 italic text-2xl tracking-tighter">-{fmtK(e.amount)}</td>
+                                                    <td className="p-6 font-bold text-slate-200   tracking-tight text-base group-hover:text-rose-500/80 transition-all">{e.description || '-'}</td>
+                                                    <td className="p-6 font-bold text-rose-500  text-2xl tracking-tight">-{fmtK(e.amount)}</td>
                                                 </tr>
                                             ))
                                         )}
@@ -881,19 +881,19 @@ const Reports: React.FC = () => {
 
                 {activeTab === 'shifts' && (
                     <div className="space-y-8 animate-in">
-                        <div className="fiery-card overflow-hidden">
-                            <div className="p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-8 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">Deployment Log (Shifts)</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Operative duty cycle registry</p>
+                                    <h3 className="text-lg font-bold text-slate-800  tracking-tight ">Deployment Log (Shifts)</h3>
+                                    <p className="text-[10px] font-bold text-slate-500  tracking-wider mt-1">Operative duty cycle registry</p>
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
-                                        <tr className="bg-[#101423] border-b border-white/5">
+                                        <tr className="bg-slate-50 border-b border-slate-100">
                                             {['Sector Start', 'Deployment Operative', 'Status', 'System Magnitude', 'Actual Harvest', 'Tactical Discrepancy', 'Comms/Notes'].map(h => (
-                                                <th key={h} className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic whitespace-nowrap">{h}</th>
+                                                <th key={h} className="p-6 text-[10px] font-bold text-slate-500  tracking-wider  whitespace-nowrap">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -903,8 +903,8 @@ const Reports: React.FC = () => {
                                                 <td colSpan={7} className="p-20 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <Users size={48} className="text-slate-800 mb-6" />
-                                                        <h3 className="text-xl font-black text-slate-700 uppercase italic tracking-tighter">No Active Duty Cycles</h3>
-                                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">ZERO OPERATIVE DEPLOYMENTS RECORDED IN SECTOR</p>
+                                                        <h3 className="text-xl font-bold text-slate-700   tracking-tight">No Active Duty Cycles</h3>
+                                                        <p className="text-slate-500 text-[10px] font-bold  tracking-wider mt-3">ZERO OPERATIVE DEPLOYMENTS RECORDED IN SECTOR</p>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -917,31 +917,31 @@ const Reports: React.FC = () => {
                                                 return (
                                                     <tr key={s.id} className="hover:bg-primary/5 transition-all group">
                                                         <td className="p-6 whitespace-nowrap">
-                                                            <div className="text-base font-black text-white italic uppercase tracking-tighter">{new Date(s.startTime).toLocaleDateString('id-ID')}</div>
-                                                            <div className="text-[10px] font-black text-slate-500 mt-1 uppercase italic tracking-widest">
+                                                            <div className="text-base font-bold text-slate-800   tracking-tight">{new Date(s.startTime).toLocaleDateString('id-ID')}</div>
+                                                            <div className="text-[10px] font-bold text-slate-500 mt-1   tracking-wider">
                                                                 {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ─
                                                                 {s.endTime ? new Date(s.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'ACTIVE OPS'}
                                                             </div>
                                                         </td>
                                                         <td className="p-6">
                                                             <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-2xl bg-[#101423] text-primary border border-white/5 flex items-center justify-center text-xs font-black italic shadow-inner">{s.userName.charAt(0).toUpperCase()}</div>
-                                                                <span className="font-black text-white italic uppercase tracking-tighter text-base group-hover:text-primary transition-all">{s.userName}</span>
+                                                                <div className="w-10 h-10 rounded-2xl bg-slate-50 text-primary border border-slate-100 flex items-center justify-center text-xs font-bold  shadow-inner">{s.userName.charAt(0).toUpperCase()}</div>
+                                                                <span className="font-bold text-slate-800   tracking-tight text-base group-hover:text-primary transition-all">{s.userName}</span>
                                                             </div>
                                                         </td>
                                                         <td className="p-6">
-                                                            <span className={`text-[10px] font-black px-4 py-1.5 rounded-full border italic tracking-widest ${s.status === 'OPEN' ? 'bg-primary/10 text-primary border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-[#101423] text-slate-500 border-white/5'}`}>
+                                                            <span className={`text-[10px] font-bold px-4 py-1.5 rounded-full border  tracking-wider ${s.status === 'OPEN' ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
                                                                 {s.status.toUpperCase()}
                                                             </span>
                                                         </td>
-                                                        <td className="p-6 font-black text-slate-400 italic text-base uppercase">Rp {s.expectedCash.toLocaleString('id-ID')}</td>
-                                                        <td className="p-6 font-black text-white italic text-base uppercase">
+                                                        <td className="p-6 font-bold text-slate-500  text-base ">Rp {s.expectedCash.toLocaleString('id-ID')}</td>
+                                                        <td className="p-6 font-bold text-slate-800  text-base ">
                                                             {s.status === 'CLOSED' ? `Rp ${s.endingCashActual.toLocaleString('id-ID')}` : 'IN-PROGRESS'}
                                                         </td>
-                                                        <td className={`p-6 font-black text-base italic uppercase ${isUnstable ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                        <td className={`p-6 font-bold text-base   ${isUnstable ? 'text-rose-500' : 'text-emerald-500'}`}>
                                                             {s.status === 'CLOSED' ? (isStable ? 'VERIFIED' : `Rp ${diff.toLocaleString('id-ID')}`) : 'WAITING...'}
                                                         </td>
-                                                        <td className="p-6 font-black text-slate-500 italic text-[11px] uppercase tracking-wider max-w-[200px] truncate">{s.notes}</td>
+                                                        <td className="p-6 font-bold text-slate-500  text-[11px]  tracking-wider max-w-[200px] truncate">{s.notes}</td>
                                                     </tr>
                                                 );
                                             })

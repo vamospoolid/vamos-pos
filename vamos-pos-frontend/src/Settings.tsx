@@ -347,6 +347,38 @@ export default function Settings() {
         }
     };
 
+    const handleRestoreBackup = async () => {
+        if (!(await vamosConfirm("PERINGATAN: Memulai restore akan menghapus seluruh database Anda saat ini dan menggantinya dengan data dari file cadangan. Apakah Anda ingin melanjutkan?"))) {
+            return;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const text = event.target?.result as string;
+                    const backupData = JSON.parse(text);
+                    
+                    vamosAlert("Memproses pemulihan data (Restore). Silakan tunggu, halaman akan memuat ulang setelah selesai...");
+                    
+                    const res = await api.post('/system/import', { backupData });
+                    vamosAlert(res.data.message || "Database berhasil dipulihkan!");
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch (err: any) {
+                    vamosAlert(err.response?.data?.message || err.message || 'Gagal me-restore data dari file JSON.');
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    };
+
     const handleResetData = async () => {
         const confirm1 = await vamosConfirm('WARNING: This will delete ALL transactions, sessions, payments, members, and expenses. Configuration (Tables/Products) will be kept. Proceed?');
         if (!confirm1) return;
@@ -876,6 +908,20 @@ export default function Settings() {
                                         </div>
                                     </div>
                                     <Edit2 className="w-3.5 h-3.5 text-gray-700" />
+                                </button>
+
+                                <button
+                                    onClick={handleRestoreBackup}
+                                    className="w-full flex items-center justify-between px-5 py-4 bg-orange-500/5 border border-orange-500/20 rounded-xl hover:bg-orange-500/10 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Database className="w-4 h-4 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-orange-500/80">Restore Database</p>
+                                            <p className="text-[10px] text-gray-600 uppercase font-black">Restore from JSON file</p>
+                                        </div>
+                                    </div>
+                                    <RefreshCw className="w-3.5 h-3.5 text-gray-700 group-hover:rotate-180 transition-transform duration-500" />
                                 </button>
 
                                 <button

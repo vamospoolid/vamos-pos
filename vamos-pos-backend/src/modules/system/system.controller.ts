@@ -77,6 +77,40 @@ export class SystemController {
         }
     }
 
+    /**
+     * POST /api/system/backup/restore
+     * Restore database dari file .sql
+     */
+    static async restoreBackup(req: Request, res: Response) {
+        try {
+            const { fileName } = req.body;
+            if (!fileName) {
+                return res.status(400).json({ success: false, message: 'fileName is required' });
+            }
+            const result = await BackupService.restoreBackup(fileName);
+            return res.status(result.success ? 200 : 500).json(result);
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    /**
+     * POST /api/system/import
+     * Restore database dari backup JSON payload
+     */
+    static async importDatabase(req: Request, res: Response) {
+        try {
+            const { backupData } = req.body;
+            if (!backupData) {
+                return res.status(400).json({ success: false, message: 'backupData is required' });
+            }
+            const result = await SystemService.importDatabase(backupData);
+            return res.json(result);
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     static async syncNow(req: Request, res: Response) {
         try {
             const syncedCount = await SyncService.syncPendingData();

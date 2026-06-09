@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Loader2, Plus, Minus, Search, CheckCircle2, ChevronRight, ShoppingBag, Package, Tag } from 'lucide-react';
+import { Loader2, Plus, Minus, Search, CheckCircle2, ChevronRight, ShoppingBag, Package, Tag } from 'lucide-react';
 import { useAppStore } from './store/appStore';
 import { api } from './api';
 
@@ -107,7 +107,7 @@ export function StoreScreen() {
                 setTimeout(() => { 
                     setOrderSuccess(false);
                     setOrderSnapshot(null);
-                    setActiveTab(activeSession ? 'active-session' : 'home'); 
+                    setActiveTab(activeSession ? 'active-session' : 'dashboard'); 
                 }, 4000);
             }
         } catch (err: any) {

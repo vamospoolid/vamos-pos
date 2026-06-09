@@ -7,15 +7,29 @@ import { execSync } from 'child_process';
 export const getHardwareId = (): string => {
   try {
     if (process.platform === 'win32') {
-      const output = execSync('wmic csproduct get uuid').toString();
+      // Try wmic first (Windows 10 and older)
+      let output = '';
+      try {
+        output = execSync('wmic csproduct get uuid', { timeout: 3000 }).toString();
+      } catch (_wmicErr) {
+        // wmic deprecated/removed on Windows 11 — fall back to PowerShell
+        try {
+          output = execSync(
+            'powershell -NoProfile -Command "(Get-WmiObject Win32_ComputerSystemProduct).UUID"',
+            { timeout: 5000 }
+          ).toString();
+        } catch (_psErr) {
+          output = '';
+        }
+      }
+
       const lines = output.split('\n');
-      // Look for a line that isn't empty, isn't the header, and isn't the generic 0000...
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed && 
-            trimmed.toUpperCase() !== 'UUID' && 
+        if (trimmed &&
+            trimmed.toUpperCase() !== 'UUID' &&
             trimmed !== '00000000-0000-0000-0000-000000000000' &&
-            trimmed.length > 5) { // Ensure it's not some random debris
+            trimmed.length > 5) {
           return trimmed;
         }
       }

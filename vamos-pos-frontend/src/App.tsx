@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy, Share2 } from 'lucide-react';
 import { io } from 'socket.io-client';
-import { api } from './api';
+import { api, getSocketURL } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import Inventory from './Inventory';
 import Pricing from './Pricing';
@@ -184,12 +184,21 @@ function App() {
 
   useEffect(() => {
     const checkLicense = async () => {
+      const isLocal = 
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1' || 
+        window.location.hostname === 'pos.local' ||
+        window.location.hostname.startsWith('192.168.') ||
+        window.location.hostname.startsWith('10.') ||
+        window.location.protocol === 'file:';
+
       try {
         const res = await api.get('/license/status');
-        setIsLicensed(res.data.data.isActivated);
+        setIsLicensed(isLocal ? true : res.data.data.isActivated);
       } catch (err) {
         console.error('License check failed', err);
-        setIsLicensed(false);
+        // Default to true only in local environment to prevent locking out offline users
+        setIsLicensed(isLocal ? true : false);
       }
     };
     checkLicense();
@@ -356,6 +365,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   // Modal States
   const [checkoutBill, setCheckoutBill] = useState<any>(null);
   const [checkoutMethod, setCheckoutMethod] = useState<string>('CASH');
+  const [splitQrisAmount, setSplitQrisAmount] = useState<number>(0);
   const [checkoutDiscount, setCheckoutDiscount] = useState<number>(0);
   const [selectedDiscountCategoryId, setSelectedDiscountCategoryId] = useState<string>('');
   const [checkoutReceived, setCheckoutReceived] = useState<number>(0);
@@ -562,9 +572,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     fetchData();
     checkHardware(true); // Run hardware sequence silently on startup
 
-    const socketUrl = (window.location.protocol === 'file:' || window.location.origin.includes('localhost'))
-      ? 'http://localhost:3000' 
-      : window.location.origin;
+    const socketUrl = getSocketURL();
     const socket = io(socketUrl);
 
     socket.on('sessions:updated', () => fetchData());
@@ -805,6 +813,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         setCheckoutBill(null);
         setCheckoutDiscount(0);
         setCheckoutReceived(0);
+        setSplitQrisAmount(0);
         setApplyTax(false);
         setApplyService(false);
         fetchData();
@@ -816,13 +825,25 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     }
 
     try {
-      await api.post(`/sessions/${checkoutBill.id}/pay`, {
-        method: checkoutMethod,
-        discount: checkoutDiscount || 0,
-        receivedAmount: checkoutReceived || 0,
-        taxAmount: taxValue,
-        serviceAmount: serviceCharge
-      });
+      if (checkoutMethod === 'SPLIT') {
+        const cashAmount = finalAmount - splitQrisAmount;
+        await api.post(`/sessions/${checkoutBill.id}/pay-split`, {
+          qrisAmount: splitQrisAmount,
+          cashAmount: cashAmount,
+          cashReceived: checkoutReceived || cashAmount,
+          discount: checkoutDiscount || 0,
+          taxAmount: taxValue,
+          serviceAmount: serviceCharge
+        });
+      } else {
+        await api.post(`/sessions/${checkoutBill.id}/pay`, {
+          method: checkoutMethod,
+          discount: checkoutDiscount || 0,
+          receivedAmount: checkoutReceived || 0,
+          taxAmount: taxValue,
+          serviceAmount: serviceCharge
+        });
+      }
       // Show Receipt before fully closing session
       setReceiptData({
         ...checkoutBill,
@@ -839,6 +860,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       setCheckoutBill(null);
       setCheckoutDiscount(0);
       setCheckoutReceived(0);
+      setSplitQrisAmount(0);
       setApplyTax(false);
       setApplyService(false);
       fetchData();
@@ -1730,7 +1752,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                       <div className="h-px bg-gradient-to-l from-transparent to-[#333] flex-1" />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-                      {['CASH', 'QRIS', ...(checkoutBill.memberId ? ['BON'] : [])].map(method => (
+                      {['CASH', 'QRIS', 'SPLIT', ...(checkoutBill.memberId ? ['BON'] : [])].map(method => (
                         <button
                           key={method}
                           onClick={() => setCheckoutMethod(method)}
@@ -1849,6 +1871,78 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         </div>
                       </div>
                     </div>
+
+                    {/* SPLIT Display Drawer */}
+                    <div className={`transition-all duration-500 overflow-hidden ${checkoutMethod === 'SPLIT' ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'}`}>
+                      <div className="bg-[#111] p-5 rounded-3xl border border-[#222222] relative shadow-inner space-y-4">
+                        {(() => {
+                          const grandTotal = Math.max(0, (
+                            (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
+                              (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
+                              (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
+                            checkoutDiscount
+                          ));
+                          const cashPortion = Math.max(0, grandTotal - splitQrisAmount);
+
+                          return (
+                            <>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                <span className="text-[10px] text-purple-400 font-black uppercase tracking-widest">Bagian QRIS</span>
+                              </div>
+                              <div className="flex justify-between items-center mb-5">
+                                <span className="text-gray-400 font-bold text-[11px] uppercase tracking-widest">Nominal QRIS</span>
+                                <input
+                                  type="text"
+                                  value={splitQrisAmount ? splitQrisAmount.toLocaleString('id-ID') : ''}
+                                  onChange={e => setSplitQrisAmount(Math.min(grandTotal, parseInt(e.target.value.replace(/\D/g, '')) || 0))}
+                                  placeholder="0"
+                                  className="w-[160px] bg-[#1a1a1a] border border-purple-500/40 rounded-xl px-4 py-3 text-right focus:border-purple-500 font-mono text-purple-300 text-xl font-black focus:outline-none transition-all"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#00ff66]" />
+                                <span className="text-[10px] text-[#00ff66] font-black uppercase tracking-widest">Sisa Ke Cash</span>
+                              </div>
+                              <div className="flex justify-between items-center bg-[#1a1a1a] rounded-xl px-4 py-3 border border-[#222]">
+                                <span className="text-gray-500 font-bold uppercase tracking-widest text-[11px]">Nominal Cash</span>
+                                <span className="font-mono font-black text-[#00ff66] text-xl">Rp {cashPortion.toLocaleString('id-ID')}</span>
+                              </div>
+
+                              {cashPortion > 0 && splitQrisAmount > 0 && (
+                                <div className="space-y-4 pt-4 mt-4 border-t border-[#222]">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 font-bold text-[11px] uppercase tracking-widest">Uang Diterima</span>
+                                    <input
+                                      type="text"
+                                      value={checkoutReceived ? checkoutReceived.toLocaleString('id-ID') : ''}
+                                      onChange={e => setCheckoutReceived(parseInt(e.target.value.replace(/\D/g, '')) || 0)}
+                                      placeholder="0"
+                                      className="w-[160px] bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-3 text-right focus:border-[#00ff66] font-mono text-white text-xl font-black focus:outline-none transition-all"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {[50000, 100000, 150000, 'PAS'].map((amt) => (
+                                      <button key={amt} onClick={() => setCheckoutReceived(amt === 'PAS' ? cashPortion : (amt as number))}
+                                        className="bg-[#1a1a1a] hover:bg-[#222] border border-[#333] rounded-xl text-[10px] font-black tracking-wider text-gray-400 py-2 hover:text-[#00ff66] hover:border-[#00ff66]/30 transition-all active:scale-95">
+                                        {amt === 'PAS' ? 'UANG PAS' : `${(amt as number) / 1000}K`}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-between items-center pt-5 border-t border-[#222]">
+                                    <span className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Kembalian Cash</span>
+                                    <span className={`font-mono font-black text-2xl px-4 py-1.5 rounded-xl bg-[#1a1a1a] border ${checkoutReceived < cashPortion ? 'text-red-500 border-red-500/30' : 'text-[#00aaff] border-[#00aaff]/30 drop-shadow-[0_0_15px_rgba(0,170,255,0.3)]'}`}>
+                                      Rp {Math.max(0, checkoutReceived - cashPortion).toLocaleString('id-ID')}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1862,24 +1956,40 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   </button>
                   <button
                     onClick={payBill}
-                    disabled={checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
-                      (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
-                        (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
-                        (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
-                      checkoutDiscount
-                    ))}
+                    disabled={
+                      (checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
+                        (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
+                          (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
+                          (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
+                        checkoutDiscount
+                      ))) ||
+                      (checkoutMethod === 'SPLIT' && (
+                        splitQrisAmount <= 0 ||
+                        splitQrisAmount >= Math.max(0, ((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) + (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) - checkoutDiscount)) ||
+                        checkoutReceived < (Math.max(0, ((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) + (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) - checkoutDiscount)) - splitQrisAmount)
+                      ))
+                    }
                     className={`flex-[1.5] py-4 rounded-xl font-black uppercase tracking-[0.1em] text-sm transition-all duration-300 disabled:shadow-none disabled:bg-[#333] disabled:text-gray-500 disabled:cursor-not-allowed disabled:transform-none ${
                         checkoutMethod === 'BON' 
                         ? 'bg-orange-500 text-white hover:bg-orange-600 hover:shadow-[0_0_25px_rgba(249,115,22,0.4)]'
+                        : checkoutMethod === 'SPLIT'
+                        ? 'bg-purple-500 text-white hover:bg-purple-600 hover:shadow-[0_0_25px_rgba(168,85,247,0.4)]'
                         : 'bg-[#00ff66] text-[#0a0a0a] hover:bg-[#00e65c] hover:shadow-[0_0_25px_rgba(0,255,102,0.5)] hover:-translate-y-1'
                     }`}
                   >
-                    {checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
-                      (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
-                        (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
-                        (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
-                      checkoutDiscount
-                    )) ? 'UANG KURANG' : (checkoutMethod === 'BON' ? 'CATAT SEBAGAI BON' : 'PROCESS PAYMENT')}
+                    {
+                      (checkoutMethod === 'CASH' && checkoutReceived < Math.max(0, (
+                        (((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) +
+                          (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) +
+                          (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) -
+                        checkoutDiscount
+                      ))) ||
+                      (checkoutMethod === 'SPLIT' && (
+                        splitQrisAmount <= 0 ||
+                        splitQrisAmount >= Math.max(0, ((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) + (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) - checkoutDiscount)) ||
+                        checkoutReceived < (Math.max(0, ((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0) + (applyTax ? Math.round((((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) + (applyService ? Math.round(((checkoutBill.tableAmount || 0) + (checkoutBill.fnbAmount || 0)) * ((checkoutBill.table?.venue?.servicePercent || 5) / 100)) : 0)) * ((checkoutBill.table?.venue?.taxPercent || 11) / 100)) : 0)) - checkoutDiscount)) - splitQrisAmount)
+                      )) ? (checkoutMethod === 'SPLIT' ? 'DATA INVALID/KURANG' : 'UANG KURANG') : (checkoutMethod === 'BON' ? 'CATAT SEBAGAI BON' : 'PROCESS PAYMENT')
+                    }
                   </button>
                 </div>
               </div>

@@ -1,10 +1,19 @@
 import { prisma } from '../../database/db';
 
+// ── Timezone helper ────────────────────────────────────────────────────────
+// Reads VENUE_TIMEZONE env (hours, default 8 = WIB/WITA).
+// Both VPS and local backend must have this set identically so date
+// boundaries are calculated the same way regardless of OS timezone.
+const getTimezoneOffsetMs = (): number => {
+    const tz = parseFloat(process.env.VENUE_TIMEZONE || '8');
+    return (isNaN(tz) ? 8 : tz) * 60 * 60 * 1000;
+};
+
 export class ReportService {
     static async getTodayUtilizationSplit() {
         const now = new Date();
-        // Adjust for UTC+8 (WITA) server offset
-        const localNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        const tzOffsetMs = getTimezoneOffsetMs();
+        const localNow = new Date(now.getTime() + tzOffsetMs);
         const currentHour = localNow.getUTCHours();
 
         let startOfDay = new Date(localNow);
@@ -14,7 +23,7 @@ export class ReportService {
         startOfDay.setUTCHours(6, 0, 0, 0);
 
         // Normalize back to UTC for Prisma query
-        const dbStart = new Date(startOfDay.getTime() - (8 * 60 * 60 * 1000));
+        const dbStart = new Date(startOfDay.getTime() - tzOffsetMs);
         const dbEnd = new Date(dbStart.getTime() + (24 * 60 * 60 * 1000));
 
         const sessions = await prisma.session.findMany({
@@ -81,8 +90,9 @@ export class ReportService {
         const openHour = await ReportService.getOpenHour();
         const now = new Date();
         
-        // Adjust server UTC to Venue Local (WITA +8)
-        const localNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        // Adjust server UTC to Venue Local time
+        const tzOffsetMs = getTimezoneOffsetMs();
+        const localNow = new Date(now.getTime() + tzOffsetMs);
         const pivotDate = new Date(localNow);
         
         if (localNow.getUTCHours() < openHour) {
@@ -94,8 +104,8 @@ export class ReportService {
         const startLocal = new Date(pivotDate);
         startLocal.setUTCHours(openHour, 0, 0, 0);
 
-        // Convert back to UTC for DB logic
-        const start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+        // Convert back to UTC for DB
+        const start = new Date(startLocal.getTime() - tzOffsetMs);
         const end = new Date(start.getTime() + (24 * 60 * 60 * 1000) - 1);
 
         const label = startLocal.toISOString().split('T')[0]; 
@@ -116,13 +126,12 @@ export class ReportService {
             if (startParam <= endParam) {
                 let currentDate = new Date(startParam);
                 const openHour = await ReportService.getOpenHour();
+                const tzOffsetMs = getTimezoneOffsetMs();
                 while (currentDate <= endParam) {
                     const startLocal = new Date(currentDate);
                     startLocal.setUTCHours(openHour, 0, 0, 0);
 
-                    // Convert to UTC by subtracting 8 hours (WITA)
-                    const start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
-                    
+                    const start = new Date(startLocal.getTime() - tzOffsetMs);
                     const end = new Date(start.getTime() + (24 * 60 * 60 * 1000) - 1);
 
                     const label = startLocal.toISOString().split('T')[0];
@@ -320,14 +329,15 @@ export class ReportService {
             const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
             const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
+            const tzOffsetMs = getTimezoneOffsetMs();
             const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
             startLocal.setUTCHours(openHour, 0, 0, 0);
-            gteDate = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+            gteDate = new Date(startLocal.getTime() - tzOffsetMs);
 
             const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
             endLocal.setUTCDate(endLocal.getUTCDate() + 1);
             endLocal.setUTCHours(openHour, 0, 0, 0);
-            lteDate = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
+            lteDate = new Date(endLocal.getTime() - tzOffsetMs - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -394,14 +404,15 @@ export class ReportService {
             const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
             const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
+            const tzOffsetMs = getTimezoneOffsetMs();
             const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
             startLocal.setUTCHours(openHour, 0, 0, 0);
-            start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+            start = new Date(startLocal.getTime() - tzOffsetMs);
 
             const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
             endLocal.setUTCDate(endLocal.getUTCDate() + 1);
             endLocal.setUTCHours(openHour, 0, 0, 0);
-            end = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
+            end = new Date(endLocal.getTime() - tzOffsetMs - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -466,14 +477,15 @@ export class ReportService {
             const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
             const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
+            const tzOffsetMs = getTimezoneOffsetMs();
             const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
             startLocal.setUTCHours(openHour, 0, 0, 0);
-            start = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+            start = new Date(startLocal.getTime() - tzOffsetMs);
 
             const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
             endLocal.setUTCDate(endLocal.getUTCDate() + 1);
             endLocal.setUTCHours(openHour, 0, 0, 0);
-            end = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
+            end = new Date(endLocal.getTime() - tzOffsetMs - 1);
         } else {
             const today = await ReportService.getOperationalDayBounds(0);
             const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
@@ -518,14 +530,15 @@ export class ReportService {
             const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
             const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
 
+            const tzOffsetMs = getTimezoneOffsetMs();
             const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
             startLocal.setUTCHours(openHour, 0, 0, 0);
-            gteDate = new Date(startLocal.getTime() - (8 * 60 * 60 * 1000));
+            gteDate = new Date(startLocal.getTime() - tzOffsetMs);
 
             const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
             endLocal.setUTCDate(endLocal.getUTCDate() + 1);
             endLocal.setUTCHours(openHour, 0, 0, 0);
-            lteDate = new Date(endLocal.getTime() - (8 * 60 * 60 * 1000) - 1);
+            lteDate = new Date(endLocal.getTime() - tzOffsetMs - 1);
         } else {
             // Always set both bounds to prevent unbounded queries
             const { start } = await ReportService.getOperationalDayBounds(days - 1);

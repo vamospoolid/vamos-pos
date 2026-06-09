@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutGrid, Trophy, Star, User, Swords } from 'lucide-react';
+import { LayoutGrid, Trophy, Star, User, Swords, ShoppingBag } from 'lucide-react';
 import { api, getAvatarUrl, getSocket } from './api';
 import { useAppStore } from './store/appStore';
 
@@ -13,6 +13,7 @@ import { BookingScreen } from './BookingScreen';
 import { ActiveSessionScreen } from './ActiveSessionScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { MenuScreen } from './MenuScreen';
+import { StoreScreen } from './StoreScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { TrainingScreen } from './screens/TrainingScreen';
 
@@ -185,17 +186,19 @@ function MainApp() {
         {activeTab === 'active-session' && <ActiveSessionScreen />}
         {activeTab === 'profile' && <ProfileScreen member={member} onLogout={() => useAppStore.getState().logout()} />}
         {activeTab === 'menu' && <MenuScreen />}
+        {activeTab === 'store' && <StoreScreen />}
         {activeTab === 'training' && <TrainingScreen />}
+        {activeTab === 'rewards' && <RewardsScreen />}
       </div>
 
       {/* Bottom Navigation */}
       <nav className="fiery-nav">
         {[
-          {id:'dashboard', icon:LayoutGrid, label:'Home'},
-          {id:'play',      icon:Swords,     label:'Arena'},
-          {id:'leaderboard', icon:Trophy,   label:'Ranking'},
-          {id:'rewards',   icon:Star,       label:'Store'},
-          {id:'profile',   icon:User,       label:'Profil'},
+          {id:'dashboard',   icon:LayoutGrid,  label:'Home'},
+          {id:'play',        icon:Swords,      label:'Arena'},
+          {id:'store',       icon:ShoppingBag, label:'Store'},
+          {id:'leaderboard', icon:Trophy,      label:'Ranking'},
+          {id:'profile',     icon:User,        label:'Profil'},
         ].map(item => {
           const isActive = activeTab === item.id;
           return (

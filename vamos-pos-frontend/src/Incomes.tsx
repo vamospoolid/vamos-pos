@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
-import { api } from './api';
+import { api, getSocketURL } from './api';
 import { vamosAlert } from './utils/dialog';
 import {
     TrendingUp, Plus, Loader2, Calendar, FileText,
@@ -124,8 +124,7 @@ export default function Incomes() {
 
     // Real-time socket
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '')
-            || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+        const socketUrl = getSocketURL();
         const socket = io(socketUrl);
         socket.on('sessions:updated', fetchIncomes);
         return () => { socket.disconnect(); };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Users, GitMerge, Loader2, Check, ChevronDown, ChevronUp, Calendar, Trash2, Edit3, X } from 'lucide-react';
-import { api } from './api';
+import { api, getSocketURL } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { io } from 'socket.io-client';
 import { jsPDF } from 'jspdf';
@@ -76,7 +76,7 @@ export default function Competitions() {
 
     useEffect(() => {
         fetchData();
-        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+        const socketUrl = getSocketURL();
         const socket = io(socketUrl);
 
         socket.on('tournaments:updated', () => {

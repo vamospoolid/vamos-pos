@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
-import { api } from './api';
+import { api, getSocketURL } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import {
     Wallet, Plus, Trash2, Loader2, Calendar, FileText,
@@ -160,7 +160,7 @@ export default function Expenses() {
     }, [timeFilter, venue?.openTime]);
 
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin.replace(':5173', ':3000'));
+        const socketUrl = getSocketURL();
         const socket = io(socketUrl);
 
         const handleUpdate = () => {

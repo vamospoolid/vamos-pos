@@ -11,8 +11,8 @@ interface AppState {
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training';
-    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training') => void;
+    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store';
+    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store') => void;
 
     rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
     setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;
