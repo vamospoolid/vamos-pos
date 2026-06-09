@@ -8,6 +8,21 @@ export interface AuthRequest extends Request {
     user?: { id: string; role: Role };
 }
 
+/**
+ * On local Electron (cashier PC), some destructive operations like DB restore
+ * must still work even when the JWT is expired / the VPS is offline.
+ * This middleware allows the request through without a token when
+ * IS_LOCAL_ELECTRON=true, otherwise falls back to normal authenticate.
+ */
+export const localOrAuthenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    if (process.env.IS_LOCAL_ELECTRON === 'true') {
+        // Attach a synthetic admin identity so downstream authorizeRoles passes
+        req.user = { id: 'local-electron', role: 'ADMIN' as Role };
+        return next();
+    }
+    return authenticate(req, res, next);
+};
+
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
