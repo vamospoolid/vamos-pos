@@ -1,5 +1,6 @@
 import { prisma } from '../../database/db';
 import { AppError } from '../../utils/errors';
+import { getTimezoneOffsetMs } from '../../utils/timezone.utils';
 
 function timeToMinutes(t: string): number {
     const [h, m] = t.split(':').map(Number);
@@ -182,9 +183,10 @@ export class PricingService {
         for (let i = 0; i < totalMinutes; i++) {
             const minToCheck = new Date(startTime.getTime() + i * 60000);
             
-            // MEMENANGKAN TARIF: Paksa semua kalkulasi membaca waktu lokal Makassar (WITA / UTC+8)
+            // MEMENANGKAN TARIF: Baca waktu lokal berdasarkan zona waktu kasir / config
             // VPS di Linux mungkin menggunakan kalender UTC, jadi kita tidak bisa pakai getHours() biasa.
-            const localMs = minToCheck.getTime() + (8 * 60 * 60 * 1000);
+            const tzOffsetMs = getTimezoneOffsetMs();
+            const localMs = minToCheck.getTime() + tzOffsetMs;
             const localDate = new Date(localMs);
             
             const currentDay = localDate.getUTCDay();

@@ -1,13 +1,5 @@
 import { prisma } from '../../database/db';
-
-// ── Timezone helper ────────────────────────────────────────────────────────
-// Reads VENUE_TIMEZONE env (hours, default 8 = WIB/WITA).
-// Both VPS and local backend must have this set identically so date
-// boundaries are calculated the same way regardless of OS timezone.
-const getTimezoneOffsetMs = (): number => {
-    const tz = parseFloat(process.env.VENUE_TIMEZONE || '8');
-    return (isNaN(tz) ? 8 : tz) * 60 * 60 * 1000;
-};
+import { getTimezoneOffsetMs } from '../../utils/timezone.utils';
 
 export class ReportService {
     static async getTodayUtilizationSplit() {
@@ -46,7 +38,9 @@ export class ReportService {
             let current = new Date(s.startTime);
             // simple minute-by-minute simulation for exact day/night split calculation
             while (current < calcEnd) {
-                const h = current.getHours();
+                // Adjust current UTC to venue's timezone offset
+                const localDate = new Date(current.getTime() + tzOffsetMs);
+                const h = localDate.getUTCHours();
                 const isDay = h >= 6 && h < 18;
                 if (isDay) dayMinutes++;
                 else nightMinutes++;
