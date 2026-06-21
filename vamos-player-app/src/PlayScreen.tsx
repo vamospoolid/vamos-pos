@@ -220,6 +220,26 @@ export function PlayScreen({ member }: { member: any }) {
     }
   };
 
+  const handleRespondToChallenge = async (challengeId: string, status: 'ACCEPTED' | 'DECLINED') => {
+    try {
+        const res = await api.put(`/player/challenge/${challengeId}/respond`, { status });
+        if (res.data.success) {
+            fetchChallenges();
+            useAppStore.getState().addToast({
+                title: status === 'ACCEPTED' ? 'CHALLENGE ACCEPTED' : 'CHALLENGE DECLINED',
+                message: status === 'ACCEPTED' ? 'LET THE DUEL BEGIN!' : 'TANTANGAN DITOLAK.',
+                type: 'success'
+            });
+        }
+    } catch (err: any) {
+        useAppStore.getState().addToast({
+            title: 'RESPONSE FAILED',
+            message: err.response?.data?.message || "SYSTEM ERROR",
+            type: 'error'
+        });
+    }
+  };
+
   const handleCopyId = () => {
     navigator.clipboard.writeText(member.id);
     setCopied(true);
@@ -482,7 +502,7 @@ export function PlayScreen({ member }: { member: any }) {
           </div>
           <div className="grid grid-cols-1 gap-4">
             {challenges.map(chal => (
-              <div key={chal.id} className={`fiery-card p-6 border-2 transition-all ${chal.status === 'WAITING_VERIFICATION' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-primary/20 bg-primary/5'}`}>
+              <div key={chal.id} className={`fiery-card p-6 border-2 transition-all ${chal.status === 'WAITING_VERIFICATION' ? 'border-emerald-500/30 bg-emerald-500/5' : chal.status === 'PENDING' && chal.opponentId === member.id ? 'border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_30px_rgba(6,182,212,0.1)]' : 'border-primary/20 bg-primary/5'}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
@@ -496,7 +516,15 @@ export function PlayScreen({ member }: { member: any }) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-[10px] font-black uppercase tracking-widest italic ${chal.status === 'ACCEPTED' ? 'text-emerald-400' : chal.status === 'WAITING_VERIFICATION' ? 'text-yellow-400' : 'text-primary'}`}>{chal.status}</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest italic ${
+                      chal.status === 'ACCEPTED' 
+                        ? 'text-emerald-400' 
+                        : chal.status === 'WAITING_VERIFICATION' 
+                        ? 'text-yellow-400' 
+                        : chal.status === 'PENDING'
+                        ? 'text-cyan-400 animate-pulse'
+                        : 'text-primary'
+                    }`}>{chal.status}</p>
                     <p className="text-[9px] text-slate-600 uppercase italic">{new Date(chal.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>
@@ -513,6 +541,39 @@ export function PlayScreen({ member }: { member: any }) {
                         </div>
                     )}
                 </div>
+
+                {chal.status === 'PENDING' && (
+                    <div className="mt-2">
+                        {chal.opponentId === member.id ? (
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'ACCEPTED')}
+                                    className="flex-1 py-3.5 bg-emerald-500 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-secondary hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                                >
+                                    TERIMA (LAWANKAN)
+                                </button>
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
+                                    className="flex-1 py-3.5 bg-rose-500/10 border border-rose-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all"
+                                >
+                                    TOLAK
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                <div className="w-full py-3.5 text-center rounded-xl bg-cyan-500/5 border border-cyan-500/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest italic animate-pulse">
+                                    MENUNGGU RIVAL MENERIMA...
+                                </div>
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
+                                    className="w-full py-3.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-slate-400 hover:bg-white/10 active:scale-95 transition-all"
+                                >
+                                    BATALKAN TANTANGAN
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {chal.status === 'ACCEPTED' && (
                     <div className="space-y-3">
