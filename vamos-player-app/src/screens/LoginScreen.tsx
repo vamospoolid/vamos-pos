@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, Smartphone } from 'lucide-react';
 import { api } from '../api';
 import { VamosLogo } from '../components/VamosLogo';
 import { useAppStore } from '../store/appStore';
@@ -122,16 +122,23 @@ export function LoginScreen({ onLogin }: { onLogin: (member: any) => void }) {
           {isRegister ? 'Dengan bergabung Anda menyetujui aturan arena' : 'Kendala login? Hubungi Kasir.'}
         </p>
         
-        <a 
-          href="/VamosPlayer.apk" 
-          download="VamosPlayer_Latest.apk"
-          className="mt-6 flex flex-col items-center justify-center py-4 bg-primary/10 border-2 border-primary/20 rounded-2xl mx-auto w-full max-w-[250px] shadow-[0_0_15px_rgba(255,87,34,0.1)] active:scale-95 transition-all text-primary hover:bg-primary/20"
+        {/* ─── Download Banner ─── */}
+        <a
+          href="/VamosPlayer.apk"
+          download="VamosPlayer_v5_Latest.apk"
+          className="mt-6 w-full flex items-center gap-4 px-5 py-4 bg-gradient-to-r from-primary/15 to-orange-500/5 border-2 border-primary/30 rounded-2xl active:scale-95 transition-all hover:border-primary/60 hover:bg-primary/20 shadow-[0_0_20px_rgba(255,87,34,0.15)] group"
         >
-          <div className="flex items-center gap-2 mb-1">
-            <Download className="w-5 h-5" />
-            <span className="font-black italic uppercase text-xs">Download App Android</span>
+          <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+            <Smartphone className="w-5 h-5 text-primary" />
           </div>
-          <span className="text-[8px] font-bold text-slate-400">Lebih cepat. Lebih stabil.</span>
+          <div className="flex-1 text-left">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="font-black italic uppercase text-xs text-white">Download App Android</span>
+              <span className="text-[8px] font-black bg-primary text-white px-1.5 py-0.5 rounded-md uppercase">v5</span>
+            </div>
+            <span className="text-[9px] font-bold text-slate-400">12.7 MB · Versi Terbaru</span>
+          </div>
+          <Download className="w-4 h-4 text-primary/70 group-hover:text-primary transition-all" />
         </a>
       </div>
     </div>

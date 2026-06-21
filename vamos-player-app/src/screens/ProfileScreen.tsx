@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Camera, Loader2, Trophy, Swords, Download, ChevronRight } from 'lucide-react';
+import { User, Camera, Loader2, Trophy, Swords, Download, ChevronRight, Smartphone } from 'lucide-react';
 import { api, getAvatarUrl } from '../api';
 import { useAppStore } from '../store/appStore';
 import { HistoryScreen } from '../HistoryScreen';
@@ -205,17 +205,31 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
           <ChevronRight className="w-5 h-5 text-slate-700" />
         </button>
 
-        <a href="/VamosPlayer.apk" download="VamosPlayer_Latest.apk" className="w-full fiery-card flex items-center justify-between p-6 rounded-[28px] border-2 border-primary/20 group hover:bg-primary/5 transition-all">
-          <div className="flex items-center gap-5">
-            <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Download className="w-5 h-5 text-primary" />
+        <a
+          href="/VamosPlayer.apk"
+          download="VamosPlayer_v5_Latest.apk"
+          className="w-full fiery-card flex items-center justify-between p-5 rounded-[28px] border-2 border-primary/30 group hover:bg-primary/10 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,87,34,0.1)]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center border border-primary/25">
+              <Smartphone className="w-5 h-5 text-primary" />
             </div>
             <div className="text-left">
-              <span className="font-black text-white text-sm uppercase italic block leading-none">Aplikasi Android</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 block">Pasang di Layar Utama HP Anda</span>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-black text-white text-sm uppercase italic leading-none">Aplikasi Android</span>
+                <span className="text-[8px] font-black bg-primary text-white px-1.5 py-0.5 rounded-md uppercase leading-none">v5</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">12.7 MB</span>
+                <span className="text-slate-700 text-[8px]">·</span>
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Versi Terbaru</span>
+              </div>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-primary/50 group-hover:text-primary transition-all" />
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary/50 group-hover:text-primary transition-all" />
+            <ChevronRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-all" />
+          </div>
         </a>
 
         <button onClick={onLogout} className="w-full py-5 rounded-[24px] mt-6 font-black text-[10px] uppercase bg-rose-500/10 text-rose-500 border-2 border-rose-500/20 italic tracking-widest">
