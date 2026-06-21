@@ -18,6 +18,7 @@ import Rewards from './Rewards';
 import Waitlist from './Waitlist';
 import Discounts from './Discounts';
 import { VamosLogo } from './components/VamosLogo';
+import { getProductEmojiAndStyle } from './FnBOrder';
 import ActivationPage from './ActivationPage';
 
 // --- LICENSE MANAGEMENT COMPONENT (OWNER ONLY) ---
@@ -410,6 +411,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [fnbMemberId, setFnbMemberId] = useState('');
   const [memberSearchCheckout, setMemberSearchCheckout] = useState('');
   const [confirmEndSessionId, setConfirmEndSessionId] = useState<string | null>(null);
+  const [fnbSearchTerm, setFnbSearchTerm] = useState('');
+  const [fnbActiveCategory, setFnbActiveCategory] = useState<'FNB' | 'EQUIPMENT'>('FNB');
 
   // Active Session Detail State
   const [detailSession, setDetailSession] = useState<any>(null);
@@ -890,6 +893,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
+        if (existing.qty >= product.stock) return prev; // prevent adding more than stock
         return prev.map(item => item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item);
       }
       return [...prev, { product, qty: 1 }];
@@ -900,10 +904,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     setCart(prev => prev.map(item => {
       if (item.product.id === productId) {
         const newQty = item.qty + dir;
-        return { ...item, qty: newQty > 0 ? newQty : 0 };
+        if (newQty <= 0) return null;
+        if (newQty > item.product.stock) return item;
+        return { ...item, qty: newQty };
       }
       return item;
-    }).filter(item => item.qty > 0));
+    }).filter(Boolean) as any);
   };
 
   const submitOrder = async () => {
@@ -2403,86 +2409,172 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
       {/* F&B Order Modal */}
       {orderSessionId && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex h-[80vh]">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-5xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex h-[80vh] animate-in zoom-in-95 duration-200">
 
             {/* Products Menu */}
-            <div className="flex-[2] flex flex-col border-r border-[#222222]">
-              <div className="p-6 border-b border-[#222222]">
-                <h2 className="text-xl font-bold flex items-center">
-                  <Utensils className="w-5 h-5 mr-3 text-[#ff9900]" />
-                  Food & Beverage Menu
-                </h2>
-              </div>
-              <div className="p-6 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleAddToCart(p)}
-                    className="p-4 bg-[#0a0a0a] border border-[#222222] rounded-xl text-left hover:border-[#ff9900]/50 transition-all group"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 font-semibold">{p.category || 'Snack'}</span>
-                      {p.stock <= 0 && <span className="text-xs text-[#ff3333] font-bold">SOLD OUT</span>}
+            {(() => {
+              const isEquipment = (category: string) => {
+                const lower = (category || '').toLowerCase();
+                return lower.includes('apparel') || lower.includes('billiard') || lower.includes('equipment') || lower.includes('accessories');
+              };
+
+              const categorizedProducts = products.filter(p => fnbActiveCategory === 'EQUIPMENT' ? isEquipment(p.category) : !isEquipment(p.category));
+              const filteredProducts = categorizedProducts.filter(p => p.name.toLowerCase().includes(fnbSearchTerm.toLowerCase()) || p.category?.toLowerCase().includes(fnbSearchTerm.toLowerCase()));
+
+              return (
+                <div className="flex-[2] flex flex-col border-r border-[#2d221b] bg-[#0d0a08]">
+                  <div className="p-6 pb-4 border-b border-[#2d221b] bg-[#0c0908]">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-lg font-black flex items-center text-white tracking-wide">
+                        <Utensils className="w-5 h-5 mr-3 text-[#d48c5c]" />
+                        Food & Beverage Menu
+                      </h2>
+                      <div className="relative w-72">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#d48c5c]/60" />
+                        <input
+                          type="text"
+                          placeholder={fnbActiveCategory === 'FNB' ? "Search coffee, drinks, croissants..." : "Search cues, chalks, apparel..."}
+                          value={fnbSearchTerm}
+                          onChange={(e) => setFnbSearchTerm(e.target.value)}
+                          className="w-full bg-[#181310] border border-[#2d221b] rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-[#d48c5c] focus:ring-1 focus:ring-[#d48c5c]/50 transition-all"
+                        />
+                      </div>
                     </div>
-                    <h3 className="font-bold text-sm mb-1 line-clamp-2">{p.name}</h3>
-                    <p className="text-[#ff9900] font-bold font-mono">Rp {p.price.toLocaleString()}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setFnbActiveCategory('FNB')}
+                        className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-2 ${fnbActiveCategory === 'FNB' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                      >
+                        <Utensils className="w-3.5 h-3.5" />
+                        Food & Beverage Menu
+                      </button>
+                      <button
+                        onClick={() => setFnbActiveCategory('EQUIPMENT')}
+                        className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-2 ${fnbActiveCategory === 'EQUIPMENT' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        Store & Equipment
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {filteredProducts.map(p => {
+                        const style = getProductEmojiAndStyle(p.name, p.category);
+                        return (
+                          <button
+                            key={p.id}
+                            disabled={p.stock <= 0}
+                            onClick={() => handleAddToCart(p)}
+                            className={`bg-gradient-to-br ${style.gradient} border ${style.border} p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[145px] ${p.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className={`text-[10px] font-bold ${style.badgeBg} px-2 py-0.5 rounded-md uppercase tracking-wider`}>
+                                {p.category || 'F&B'}
+                              </span>
+                              <span className="text-2xl group-hover:scale-110 transition-transform duration-200">{style.emoji}</span>
+                            </div>
+                            
+                            <div className="mt-4">
+                              <h3 className="font-bold text-sm leading-snug text-gray-200 group-hover:text-white transition-colors line-clamp-2 min-h-[40px]">{p.name}</h3>
+                            </div>
+                            
+                            <div className="mt-2 flex justify-between items-end pt-2 border-t border-white/[0.03]">
+                              <p className="font-mono font-bold text-[#d48c5c] text-sm">
+                                Rp {p.price.toLocaleString('id-ID')}
+                              </p>
+                              {p.stock <= 0 ? (
+                                <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded">SOLD OUT</span>
+                              ) : (
+                                <span className="text-[10px] text-gray-500 font-semibold">Stock: {p.stock}</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {filteredProducts.length === 0 && (
+                      <div className="text-center py-20 text-gray-600 italic border border-dashed border-[#2d221b] rounded-xl">
+                        <Utensils className="w-12 h-12 mx-auto mb-4 opacity-20 text-[#d48c5c]" />
+                        No menu items found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Cart */}
-            <div className="flex-1 flex flex-col bg-[#0a0a0a]">
-              <div className="p-6 border-b border-[#222222]">
-                <h2 className="text-lg font-bold flex items-center">
-                  <ShoppingBag className="w-5 h-5 mr-3 text-white" />
-                  Cart Order
+            <div className="flex-1 flex flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
+              <div className="p-6 border-b border-[#271d17] bg-[#0c0908]">
+                <h2 className="text-lg font-black flex items-center text-white tracking-wide">
+                  <ShoppingBag className="w-5 h-5 mr-3 text-[#d48c5c]" />
+                  Current Order
                 </h2>
               </div>
 
-              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+              {/* Cart Items */}
+              <div className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-3 bg-[#120e0c]">
                 {cart.length === 0 ? (
-                  <p className="text-center text-gray-500 mt-10">Select products to add to cart</p>
+                  <div className="text-center mt-10 text-gray-600 opacity-60">
+                    <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-[#a08474]/50" />
+                    <p className="font-bold text-sm tracking-wide text-[#a08474]">Cart is currently empty</p>
+                    <p className="text-xs text-gray-600 mt-1">Select items from the menu</p>
+                  </div>
                 ) : (
-                  cart.map(item => (
-                    <div key={item.product.id} className="flex items-center justify-between border-b border-[#222222] pb-3">
-                      <div className="flex-1 pr-2">
-                        <p className="font-bold text-sm">{item.product.name}</p>
-                        <p className="text-[#ff9900] text-xs font-mono">Rp {(item.product.price * item.qty).toLocaleString()}</p>
+                  cart.map(item => {
+                    const style = getProductEmojiAndStyle(item.product.name, item.product.category);
+                    return (
+                      <div key={item.product.id} className="flex items-center justify-between border border-[#2d221b] bg-[#0c0908] p-3 rounded-xl animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex-1 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{style.emoji}</span>
+                            <p className="font-bold text-xs text-gray-200 leading-tight line-clamp-1">{item.product.name}</p>
+                          </div>
+                          <p className="text-[#d48c5c] text-xs font-mono font-bold mt-1">
+                            Rp {(item.product.price * item.qty).toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                        <div className="flex items-center bg-[#181310] rounded-lg border border-[#2d221b]">
+                          <button onClick={() => updateCartQty(item.product.id, -1)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded-l-lg transition-colors"><Minus className="w-3.5 h-3.5" /></button>
+                          <span className="font-mono font-bold text-xs w-6 text-center text-white">{item.qty}</span>
+                          <button onClick={() => updateCartQty(item.product.id, 1)} className="p-1.5 text-gray-500 hover:text-[#d48c5c] hover:bg-white/5 rounded-r-lg transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2 bg-[#141414] rounded-lg border border-[#222222]">
-                        <button onClick={() => updateCartQty(item.product.id, -1)} className="p-2 hover:text-[#ff3333]"><Minus className="w-3 h-3" /></button>
-                        <span className="font-bold text-sm w-4 text-center">{item.qty}</span>
-                        <button onClick={() => updateCartQty(item.product.id, 1)} className="p-2 hover:text-[#00ff66]"><Plus className="w-3 h-3" /></button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
-              <div className="p-6 border-t border-[#222222]">
-                <div className="flex justify-between mb-4">
-                  <span className="font-semibold text-gray-400">Total Items</span>
-                  <span className="font-bold">{cart.reduce((a, b) => a + b.qty, 0)}</span>
+              {/* Footer Checkout */}
+              <div className="p-6 border-t border-[#271d17] bg-[#0c0908] space-y-4">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-gray-500 font-black uppercase tracking-widest text-[9px]">Grand Total Order</span>
+                  <span className="text-xl font-mono font-black text-[#e3a87c] tracking-tighter">
+                    Rp {cart.reduce((sum, item) => sum + (item.product.price * item.qty), 0).toLocaleString('id-ID')}
+                  </span>
                 </div>
-                <div className="flex justify-between mb-6">
-                  <span className="font-bold">Total Amout</span>
-                  <span className="font-bold text-xl text-[#ff9900]">Rp {cart.reduce((a, b) => a + (b.product.price * b.qty), 0).toLocaleString()}</span>
-                </div>
+
                 <div className="flex space-x-3">
                   <button
                     onClick={() => { setOrderSessionId(null); setCart([]); }}
-                    className="py-3 px-4 rounded-xl bg-[#141414] border border-[#222222] text-white font-semibold hover:bg-white/5 transition-colors"
+                    className="py-3 px-4 rounded-xl bg-[#141414] border border-[#222222] text-white font-semibold hover:bg-white/5 transition-all text-xs flex-1"
                   >
                     Cancel
                   </button>
+                  
                   <button
                     onClick={submitOrder}
-                    disabled={cart.length === 0}
-                    className="flex-1 py-3 rounded-xl bg-[#ff9900] text-[#0a0a0a] font-bold hover:bg-[#ffaa33] shadow-[0_0_15px_rgba(255,153,0,0.2)] transition-all disabled:opacity-50"
+                    disabled={loading || cart.length === 0}
+                    className={`flex-[2] py-3 rounded-xl font-black text-xs flex justify-center items-center gap-2 transition-all ${(loading || cart.length === 0)
+                      ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                      : 'bg-[#d48c5c] text-[#0c0908] hover:bg-[#e39c6c] shadow-[0_4px_12px_rgba(212,140,92,0.2)] active:scale-[0.98]'
+                    }`}
                   >
-                    Send to Kitchen
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Utensils className="w-4 h-4" />}
+                    SEND TO KITCHEN
                   </button>
                 </div>
               </div>

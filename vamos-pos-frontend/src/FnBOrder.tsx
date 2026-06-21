@@ -3,7 +3,7 @@ import { api } from './api';
 import { vamosAlert } from './utils/dialog';
 import { Utensils, Search, Minus, Plus, ShoppingBag, User, DollarSign, Loader2 } from 'lucide-react';
 
-const getProductEmojiAndStyle = (name: string, category: string) => {
+export const getProductEmojiAndStyle = (name: string, category: string) => {
     const lowerName = name.toLowerCase();
     const lowerCat = (category || '').toLowerCase();
     
