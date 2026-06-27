@@ -1451,13 +1451,27 @@ export class PlayerController {
             // WA Notification for Booking
             let waSent = false;
             if (member.phone) {
-                const { waService } = await import('../whatsapp/wa.service');
-                if (waService.isReady) {
+                try {
                     const venue = await prisma.venue.findFirst();
                     const venueName = venue?.name || 'VAMOS';
                     const bookedTime = reservedTime ? new Date(reservedTime).toLocaleString('id-ID') : 'Sekarang';
-                    const message = `Halo ${member.name}! 🎱\n\nBooking via Player App di ${venueName} telah kami terima.\n\nDetail:\n- Meja: ${tableType || 'Any'}\n- Jam: ${bookedTime}\n\nTerima kasih! Tunggu kabar dari Kasir kami ya.`;
-                    waSent = await waService.sendMessage(member.phone as string, message);
+                    const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
+                    const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.BOOKING_CONFIRM, {
+                        name: member.name,
+                        venue: venueName,
+                        table: tableType || 'Any',
+                        date: reservedTime ? new Date(reservedTime).toLocaleDateString('id-ID') : new Date().toLocaleDateString('id-ID'),
+                        time: bookedTime
+                    });
+                    
+                    if (waTemplate) {
+                        const { waService } = await import('../whatsapp/wa.service');
+                        if (waService.isReady) {
+                            waSent = await waService.sendMessage(member.phone as string, waTemplate.body, waTemplate.imageUrl || undefined);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to send booking confirm WA:', error);
                 }
             }
 
