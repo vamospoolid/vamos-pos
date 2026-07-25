@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { api } from './api';
 import { Loader2, ShoppingCart, Plus, Minus, CheckCircle, UtensilsCrossed } from 'lucide-react';
 import { VamosLogo } from './components/VamosLogo';
 import { getProductEmojiAndStyle } from './FnBOrder';
-
-const API_BASE = process.env.NODE_ENV === 'production' 
-    ? 'https://pos.vamospool.id/api' 
-    : 'http://localhost:3000/api';
 
 export default function QROrder({ tableId }: { tableId: string }) {
     const [data, setData] = useState<any>(null);
@@ -19,7 +15,7 @@ export default function QROrder({ tableId }: { tableId: string }) {
     useEffect(() => {
         const fetchMenu = async () => {
             try {
-                const res = await axios.get(`${API_BASE}/qr/menu/${tableId}`);
+                const res = await api.get(`/qr/menu/${tableId}`);
                 setData(res.data.data);
             } catch (err: any) {
                 setError(err.response?.data?.message || 'Failed to load menu');
@@ -59,7 +55,7 @@ export default function QROrder({ tableId }: { tableId: string }) {
             const payload = {
                 cart: cart.map(item => ({ productId: item.product.id, quantity: item.qty }))
             };
-            await axios.post(`${API_BASE}/qr/order/${tableId}`, payload);
+            await api.post(`/qr/order/${tableId}`, payload);
             setSuccess(true);
             setCart([]);
         } catch (err: any) {
@@ -163,8 +159,7 @@ export default function QROrder({ tableId }: { tableId: string }) {
                                 <div key={p.id} className={`group relative overflow-hidden rounded-3xl transition-all duration-300 ${isSelected ? 'bg-primary/5 border-primary/40 shadow-[0_10px_30px_rgba(0,255,102,0.1)]' : 'bg-[#121212] border-[#222] hover:border-gray-600 hover:shadow-xl'} border flex flex-col`}>
                                     {isSelected && <div className="absolute top-0 left-0 w-full h-1 bg-primary shadow-[0_0_10px_rgba(0,255,102,0.8)] z-10"></div>}
                                     
-                                    {/* Simulated Image Area */}
-                                    <div className={`w-full aspect-square flex items-center justify-center text-5xl relative overflow-hidden ${style.bg} bg-opacity-30 border-b border-[#222]`}>
+                                    <div className={`w-full aspect-square flex items-center justify-center text-5xl relative overflow-hidden ${style.gradient} bg-opacity-30 border-b border-[#222]`}>
                                         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
                                         <span className="relative z-10 drop-shadow-2xl group-hover:scale-125 transition-transform duration-500">{style.emoji}</span>
                                     </div>

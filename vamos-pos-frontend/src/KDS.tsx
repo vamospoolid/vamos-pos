@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api, getSocketURL } from './api';
 import { io } from 'socket.io-client';
 import { Loader2, CheckCircle, Clock, ChefHat, Play, Check } from 'lucide-react';
@@ -41,8 +41,7 @@ const playNotificationSound = () => {
 export default function KDS() {
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [previousPendingCount, setPreviousPendingCount] = useState<number>(-1);
-
+    const [, setPreviousPendingCount] = useState<number>(-1);
     const fetchOrders = async (isBackgroundUpdate = false) => {
         try {
             const res = await api.get('/orders/kds');

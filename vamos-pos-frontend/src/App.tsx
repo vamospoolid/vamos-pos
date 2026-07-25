@@ -3248,8 +3248,6 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
       let badgeColor = 'bg-orange-500/10 border-orange-500/50 text-orange-500 animate-pulse';
       let borderColor = 'border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.1)] bg-orange-500/5';
       let statusMessage = 'Unpaid Bill';
-      let showIcon = true;
-
       if (isActive && table.activeSession.orders) {
         const pendingCount = table.activeSession.orders.filter((o:any) => o.kdsStatus === 'PENDING').length;
         const processingCount = table.activeSession.orders.filter((o:any) => o.kdsStatus === 'PROCESSING').length;

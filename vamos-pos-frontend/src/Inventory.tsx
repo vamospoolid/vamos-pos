@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, AlertTriangle, Save, X, BookOpen, Layers } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Layers } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 

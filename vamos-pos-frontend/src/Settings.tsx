@@ -141,7 +141,7 @@ export default function Settings() {
 
     const handleTestPrinter = async () => {
         try {
-            const res = await api.post('/system/print/test');
+            await api.post('/system/print/test');
             vamosAlert('Berhasil mengirim test print ke ' + venueForm.printerPath);
         } catch (err: any) {
             vamosAlert('Gagal print: ' + (err.response?.data?.message || err.message));
@@ -1075,7 +1075,7 @@ export default function Settings() {
                                     onClick={() => {
                                         const nextRelay = tables.length > 0 ? Math.max(...tables.map(t => Number(t.relayChannel))) + 1 : 1;
                                         setEditingTable(false);
-                                        setTableForm({ id: '', venueId: venueForm.id, name: '', type: 'REGULAR', relayChannel: nextRelay, isKingTable: false });
+                                        setTableForm({ id: '', venueId: venueForm.id, name: '', type: 'REGULAR', area: '', relayChannel: nextRelay, isKingTable: false });
                                         setIsTableModalOpen(true);
                                     }}
                                     className="bg-[#00ff66]/10 border border-[#00ff66]/30 text-[#00ff66] px-4 py-2 rounded-xl text-xs font-black hover:bg-[#00ff66] hover:text-[#0a0a0a] transition-all flex items-center"
