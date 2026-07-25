@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     LayoutGrid, BarChart3, LogOut, TrendingDown,
     Activity, Settings, MessageSquare, Grid,
-    Users, Menu, X, Bell
+    Users, Menu, X
 } from 'lucide-react';
 
 const Layout: React.FC = () => {

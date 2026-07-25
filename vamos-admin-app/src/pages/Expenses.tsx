@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Plus, TrendingDown, Trash2, Calendar, Shield } from 'lucide-react';
+import { RefreshCw, Plus, TrendingDown, Trash2, Shield } from 'lucide-react';
 import api from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
 

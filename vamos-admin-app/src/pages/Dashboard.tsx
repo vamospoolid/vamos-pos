@@ -25,8 +25,6 @@ const Dashboard: React.FC = () => {
     const [liveTransactions, setLiveTransactions] = useState<Transaction[]>([]);
     const [todayRevenue, setTodayRevenue] = useState<number>(0);
     const [todayExpenses, setTodayExpenses] = useState<number>(0);
-    const [memberCount, setMemberCount] = useState<number>(0);
-    const [activeTournaments, setActiveTournaments] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -64,17 +62,10 @@ const Dashboard: React.FC = () => {
                     if (Array.isArray(data)) setTodayExpenses(data.reduce((sum: number, e: any) => sum + (e.amount || 0), 0));
                 }
                 if (playersRes.status === 'fulfilled') {
-                    const res = playersRes.value.data as any;
-                    const data = res.data || res;
-                    if (Array.isArray(data)) setMemberCount(data.length);
+                    // Do nothing
                 }
                 if (eventsRes.status === 'fulfilled') {
-                    const res = eventsRes.value.data as any;
-                    const data = res.data || res;
-                    if (Array.isArray(data)) {
-                        const ongoing = data.filter((t: any) => t.status === 'ONGOING' || t.status === 'PENDING').length;
-                        setActiveTournaments(ongoing);
-                    }
+                    // Do nothing
                 }
             } catch (_) { }
             finally { setLoading(false); }

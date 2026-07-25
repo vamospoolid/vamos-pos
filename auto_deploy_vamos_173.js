@@ -47,6 +47,9 @@ conn.on('ready', () => {
             echo "-> Menginstall dependensi backend..."
             npm install
             
+            echo "-> Mensinkronkan skema database (aman)..."
+            npx prisma db push
+            
             echo "-> Membangun (Build) backend..."
             npm run build
             
