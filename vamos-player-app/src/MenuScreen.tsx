@@ -212,52 +212,54 @@ export function MenuScreen() {
                                         <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] italic">{category}</h3>
                                         <div className="h-[1px] flex-1 bg-white/5" />
                                     </div>
-                                    <div className="grid grid-cols-1 gap-6">
+                                    <div className="grid grid-cols-2 gap-4">
                                         {products.map(product => {
                                             const inCart = cart[product.id];
                                             return (
-                                                <div key={product.id} className="group fiery-card rounded-[40px] p-6 flex items-center gap-6 border-2 border-white/5 bg-[#1a1f35]/40 hover:border-primary/40 transition-all duration-300">
-                                                    <div className="w-24 h-24 rounded-[32px] bg-[#101423] border border-white/5 flex items-center justify-center shrink-0 relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
-                                                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        <span className="text-slate-700 font-black text-2xl italic tracking-tighter relative z-10">{product.name.substring(0, 2).toUpperCase()}</span>
+                                                <div key={product.id} className="group fiery-card rounded-[24px] overflow-hidden flex flex-col border-2 border-white/5 bg-[#1a1f35]/40 hover:border-primary/40 transition-all duration-300">
+                                                    <div className="w-full aspect-[4/3] bg-[#101423] relative overflow-hidden">
+                                                        {product.image ? (
+                                                            <img src={product.image.startsWith('http') ? product.image : `https://api.vamospool.id/uploads/${product.image}`} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-[#101423] group-hover:scale-105 transition-transform duration-500">
+                                                                <span className="text-slate-700 font-black text-2xl italic tracking-tighter">{product.name.substring(0, 2).toUpperCase()}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-[#1a1f35] via-transparent to-transparent opacity-80" />
                                                     </div>
 
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-black text-lg text-white truncate leading-tight uppercase italic tracking-tighter mb-2">{product.name}</h4>
-                                                        <div className="flex items-baseline gap-2 mb-4">
-                                                            <span className="text-2xl font-black text-primary italic tracking-tighter leading-none">{product.price.toLocaleString()}</span>
-                                                            <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">RP</span>
+                                                    <div className="p-4 flex flex-col flex-1">
+                                                        <h4 className="font-black text-sm text-white leading-tight uppercase italic tracking-tighter mb-1 line-clamp-2">{product.name}</h4>
+                                                        <div className="flex items-baseline gap-1 mb-2 mt-auto">
+                                                            <span className="text-lg font-black text-primary italic tracking-tighter leading-none">{product.price.toLocaleString()}</span>
+                                                            <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">RP</span>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${product.stock > 10 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                                            <p className="text-[9px] text-slate-500 uppercase font-black tracking-[0.1em] italic">AVL UNIT: {product.stock}</p>
-                                                        </div>
-                                                    </div>
-
-                                                    {inCart ? (
-                                                        <div className="flex flex-col items-center gap-3 bg-[#101423] rounded-[24px] p-2 border border-white/5 shadow-inner">
+                                                        
+                                                        {inCart ? (
+                                                            <div className="flex items-center justify-between bg-[#101423] rounded-[16px] p-1.5 border border-white/5 shadow-inner mt-2">
+                                                                <button
+                                                                    onClick={() => removeFromCart(product.id)}
+                                                                    className="w-8 h-8 rounded-[12px] bg-white/5 flex items-center justify-center active:scale-90 transition-all text-slate-500 border border-white/5"
+                                                                >
+                                                                    <Minus className="w-4 h-4" />
+                                                                </button>
+                                                                <span className="text-sm font-black text-white w-6 text-center italic">{inCart.quantity}</span>
+                                                                <button
+                                                                    onClick={() => addToCart(product)}
+                                                                    className="w-8 h-8 rounded-[12px] bg-primary flex items-center justify-center active:scale-90 transition-all text-secondary fiery-glow"
+                                                                >
+                                                                    <Plus className="w-4 h-4" strokeWidth={3} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
                                                             <button
                                                                 onClick={() => addToCart(product)}
-                                                                className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center active:scale-90 transition-all text-secondary fiery-glow"
+                                                                className="w-full mt-2 py-3 rounded-[16px] bg-white/5 hover:bg-primary transition-all duration-300 flex items-center justify-center group/btn active:scale-90 border border-white/5"
                                                             >
-                                                                <Plus className="w-5 h-5" strokeWidth={3} />
+                                                                <span className="text-[10px] font-black text-slate-400 group-hover/btn:text-secondary uppercase tracking-widest italic transition-colors">TAMBAH</span>
                                                             </button>
-                                                            <span className="text-base font-black text-white w-6 text-center italic">{inCart.quantity}</span>
-                                                            <button
-                                                                onClick={() => removeFromCart(product.id)}
-                                                                className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center active:scale-90 transition-all text-slate-500 border border-white/5"
-                                                            >
-                                                                <Minus className="w-5 h-5" />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => addToCart(product)}
-                                                            className="w-16 h-16 rounded-[28px] bg-white/5 hover:bg-primary transition-all duration-300 flex items-center justify-center group active:scale-90 border border-white/5"
-                                                        >
-                                                            <Plus className="w-8 h-8 text-slate-600 group-hover:text-secondary group-hover:scale-110 transition-all" strokeWidth={3} />
-                                                        </button>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}
