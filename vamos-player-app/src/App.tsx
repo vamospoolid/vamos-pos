@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutGrid, Trophy, Star, User, Swords, ShoppingBag } from 'lucide-react';
+import { LayoutGrid, Trophy, Star, User, Swords, ShoppingBag, Zap } from 'lucide-react';
 import { api, getAvatarUrl, getSocket } from './api';
 import { useAppStore } from './store/appStore';
 
@@ -38,6 +38,7 @@ function MainApp() {
   const [leaderboard, setLeaderboard] = useState<{allTime: any[], monthly: any[], activeKings: any[], hallOfFame: any[]}>({allTime: [], monthly: [], activeKings: [], hallOfFame: []});
   const [activeVictory, setActiveVictory] = useState<any>(null);
   const [showLevelUp, setShowLevelUp] = useState<number | null>(null);
+  const [incomingChallenge, setIncomingChallenge] = useState<any>(null);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
 
@@ -52,6 +53,17 @@ function MainApp() {
     }
     localStorage.setItem(`lastLevel_${member.id}`, member.level.toString());
   }, [member?.level, member?.id]);
+
+  // --- Check for existing pending challenges on load or data updates ---
+  useEffect(() => {
+    if (!member) return;
+    const pending = member.challengesReceived?.find((c: any) => c.status === 'PENDING');
+    if (pending) {
+        setIncomingChallenge(pending);
+    } else {
+        setIncomingChallenge(null);
+    }
+  }, [member]);
 
   // --- Real-time Socket Connection ---
   useEffect(() => {
@@ -71,6 +83,7 @@ function MainApp() {
 
     socket.on(`challenge:update:${member.id}`, handleMatchUpdate);
     socket.on(`challenge:new:${member.id}`, (challenge) => {
+        setIncomingChallenge(challenge);
         addToast({
             title: 'WAR PROTOCOL',
             message: `Tantangan Duel Baru dari ${challenge.challenger?.name || 'Rival'}!`,
@@ -86,6 +99,30 @@ function MainApp() {
       socket.disconnect();
     };
   }, [member?.id, refreshMemberData, addToast, setActiveTab]);
+
+  const handleRespondToIncoming = async (challengeId: string, status: 'ACCEPTED' | 'DECLINED') => {
+    try {
+        const res = await api.put(`/player/challenge/${challengeId}/respond`, { status });
+        if (res.data.success) {
+            setIncomingChallenge(null);
+            refreshMemberData();
+            addToast({
+                title: status === 'ACCEPTED' ? 'CHALLENGE ACCEPTED' : 'CHALLENGE DECLINED',
+                message: status === 'ACCEPTED' ? 'LET THE DUEL BEGIN!' : 'TANTANGAN DITOLAK.',
+                type: 'success'
+            });
+            if (status === 'ACCEPTED') {
+                setActiveTab('play');
+            }
+        }
+    } catch (err: any) {
+        addToast({
+            title: 'RESPONSE FAILED',
+            message: err.response?.data?.message || "SYSTEM ERROR",
+            type: 'error'
+        });
+    }
+  };
 
   // --- Victory Notification Logic ---
   useEffect(() => {
@@ -148,6 +185,59 @@ function MainApp() {
       )}
       
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* Global Duel Invitation Modal */}
+      {incomingChallenge && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8">
+          <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" />
+          <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-8 border-2 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_80px_rgba(255,87,34,0.25)]">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+            
+            <div className="w-20 h-20 rounded-[28px] bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(255,87,34,0.15)]">
+              <Swords className="w-10 h-10 text-primary animate-pulse" />
+            </div>
+
+            <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">TANTANGAN DUEL!</h3>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 italic text-center">Protocol pairing detected</p>
+            
+            <div className="bg-[#101423] border border-white/5 p-5 rounded-[32px] mb-8">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2 italic text-center">CHALLENGER</p>
+              <h4 className="text-lg font-black text-white uppercase italic truncate">{incomingChallenge.challenger?.name || 'RIVAL PLAYER'}</h4>
+              
+              <div className="h-px bg-white/5 my-3" />
+              
+              <div className="flex justify-between items-center px-2">
+                <span className="text-[10px] font-black text-slate-500 uppercase italic">STAKE:</span>
+                <span className="text-sm font-black text-yellow-400 font-mono italic flex items-center gap-1">
+                  <Zap size={14} className="text-yellow-400" />
+                  {incomingChallenge.pointsStake || 0} PTS
+                </span>
+              </div>
+              {incomingChallenge.isFightForTable && (
+                <div className="flex justify-between items-center px-2 mt-2">
+                  <span className="text-[10px] font-black text-primary uppercase italic">FIGHT FOR TABLE:</span>
+                  <span className="text-[10px] font-black text-primary uppercase italic">YES</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => handleRespondToIncoming(incomingChallenge.id, 'ACCEPTED')}
+                className="w-full py-4 bg-emerald-500 rounded-2xl text-[11px] font-black uppercase tracking-widest italic text-secondary hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)]"
+              >
+                TERIMA TANTANGAN (LAWANKAN)
+              </button>
+              <button 
+                onClick={() => handleRespondToIncoming(incomingChallenge.id, 'DECLINED')}
+                className="w-full py-4 bg-rose-500/10 border border-rose-500/25 rounded-2xl text-[11px] font-black uppercase tracking-widest italic text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all"
+              >
+                TOLAK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex justify-between items-center px-6 pt-10 pb-4 relative z-30">

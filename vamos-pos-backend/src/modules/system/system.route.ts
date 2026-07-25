@@ -9,6 +9,7 @@ router.get('/export', localOrAuthenticate, authorizeRoles('ADMIN', 'OWNER'), Sys
 router.post('/reset', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.resetSystem);
 router.post('/seed', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.seedDefaults);
 router.post('/fix-tables', authenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.fixTables);
+router.post('/print/test', localOrAuthenticate, SystemController.testPrinter);
 
 // Database backup – allow offline restore on local Electron (IS_LOCAL_ELECTRON=true)
 router.post('/backup', localOrAuthenticate, authorizeRoles('ADMIN', 'OWNER'), SystemController.runBackup);

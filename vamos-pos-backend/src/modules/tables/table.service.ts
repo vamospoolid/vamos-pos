@@ -4,14 +4,15 @@ import { TableStatus } from '@prisma/client';
 import { logger } from '../../utils/logger';
 
 export class TableService {
-    static async createTable(data: { venueId: string; name: string; type: string; relayChannel: number; isKingTable?: boolean }) {
+    static async createTable(data: { venueId: string; name: string; type: string; area?: string; relayChannel: number; isKingTable?: boolean }) {
         console.log('Validating table create data:', JSON.stringify(data));
 
-        const { venueId, name, type, relayChannel } = data as any;
+        const { venueId, name, type, area, relayChannel } = data as any;
         const cleanData = {
             venueId,
             name,
             type,
+            area: area || null,
             relayChannel: Number(relayChannel),
             isKingTable: Boolean(data.isKingTable)
         };
@@ -75,7 +76,7 @@ export class TableService {
         return table;
     }
 
-    static async updateTable(id: string, data: { name?: string; type?: string; status?: TableStatus; relayChannel?: number; isKingTable?: boolean }) {
+    static async updateTable(id: string, data: { name?: string; type?: string; area?: string; status?: TableStatus; relayChannel?: number; isKingTable?: boolean }) {
         const table = await prisma.table.findFirst({ where: { id, deletedAt: null } });
         if (!table) throw new AppError('Table not found', 404);
 

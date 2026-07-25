@@ -745,8 +745,8 @@ export class PlayerController {
                 where: { phone: cleanedPhone },
                 include: {
                     sessions: {
-                        where: { status: 'ACTIVE' },
-                        include: { table: true }
+                        where: { status: { in: ['ACTIVE', 'PENDING'] } },
+                        include: { table: true, orders: { include: { product: true } } }
                     },
                     tournamentParticipant: {
                         include: { tournament: true }

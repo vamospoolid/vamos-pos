@@ -1,170 +1,651 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vamos Pool & Cafe | The Elite Vanguard Experience</title>
+    <title>CodeNusa - Jasa Pembuatan Aplikasi Custom & Software Development Profesional</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <meta name="description" content="Experience the ultimate billiard and dining destination at Vamos Pool & Cafe. Highlighting 10 Units of Import Vanguard Tables and digital-first facilities.">
+    <meta name="description" content="CodeNusa menyediakan jasa pembuatan aplikasi custom, web app, mobile app (Android & iOS), serta sistem bisnis internal (ERP, CRM, POS) yang dirancang khusus sesuai SOP usaha Anda. Cepat, aman, dan mudah dikalakan.">
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
+    <!-- Navigation -->
     <nav id="navbar">
         <div class="container nav-content">
             <a href="#" class="logo">
-                <img src="assets/logo.png" alt="Vamos Logo">
+                <span class="logo-icon">&lt;/&gt;</span>
+                <span class="logo-text">Code<span class="logo-accent">Nusa</span></span>
             </a>
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
-                <li><a href="#vanguard">Vanguard Tables</a></li>
-                <li><a href="#cafe">Our Cafe</a></li>
-                <li><a href="#app">Digital Edge</a></li>
-                <li><a href="#contact" class="cta-btn" style="padding: 0.8rem 1.5rem; font-size: 0.7rem;">Visit Us</a></li>
+                <li><a href="#services">Layanan</a></li>
+                <li><a href="#portfolio">Portofolio</a></li>
+                <li><a href="#codenusa-app">Aplikasi</a></li>
+                <li><a href="#why-choose-us">Keunggulan</a></li>
+                <li><a href="#process">Proses Kerja</a></li>
+                <li><a href="https://wa.me/6281234567890?text=Halo%20CodeNusa,%20saya%20ingin%20konsultasi%20mengenai%20pembuatan%20aplikasi%20untuk%20bisnis%20saya" class="cta-btn nav-cta" target="_blank">Konsultasi Gratis</a></li>
             </ul>
+            <div class="menu-toggle" id="mobile-menu">
+                <i class="fa-solid fa-bars"></i>
+            </div>
         </div>
     </nav>
 
+    <!-- Hero Section -->
     <section id="home" class="hero">
-        <div class="hero-bg"></div>
-        <div class="container hero-content">
-            <div class="glass-pill reveal">Exclusive Venue</div>
-            <h1 class="reveal">ELEVATE YOUR <br><span class="text-gradient">BILLIARD GAME</span></h1>
-            <p class="reveal">Experience the precision of 10 Import Vanguard Tables in a luxury atmosphere designed for the elite.</p>
-            <div class="reveal">
-                <a href="#vanguard" class="cta-btn">Explore Facilities</a>
-            </div>
-        </div>
-    </section>
-
-    <section class="features">
-        <div class="container">
-            <div class="section-head reveal">
-                <h2>VENUE FACILITIES</h2>
-                <p>Designed for professional players and lifestyle enthusiasts.</p>
-            </div>
-            <div class="feature-grid">
-                <div class="feature-card reveal">
-                    <i class="fa-solid fa-table-cells"></i>
-                    <h3>10 VANGUARD UNITS</h3>
-                    <p>The gold standard of billiard tables. Imported for precision, speed, and luxury play.</p>
+        <div class="hero-bg-gradient"></div>
+        <div class="container hero-container">
+            <div class="hero-info reveal">
+                <div class="glass-pill"><i class="fa-solid fa-rocket"></i> Digital Partner Terbaik Anda</div>
+                <h1>Digitalisasi Operasional Bisnis Anda dengan <span class="text-gradient">Sistem Custom</span> Terbaik</h1>
+                <p>Kami membangun software dan aplikasi web/mobile yang dirancang khusus mengikuti alur kerja unik bisnis Anda. Jadikan operasional lebih efisien, terpusat, dan siap dikembangkan tanpa batasan sistem siap pakai.</p>
+                <div class="hero-actions">
+                    <a href="https://wa.me/6281234567890?text=Halo%20CodeNusa,%20saya%20ingin%20konsultasi%20mengenai%20pembuatan%20aplikasi%20untuk%20bisnis%20saya" class="cta-btn" target="_blank">
+                        <i class="fa-brands fa-whatsapp"></i> Mulai Project
+                    </a>
+                    <a href="#portfolio" class="cta-btn btn-secondary">
+                        Lihat Portofolio
+                    </a>
                 </div>
-                <div class="feature-card reveal">
-                    <i class="fa-solid fa-mug-hot"></i>
-                    <h3>VAMOS CAFE & LOUNGE</h3>
-                    <p>Premium coffee and culinary delights in a cozy esports-inspired atmosphere.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
-                    <h3>DIGITAL INTEGRATION</h3>
-                    <p>Frictionless experience with live scoring, digital booking, and leaderboard systems.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="vanguard" class="vanguard">
-        <div class="container">
-            <div class="vanguard-flex">
-                <div class="vanguard-img reveal">
-                    <img src="assets/vanguard.png" alt="Vanguard Table Detail">
-                    <div class="glass-card-deep" style="position: absolute; bottom: -20px; right: -20px; padding: 2rem; border-radius: 1rem;">
-                        <span style="font-size: 2.5rem; font-weight: 900; color: var(--primary);">10</span>
-                        <p style="font-size: 0.8rem; font-weight: 700; color: white;">IMPORT UNITS</p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-num">50+</span>
+                        <span class="stat-lbl">Project Rilis</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">98%</span>
+                        <span class="stat-lbl">Kepuasan Klien</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">100%</span>
+                        <span class="stat-lbl">Custom Tailored</span>
                     </div>
                 </div>
-                <div class="vanguard-info reveal">
-                    <div class="glass-pill">Equipment Focus</div>
-                    <h2>THE <span class="text-gradient">VANGUARD</span> SUITE</h2>
-                    <p style="margin-bottom: 2rem;">Our venue is equipped exclusively with 10 units of Import Vanguard tables. Each table is maintained to professional standards to ensure the ultimate shots every time.</p>
-                    <ul class="vanguard-list">
-                        <li><b>Cloth</b> Premium Competition Fast Cloth</li>
-                        <li><b>Rails</b> Precision Natural Rubber Cushions</li>
-                        <li><b>Balls</b> Aramith Tournament Edition</li>
-                        <li><b>Lighting</b> Shadow-Free Professional LED</li>
+            </div>
+            
+            <!-- Hero Mockup Container -->
+            <div class="hero-visual reveal">
+                <div class="browser-frame">
+                    <div class="browser-header">
+                        <div class="browser-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="browser-search"><i class="fa-solid fa-lock"></i> codenusa.id/dashboard/sales</div>
+                    </div>
+                    <div class="browser-body">
+                        <!-- Dashboard Mockup -->
+                        <div class="dashboard-mockup">
+                            <div class="dash-sidebar">
+                                <div class="dash-logo"><i class="fa-solid fa-cubes"></i></div>
+                                <div class="dash-menu">
+                                    <div class="dash-menu-item active"><i class="fa-solid fa-chart-pie"></i></div>
+                                    <div class="dash-menu-item"><i class="fa-solid fa-receipt"></i></div>
+                                    <div class="dash-menu-item"><i class="fa-solid fa-boxes-stacked"></i></div>
+                                    <div class="dash-menu-item"><i class="fa-solid fa-users"></i></div>
+                                    <div class="dash-menu-item"><i class="fa-solid fa-gear"></i></div>
+                                </div>
+                            </div>
+                            <div class="dash-main">
+                                <div class="dash-header">
+                                    <div class="dash-title">Laporan Penjualan Bisnis</div>
+                                    <div class="dash-user">
+                                        <span class="badge status-active">Online</span>
+                                        <i class="fa-solid fa-circle-user avatar"></i>
+                                    </div>
+                                </div>
+                                <div class="dash-metrics">
+                                    <div class="metric-card">
+                                        <div class="metric-title">Omset Bulan Ini</div>
+                                        <div class="metric-val">Rp 124.8M</div>
+                                        <div class="metric-trend upward"><i class="fa-solid fa-caret-up"></i> +12.4%</div>
+                                    </div>
+                                    <div class="metric-card">
+                                        <div class="metric-title">Transaksi Sukses</div>
+                                        <div class="metric-val">1,204</div>
+                                        <div class="metric-trend upward"><i class="fa-solid fa-caret-up"></i> +8.1%</div>
+                                    </div>
+                                </div>
+                                <div class="dash-chart-container">
+                                    <div class="chart-header">
+                                        <span>Grafik Pertumbuhan Penjualan</span>
+                                        <span class="text-accent text-sm">Real-time</span>
+                                    </div>
+                                    <!-- Interactive SVG Chart -->
+                                    <svg viewBox="0 0 400 130" class="dash-svg-chart">
+                                        <defs>
+                                            <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.4"/>
+                                                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M 0,110 Q 50,70 100,85 T 200,45 T 300,50 T 400,20" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+                                        <path d="M 0,110 Q 50,70 100,85 T 200,45 T 300,50 T 400,20 L 400,130 L 0,130 Z" fill="url(#chart-grad)"/>
+                                        <!-- Grid Lines -->
+                                        <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255, 255, 255, 0.05)" stroke-dasharray="4"/>
+                                        <line x1="0" y1="70" x2="400" y2="70" stroke="rgba(255, 255, 255, 0.05)" stroke-dasharray="4"/>
+                                        <line x1="0" y1="110" x2="400" y2="110" stroke="rgba(255, 255, 255, 0.05)" stroke-dasharray="4"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services" class="services">
+        <div class="container">
+            <div class="section-head reveal">
+                <span class="glass-pill">Layanan Kami</span>
+                <h2>Solusi Software Custom Sesuai Kebutuhan Anda</h2>
+                <p>Kami mendevelop perangkat lunak dari nol untuk memastikan sistem berjalan 100% sesuai dengan model operasional bisnis Anda.</p>
+            </div>
+            
+            <div class="services-grid">
+                <!-- Card 1 -->
+                <div class="service-card reveal">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-box">
+                        <i class="fa-solid fa-laptop-code"></i>
+                    </div>
+                    <h3>Web App Development</h3>
+                    <p>Pengembangan aplikasi berbasis web yang cepat, responsif di semua perangkat, serta mudah diakses tanpa instalasi eksternal untuk efisiensi operasional.</p>
+                    <ul class="service-features">
+                        <li><i class="fa-solid fa-check text-primary"></i> SaaS & Sistem B2B</li>
+                        <li><i class="fa-solid fa-check text-primary"></i> Portal Konsumen</li>
+                    </ul>
+                </div>
+                
+                <!-- Card 2 -->
+                <div class="service-card reveal">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-box">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <h3>Mobile App Development</h3>
+                    <p>Menghubungkan bisnis Anda langsung dengan konsumen menggunakan aplikasi mobile native (Android & iOS) berkinerja tinggi serta UI/UX modern.</p>
+                    <ul class="service-features">
+                        <li><i class="fa-solid fa-check text-primary"></i> Android & iOS App</li>
+                        <li><i class="fa-solid fa-check text-primary"></i> Offline-First Sync</li>
+                    </ul>
+                </div>
+                
+                <!-- Card 3 -->
+                <div class="service-card reveal">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-box">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                    <h3>Custom Business System</h3>
+                    <p>Digitalisasi SOP internal Anda melalui sistem terintegrasi seperti ERP, CRM, inventaris gudang, manajemen karyawan, hingga otomasi kasir.</p>
+                    <ul class="service-features">
+                        <li><i class="fa-solid fa-check text-primary"></i> Otomasi SOP Bisnis</li>
+                        <li><i class="fa-solid fa-check text-primary"></i> Laporan Finansial Instan</li>
+                    </ul>
+                </div>
+                
+                <!-- Card 4 -->
+                <div class="service-card reveal">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-box">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <h3>Integrasi & Maintenance</h3>
+                    <p>Menghubungkan aplikasi baru dengan sistem database lama Anda, API pihak ketiga (payment gateway, kurir), serta merawat server agar stabil.</p>
+                    <ul class="service-features">
+                        <li><i class="fa-solid fa-check text-primary"></i> Sinkronisasi API & Hardware</li>
+                        <li><i class="fa-solid fa-check text-primary"></i> Pemantauan Server & Backup</li>
                     </ul>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="cafe" class="hero" style="height: 70vh;">
-        <div class="hero-bg" style="background-image: linear-gradient(rgba(13, 15, 20, 0.7), rgba(13, 15, 20, 0.7)), url('assets/hero.png'); background-position: bottom;"></div>
-        <div class="container hero-content">
-            <div class="glass-pill reveal">Lifestyle</div>
-            <h2 class="reveal" style="font-size: 4rem;">VAMOS <span class="text-gradient">CAFE</span></h2>
-            <p class="reveal">More than just a game. Relax in our lounge area, enjoy premium roasted coffee, and refuel with our signature menu while you wait for your next match.</p>
-            <a href="#" class="cta-btn reveal">View Menu</a>
+    <!-- Portfolio Section -->
+    <section id="portfolio" class="portfolio">
+        <div class="container">
+            <div class="section-head reveal">
+                <span class="glass-pill">Portofolio Pilihan</span>
+                <h2>Project yang Pernah Kami Kerjakan</h2>
+                <p>Berikut adalah beberapa contoh produk kustomisasi yang berhasil kami rancang dan implementasikan untuk bisnis klien kami.</p>
+            </div>
+            
+            <div class="portfolio-grid">
+                
+                <!-- Project 1: POS Billiard -->
+                <div class="portfolio-item reveal">
+                    <div class="portfolio-visual">
+                        <!-- Custom Interactive Mockup: Billiard POS Tracker -->
+                        <div class="billiard-mockup">
+                            <div class="mockup-header">
+                                <span>POS & Meja Billiard</span>
+                                <span class="badge status-live">Live Monitoring</span>
+                            </div>
+                            <div class="mockup-body">
+                                <div class="table-map-grid">
+                                    <div class="billiard-table active">
+                                        <span class="table-num">Meja 01</span>
+                                        <span class="table-timer"><i class="fa-regular fa-clock"></i> 01:24:10</span>
+                                        <span class="table-bill">Rp 85.000</span>
+                                    </div>
+                                    <div class="billiard-table active">
+                                        <span class="table-num">Meja 02</span>
+                                        <span class="table-timer"><i class="fa-regular fa-clock"></i> 00:42:15</span>
+                                        <span class="table-bill">Rp 42.500</span>
+                                    </div>
+                                    <div class="billiard-table available">
+                                        <span class="table-num">Meja 03</span>
+                                        <span class="table-status">KOSONG</span>
+                                        <span class="table-action">Aktifkan</span>
+                                    </div>
+                                    <div class="billiard-table cleaning">
+                                        <span class="table-num">Meja 04</span>
+                                        <span class="table-status">BERSIHKAN</span>
+                                        <span class="table-timer">00:03:12</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>Sistem POS & Billing Billiard</h3>
+                        <p class="project-desc">Sistem kasir dan manajemen operasional meja billiard secara real-time yang mengintegrasikan durasi sewa meja dengan pesanan makanan & minuman dari cafe secara otomatis.</p>
+                        <div class="project-features">
+                            <span class="feat-badge"><i class="fa-solid fa-hourglass-half"></i> Billing Otomatis</span>
+                            <span class="feat-badge"><i class="fa-solid fa-map-location-dot"></i> Visual Table Map</span>
+                            <span class="feat-badge"><i class="fa-solid fa-receipt"></i> Split Bill & F&B</span>
+                            <span class="feat-badge"><i class="fa-solid fa-chart-line"></i> Laporan Shift Kasir</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 2: Bengkel -->
+                <div class="portfolio-item reverse reveal">
+                    <div class="portfolio-visual">
+                        <!-- Custom Interactive Mockup: Bengkel Management Board -->
+                        <div class="bengkel-mockup">
+                            <div class="mockup-header">
+                                <span>Manajemen Antrean Servis</span>
+                                <span class="badge status-active">3 Servis Aktif</span>
+                            </div>
+                            <div class="mockup-body">
+                                <div class="queue-list">
+                                    <div class="queue-card item-progress">
+                                        <div class="queue-info">
+                                            <div class="vehicle-plate">B 1024 CZD (Avanza)</div>
+                                            <div class="service-type">Servis Rem + Ganti Oli</div>
+                                        </div>
+                                        <div class="mechanic-badge"><i class="fa-solid fa-wrench"></i> Budi (Mekanik)</div>
+                                        <div class="queue-progress-bar">
+                                            <div class="progress-bar-fill" style="width: 75%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="queue-card item-queue">
+                                        <div class="queue-info">
+                                            <div class="vehicle-plate">D 8891 AB (Honda Vario)</div>
+                                            <div class="service-type">Ganti Ban Belakang</div>
+                                        </div>
+                                        <div class="mechanic-badge"><i class="fa-solid fa-clock"></i> Menunggu Antrean</div>
+                                        <div class="queue-progress-bar">
+                                            <div class="progress-bar-fill" style="width: 0%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="spareparts-alert">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        <span>Stok Oli Shell Helix menipis (< 5 pcs). Buat PO otomatis?</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>Sistem Manajemen & Antrean Bengkel</h3>
+                        <p class="project-desc">Software pengelolaan operasional bengkel terintegrasi mulai dari pendaftaran antrean, pembagian tugas mekanik, pelacakan histori servis kendaraan pelanggan, hingga manajemen sparepart.</p>
+                        <div class="project-features">
+                            <span class="feat-badge"><i class="fa-solid fa-list-ol"></i> Live Queue Tracking</span>
+                            <span class="feat-badge"><i class="fa-solid fa-box-open"></i> Auto-PO Sparepart</span>
+                            <span class="feat-badge"><i class="fa-solid fa-users-gear"></i> Sistem Komisi Mekanik</span>
+                            <span class="feat-badge"><i class="fa-solid fa-comment-sms"></i> Notifikasi WhatsApp</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 3: Optik -->
+                <div class="portfolio-item reveal">
+                    <div class="portfolio-visual">
+                        <!-- Custom Interactive Mockup: Optik Record -->
+                        <div class="optik-mockup">
+                            <div class="mockup-header">
+                                <span>Rekam Medis Optik & Resep</span>
+                                <span class="badge status-pending">Menunggu Lab</span>
+                            </div>
+                            <div class="mockup-body">
+                                <div class="prescription-card">
+                                    <div class="patient-name">Nama: Bpk. Adi Wijaya</div>
+                                    <table class="prescription-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Mata</th>
+                                                <th>SPH</th>
+                                                <th>CYL</th>
+                                                <th>AXIS</th>
+                                                <th>ADD</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>OD (Kanan)</td>
+                                                <td>-2.25</td>
+                                                <td>-0.50</td>
+                                                <td>95°</td>
+                                                <td>+1.50</td>
+                                            </tr>
+                                            <tr>
+                                                <td>OS (Kiri)</td>
+                                                <td>-1.75</td>
+                                                <td>-0.75</td>
+                                                <td>105°</td>
+                                                <td>+1.50</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div class="lens-status">
+                                        <div class="status-indicator-dot pulsing"></div>
+                                        <span>Proses Gosok Lensa Essilor Progresif di Lab</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>Sistem Rekam Medis & Inventaris Optik</h3>
+                        <p class="project-desc">Sistem kustom yang dirancang khusus untuk mempermudah pencatatan rekam medis pemeriksaan mata, kalkulasi stok lensa berdasarkan matriks minus/silinder, dan pemantauan pengerjaan kacamata.</p>
+                        <div class="project-features">
+                            <span class="feat-badge"><i class="fa-solid fa-file-medical"></i> Rekam Medis Lensa</span>
+                            <span class="feat-badge"><i class="fa-solid fa-border-all"></i> Matriks Stok Kompleks</span>
+                            <span class="feat-badge"><i class="fa-solid fa-microscope"></i> Tracking Order Lab</span>
+                            <span class="feat-badge"><i class="fa-solid fa-credit-card"></i> Cicilan & Uang Muka</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Portfolio Affirmation Banner -->
+            <div class="portfolio-affirmation reveal">
+                <div class="affirmation-content">
+                    <div class="affirmation-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+                    <div>
+                        <h3>Dan berbagai sistem custom lainnya sesuai alur bisnis Anda</h3>
+                        <p>Apakah Anda mengelola bisnis pergudangan, retail, ekspedisi, perhotelan, atau jasa lainnya? Kami siap menganalisa dan merancang sistem yang 100% unik untuk mempermudah operasional Anda.</p>
+                    </div>
+                </div>
+                <a href="https://wa.me/6281234567890?text=Halo%20CodeNusa,%20saya%20tertarik%20mencari%20solusi%20sistem%20custom%20untuk%20bisnis%20saya" class="cta-btn btn-accent" target="_blank">Konsultasikan Bisnis Anda</a>
+            </div>
         </div>
     </section>
 
-    <section id="app" class="app-edge">
+    <!-- Why Choose Us Section -->
+    <section id="why-choose-us" class="why-choose-us">
         <div class="container">
             <div class="section-head reveal">
-                <div class="glass-pill">Future Ready</div>
-                <h2>POWERED BY <span class="text-gradient">VAMOS APP</span></h2>
-                <p>Seamlessly bridge your physical game with digital precision.</p>
+                <span class="glass-pill">Mengapa CodeNusa</span>
+                <h2>Mengapa Mempercayakan Software Anda Pada Kami?</h2>
+                <p>Kami menggabungkan keahlian teknis tingkat tinggi dengan pemahaman alur bisnis yang tajam guna menghasilkan solusi yang berdampak nyata.</p>
             </div>
             
-            <div class="app-download-container reveal">
-                <div class="qr-box">
-                    <img src="assets/qr_download.png" alt="Download QR Code">
-                    <div class="qr-glow"></div>
+            <div class="why-grid">
+                <!-- Point 1 -->
+                <div class="why-card reveal">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h3>Custom Sesuai Alur Bisnis</h3>
+                    <p>Aplikasi mengikuti Standar Operasional Prosedur (SOP) bisnis Anda secara presisi, bukan memaksa bisnis Anda menyesuaikan diri dengan sistem buatan pabrik.</p>
                 </div>
-                <div class="download-info">
-                    <h3>GET THE APP</h3>
-                    <p>Scan the QR code to download the <b>Vamos Player App</b> directly to your Android device. Track stats, book tables, and climb the leaderboard.</p>
-                    <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center;">
-                        <a href="#" class="cta-btn" style="padding: 0.8rem 2rem; background: #333;"><i class="fa-brands fa-google-play"></i> Android APK</a>
+                <!-- Point 2 -->
+                <div class="why-card reveal">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <h3>Pengalaman Real Project</h3>
+                    <p>Tim engineer kami telah berpengalaman meluncurkan puluhan sistem produktif skala UKM hingga perusahaan menengah di berbagai bidang industri.</p>
+                </div>
+                <!-- Point 3 -->
+                <div class="why-card reveal">
+                    <i class="fa-solid fa-tags"></i>
+                    <h3>Harga Kompetitif & Efisien</h3>
+                    <p>Skema biaya pengembangan transparan, terukur, dan fokus pada fitur-fitur krusial yang langsung menghasilkan return on investment (ROI) bagi bisnis.</p>
+                </div>
+                <!-- Point 4 -->
+                <div class="why-card reveal">
+                    <i class="fa-solid fa-headset"></i>
+                    <h3>Support & Maintenance</h3>
+                    <p>Kami tidak melepas Anda setelah go-live. Pendampingan berkala, monitoring error, dan pembaruan sistem siap kami berikan agar bisnis tetap lancar.</p>
+                </div>
+                <!-- Point 5 -->
+                <div class="why-card reveal">
+                    <i class="fa-solid fa-link"></i>
+                    <h3>Bisa Integrasi Sistem</h3>
+                    <p>Memiliki mesin kasir lama, database internal, pembaca kartu RFID, sensor IoT, atau API pembayaran? Kami siap menyambungkannya menjadi satu kesatuan.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Process Section -->
+    <section id="process" class="process">
+        <div class="container">
+            <div class="section-head reveal">
+                <span class="glass-pill">Proses Kerja</span>
+                <h2>Alur Kerja yang Teratur & Transparan</h2>
+                <p>Mulai dari diskusi awal hingga aplikasi siap pakai, kami memastikan Anda terlibat aktif memantau setiap perkembangan.</p>
+            </div>
+            
+            <div class="process-steps">
+                <div class="process-line"></div>
+                <!-- Step 1 -->
+                <div class="step-card reveal">
+                    <div class="step-num">1</div>
+                    <div class="step-icon"><i class="fa-solid fa-comments"></i></div>
+                    <h3>1. Konsultasi</h3>
+                    <p>Diskusi awal gratis untuk memahami hambatan operasional, target sistem, dan ekspektasi fungsional aplikasi.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="step-card reveal">
+                    <div class="step-num">2</div>
+                    <div class="step-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                    <h3>2. Analisa Kebutuhan</h3>
+                    <p>Pemetaan kebutuhan secara detail menjadi rancangan arsitektur data dan dokumen spesifikasi sistem (SRS).</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="step-card reveal">
+                    <div class="step-num">3</div>
+                    <div class="step-icon"><i class="fa-solid fa-code"></i></div>
+                    <h3>3. Development</h3>
+                    <p>Proses penulisan kode berkualitas, pembuatan database terstruktur, dan pengembangan modul fitur satu per satu.</p>
+                </div>
+                <!-- Step 4 -->
+                <div class="step-card reveal">
+                    <div class="step-num">4</div>
+                    <div class="step-icon"><i class="fa-solid fa-vial-circle-check"></i></div>
+                    <h3>4. Testing</h3>
+                    <p>Pengujian ketat (Quality Assurance) untuk memastikan tidak ada celah keamanan, error, serta menjamin performa cepat.</p>
+                </div>
+                <!-- Step 5 -->
+                <div class="step-card reveal">
+                    <div class="step-num">5</div>
+                    <div class="step-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <h3>5. Launching</h3>
+                    <p>Aplikasi dideploy ke server produksi, pendampingan uji coba tim internal Anda, serta serah terima sistem.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CodeNusa Mobile App Section -->
+    <section id="codenusa-app" class="codenusa-app">
+        <div class="container">
+            <div class="app-layout">
+                <!-- Phone Mockup Grid Left -->
+                <div class="app-visual reveal">
+                    <div class="phone-frame">
+                        <div class="phone-speaker"></div>
+                        <div class="phone-screen">
+                            <!-- Inside Phone screen: Client App Portal -->
+                            <div class="phone-app-header">
+                                <div class="app-brand"><span class="brand-bracket">&lt;/&gt;</span> CodeNusa Client</div>
+                                <div class="app-status-bar">
+                                    <span>PM: Rian</span>
+                                    <span class="badge-dot pulsing-green"></span>
+                                </div>
+                            </div>
+                            <div class="phone-app-body">
+                                <div class="project-progress-card">
+                                    <div class="progress-info">
+                                        <span class="proj-name">POS Cafe Elite</span>
+                                        <span class="proj-percent">82%</span>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill-bar" style="width: 82%;"></div>
+                                    </div>
+                                    <div class="proj-eta">Estimasi Rilis: 12 Juli 2026</div>
+                                </div>
+                                <div class="milestones-list">
+                                    <div class="milestone-item done">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        <span>Desain UI/UX & Flow</span>
+                                    </div>
+                                    <div class="milestone-item done">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        <span>Setup Database & API</span>
+                                    </div>
+                                    <div class="milestone-item active">
+                                        <i class="fa-solid fa-spinner fa-spin"></i>
+                                        <span>Frontend Client POS</span>
+                                    </div>
+                                    <div class="milestone-item pending">
+                                        <i class="fa-regular fa-circle"></i>
+                                        <span>Integrasi thermal printer</span>
+                                    </div>
+                                </div>
+                                <a href="https://wa.me/6281234567890?text=Halo%20CodeNusa,%20saya%20ingin%20menanyakan%20progress%20project%20saya" class="app-action-btn" target="_blank">
+                                    <i class="fa-solid fa-comment"></i> Hubungi Project Manager
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Right -->
+                <div class="app-details reveal">
+                    <span class="glass-pill"><i class="fa-brands fa-android"></i> Android Mobile App</span>
+                    <h2>Pantau Progress Project Anda dari Mana Saja</h2>
+                    <p>Mobilitas dan transparansi adalah prioritas kami. Dengan Aplikasi Android Client CodeNusa, Anda tidak perlu lagi menebak-nebak sejauh mana project Anda dikerjakan. Semua termonitor secara real-time langsung dari handphone Anda.</p>
+                    
+                    <div class="app-feature-grid">
+                        <div class="app-feat-item">
+                            <div class="app-feat-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                            <div>
+                                <h4>Monitoring Real-time</h4>
+                                <p>Pantau persentase pengerjaan fitur dan tahapan coding tim developer secara live.</p>
+                            </div>
+                        </div>
+                        <div class="app-feat-item">
+                            <div class="app-feat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                            <div>
+                                <h4>Invoicing & Kontrak</h4>
+                                <p>Akses histori tagihan termin, kontrak kerja, dan unduh invoice resmi kapan saja.</p>
+                            </div>
+                        </div>
+                        <div class="app-feat-item">
+                            <div class="app-feat-icon"><i class="fa-solid fa-comments"></i></div>
+                            <div>
+                                <h4>Konsultasi Direct Chat</h4>
+                                <p>Kirim masukan atau pertanyaan langsung ke Project Manager yang berdedikasi.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app-download-box">
+                        <div class="app-qr">
+                            <img src="assets/qr_download.png" alt="Scan QR Code CodeNusa App">
+                            <div class="qr-glow-effect"></div>
+                        </div>
+                        <div class="app-download-info">
+                            <h4>Download Sekarang</h4>
+                            <p>Scan QR code di samping atau unduh file APK langsung untuk mendownload aplikasi client kami.</p>
+                            <a href="VamosPlayer_v4_Booking.apk" class="cta-btn btn-secondary" download>
+                                <i class="fa-brands fa-android"></i> Download Android APK
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <div class="feature-grid" style="margin-top: 4rem;">
-                <div class="feature-card reveal" style="text-align: left;">
-                    <h4 style="color: var(--primary);">Real-time Booking</h4>
-                    <p>Check table availability and book your favorite spot instantly from your phone.</p>
-                </div>
-                <div class="feature-card reveal" style="text-align: left;">
-                    <h4 style="color: var(--primary);">Live Scoring</h4>
-                    <p>Track your matches digitally. High-accuracy scoring integrated directly into our venue systems.</p>
-                </div>
-                <div class="feature-card reveal" style="text-align: left;">
-                    <h4 style="color: var(--primary);">Player Leaderboard</h4>
-                    <p>Compete with the best. Your venue stats contribute to the global Vamos ranking system.</p>
+    <!-- Closing CTA Section -->
+    <section class="cta-closing">
+        <div class="container">
+            <div class="cta-closing-card reveal">
+                <div class="cta-card-bg"></div>
+                <div class="cta-content">
+                    <h2>Siap Membangun Aplikasi untuk Bisnis Anda?</h2>
+                    <p>Konsultasikan kebutuhan operasional usaha Anda sekarang. Tim teknis CodeNusa siap memformulasikan rancangan sistem terbaik tanpa biaya komitmen awal.</p>
+                    <a href="https://wa.me/6281234567890?text=Halo%20CodeNusa,%20saya%20ingin%20konsultasi%20mengenai%20pembuatan%20aplikasi%20untuk%20bisnis%20saya" class="cta-btn btn-accent" target="_blank">
+                        <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp Sekarang
+                    </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <footer id="contact" style="padding: 6rem 0; border-top: 1px solid var(--border-glass);">
-        <div class="container" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 4rem;">
-            <div style="flex: 1; min-width: 300px;">
-                <img src="assets/logo.png" alt="Vamos Logo" style="height: 50px; margin-bottom: 2rem;">
-                <p style="color: var(--text-muted);">The premier destination for billiards and coffee enthusiasts. Experience the elite standard of Vamos Pool and Cafe.</p>
-                <div style="margin-top: 2rem; display: flex; gap: 1.5rem; font-size: 1.5rem;">
-                    <a href="#" style="color: white;"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#" style="color: white;"><i class="fa-brands fa-facebook"></i></a>
-                    <a href="#" style="color: white;"><i class="fa-brands fa-whatsapp"></i></a>
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-brand">
+                <a href="#" class="logo">
+                    <span class="logo-icon">&lt;/&gt;</span>
+                    <span class="logo-text">Code<span class="logo-accent">Nusa</span></span>
+                </a>
+                <p>Solusi software development profesional berbasis custom yang dirancang khusus untuk memecahkan masalah operasional dan menumbuhkan performa bisnis Anda.</p>
+                <div class="footer-socials">
+                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#"><i class="fa-brands fa-linkedin"></i></a>
+                    <a href="#"><i class="fa-brands fa-facebook"></i></a>
                 </div>
             </div>
-            <div style="flex: 1; min-width: 250px;">
-                <h4 style="margin-bottom: 2rem;">LOCATION</h4>
-                <p style="color: var(--text-muted); line-height: 2;">
-                    Jl. Contoh No. 123<br>
-                    Kota Tujuan, Indonesia 12345<br>
-                    <br>
-                    <b>Open Daily:</b><br>
-                    10:00 AM - 02:00 AM
-                </p>
+            
+            <div class="footer-links">
+                <h4>Navigasi</h4>
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#services">Layanan</a></li>
+                    <li><a href="#portfolio">Portofolio</a></li>
+                    <li><a href="#codenusa-app">Aplikasi Android</a></li>
+                    <li><a href="#why-choose-us">Keunggulan</a></li>
+                    <li><a href="#process">Proses Kerja</a></li>
+                </ul>
             </div>
-            <div style="flex: 1; min-width: 250px;">
-                <h4 style="margin-bottom: 2rem;">CONTACT</h4>
-                <p style="color: var(--text-muted); line-height: 2;">
-                    <b>Phone:</b> +62 812-3456-7890<br>
-                    <b>Email:</b> hello@vamospool.id
-                </p>
-                <a href="#" class="cta-btn" style="margin-top: 2rem; display: inline-block;">Book a Table</a>
+            
+            <div class="footer-contact">
+                <h4>Hubungi Kami</h4>
+                <ul>
+                    <li><i class="fa-solid fa-envelope"></i> info@codenusa.id</li>
+                    <li><i class="fa-solid fa-phone"></i> +62 812-3456-7890</li>
+                    <li><i class="fa-solid fa-location-dot"></i> Surabaya, Jawa Timur, Indonesia</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="container">
+                <p>&copy; 2026 CodeNusa. Hak Cipta Dilindungi Undang-Undang.</p>
             </div>
         </div>
     </footer>

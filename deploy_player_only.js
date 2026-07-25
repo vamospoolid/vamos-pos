@@ -6,16 +6,16 @@ const { execSync } = require('child_process');
 const conn = new Client();
 
 const config = {
-    host: '144.91.73.36',
+    host: '173.212.243.240',
     port: 22,
     username: 'root',
-    password: 'Ahmaddcc07'
+    password: 'Ahmad_dcc07'
 };
 
 const project = {
     name: 'Player App',
     localDist: path.join(__dirname, 'vamos-player-app', 'dist'),
-    remoteDist: '/var/www/vamos-pos/vamos-player-app/dist'
+    remoteDist: '/var/www/vamos/vamos-player-app/dist'
 };
 
 conn.on('ready', () => {

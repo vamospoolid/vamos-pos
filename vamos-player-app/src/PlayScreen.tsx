@@ -27,6 +27,27 @@ export function PlayScreen({ member }: { member: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (activeSession) {
+      const timer = setInterval(() => {
+         setElapsed(Date.now() - new Date(activeSession.startTime).getTime());
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [activeSession]);
+
+  const formatElapsed = (ms: number) => {
+    if (ms < 0) ms = 0;
+    const totalSecs = Math.floor(ms / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+    return `${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  };
+
   const fetchKings = useCallback(async () => {
     try {
       const res = await api.get('/player/kings');
@@ -279,6 +300,182 @@ export function PlayScreen({ member }: { member: any }) {
         <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
       </div>
 
+      {/* ─── LIVE SCOREBOARD / SESSION BANNER (TOP) ────────────────────────── */}
+      {activeSession && (
+        <button 
+          onClick={() => setActiveTab('active-session')}
+          className="w-full fiery-card p-0 bg-primary/10 border-2 border-primary/30 relative overflow-hidden group text-left active:scale-95 transition-all shadow-[0_0_40px_rgba(255,87,34,0.15)]"
+        >
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-[60px] group-hover:bg-primary/30 transition-all pointer-events-none" />
+          <div className="absolute top-6 right-6">
+             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/30 group-hover:scale-110 group-hover:bg-primary group-hover:text-secondary transition-all">
+                <ChevronRight size={20} strokeWidth={3} />
+             </div>
+          </div>
+          
+          <div className="p-6 lg:p-8 relative z-10 flex flex-col gap-6">
+            <div className="flex justify-between items-start pr-14">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_rgba(255,87,34,0.8)] animate-pulse" />
+                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] italic leading-none">Meja Aktif</p>
+                </div>
+                <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">{activeSession.table?.name || 'Voucher Session'}</h3>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0a0d18]/80 p-4 rounded-[20px] border border-white/10 backdrop-blur-md">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Waktu Berjalan</p>
+                <p className="text-lg font-bold font-mono text-white tracking-tight">
+                  {formatElapsed(elapsed || (Date.now() - new Date(activeSession.startTime).getTime()))}
+                </p>
+              </div>
+              <div className="bg-[#0a0d18]/80 p-4 rounded-[20px] border border-white/10 backdrop-blur-md">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Total Tagihan</p>
+                <p className="text-lg font-black text-emerald-400 font-mono tracking-tight">Rp {(activeSession.totalAmount || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* ─── ACTIVE CHALLENGES (MOVED TO TOP FOR HIGH VISIBILITY) ─── */}
+      {challenges.length > 0 && (
+        <div className="space-y-6 bg-gradient-to-b from-primary/5 to-transparent p-5 rounded-[32px] border border-primary/10">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-sm font-black text-white uppercase italic tracking-wider flex items-center gap-2">
+              <Swords className="w-4 h-4 text-primary animate-pulse" />
+              Tantangan Aktif
+            </h3>
+            <span className="text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest italic">{challenges.length} Duel</span>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            {challenges.map(chal => (
+              <div key={chal.id} className={`fiery-card p-5 border transition-all ${chal.status === 'WAITING_VERIFICATION' ? 'border-emerald-500/30 bg-emerald-500/5' : chal.status === 'PENDING' && chal.opponentId === member.id ? 'border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_30px_rgba(6,182,212,0.1)]' : 'border-primary/20 bg-primary/5'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+                      <Swords className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">VS {chal.opponentId === member.id ? (chal.challenger?.name || 'Rival') : (chal.opponent?.name || 'Rival')}</p>
+                      <p className="text-sm font-black text-white uppercase italic">
+                        {chal.isFightForTable ? 'KING FIGHT' : 'DUEL MATCH'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-[9px] font-black uppercase tracking-widest italic ${
+                      chal.status === 'ACCEPTED' 
+                        ? 'text-emerald-400' 
+                        : chal.status === 'WAITING_VERIFICATION' 
+                        ? 'text-yellow-400' 
+                        : chal.status === 'PENDING'
+                        ? 'text-cyan-400 animate-pulse'
+                        : 'text-primary'
+                    }`}>{chal.status}</p>
+                    <p className="text-[8px] text-slate-600 uppercase italic">{new Date(chal.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-black/20 p-2.5 rounded-xl border border-white/5 mb-3">
+                    <div className="flex items-center gap-1.5">
+                        <Zap size={12} className="text-yellow-400" />
+                        <span className="text-[9px] font-black text-white uppercase italic">STAKE: {chal.pointsStake || 0} PTS</span>
+                    </div>
+                    {chal.isFightForTable && (
+                         <div className="flex items-center gap-1.5">
+                            <Crown size={12} className="text-primary" />
+                            <span className="text-[9px] font-black text-primary uppercase italic">FOR TABLE</span>
+                        </div>
+                    )}
+                </div>
+
+                {chal.status === 'PENDING' && (
+                    <div className="mt-2">
+                        {chal.opponentId === member.id ? (
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'ACCEPTED')}
+                                    className="flex-1 py-2.5 bg-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest italic text-secondary hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                                >
+                                    TERIMA (LAWANKAN)
+                                </button>
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
+                                    className="flex-1 py-2.5 bg-rose-500/10 border border-rose-500/25 rounded-lg text-[9px] font-black uppercase tracking-widest italic text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all"
+                                >
+                                    TOLAK
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                <div className="w-full py-2.5 text-center rounded-lg bg-cyan-500/5 border border-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase tracking-widest italic animate-pulse">
+                                    MENUNGGU RIVAL MENERIMA...
+                                </div>
+                                <button 
+                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
+                                    className="w-full py-2.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest italic text-slate-400 hover:bg-white/10 active:scale-95 transition-all"
+                                >
+                                    BATALKAN TANTANGAN
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {chal.status === 'ACCEPTED' && (
+                    <div className="space-y-2.5">
+                        <div className="grid grid-cols-2 gap-2.5 mb-1.5">
+                             <div className="bg-black/40 border border-white/5 p-2 rounded-lg text-center">
+                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-0.5">SCORE {member.name.split(' ')[0]}</p>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    id={`score1-${chal.id}`}
+                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-md"
+                                />
+                             </div>
+                             <div className="bg-black/40 border border-white/5 p-2 rounded-lg text-center">
+                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-0.5">SCORE RIVAL</p>
+                                <input 
+                                    type="number" 
+                                    placeholder="0"
+                                    id={`score2-${chal.id}`}
+                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-md"
+                                />
+                             </div>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const s1 = parseInt((document.getElementById(`score1-${chal.id}`) as HTMLInputElement)?.value) || 0;
+                                const s2 = parseInt((document.getElementById(`score2-${chal.id}`) as HTMLInputElement)?.value) || 0;
+                                reportVictory(chal.id, s1, s2);
+                            }}
+                            className="w-full py-3 fiery-btn-primary flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] italic"
+                        >
+                            <CheckCircle2 size={14} /> LAPORKAN KEMENANGAN (CLAIM)
+                        </button>
+                    </div>
+                )}
+
+                {chal.status === 'WAITING_VERIFICATION' && (
+                     <div className="w-full py-3 text-center rounded-lg bg-yellow-400/10 border border-yellow-400/20">
+                        <div className="flex items-center justify-center gap-2 mb-0.5">
+                            <span className="text-md font-black text-white italic tracking-tighter">{chal.score1}</span>
+                            <span className="text-slate-600">:</span>
+                            <span className="text-md font-black text-white italic tracking-tighter">{chal.score2}</span>
+                        </div>
+                        <p className="text-[9px] font-black text-yellow-400 uppercase tracking-widest italic leading-none">Wait for cashier verification...</p>
+                     </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ─── BOOKING MEJA ─── */}
       <button 
         onClick={() => setActiveTab('booking')}
@@ -325,44 +522,7 @@ export function PlayScreen({ member }: { member: any }) {
 
       <BulletinCarousel />
 
-      {/* ─── LIVE SCOREBOARD / SESSION BANNER ─────────────────────────────────── */}
-      {activeSession ? (
-        <div className="fiery-card p-8 bg-primary/5 border-2 border-primary/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-10">
-            <Zap className="w-16 h-16 text-primary animate-pulse" />
-          </div>
-          <div className="flex flex-col gap-6 relative z-10">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-1 italic">Engagement Active</p>
-                <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">{activeSession.table?.name || 'Voucher Session'}</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Elapsed Time</p>
-                <p className="text-xl font-bold font-mono text-white mt-1">
-                  {Math.floor((Date.now() - new Date(activeSession.startTime).getTime()) / 60000)}m
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#101423] p-4 rounded-2xl border border-white/5">
-                <p className="text-[9px] font-black text-slate-600 uppercase mb-1">Billing Class</p>
-                <p className="text-xs font-black text-white uppercase italic">{activeSession.billingType || 'REGULAR'}</p>
-              </div>
-              <div className="bg-[#101423] p-4 rounded-2xl border border-white/5">
-                <p className="text-[9px] font-black text-slate-600 uppercase mb-1">Current Bill</p>
-                <p className="text-xs font-black text-emerald-400 font-mono tracking-tight">RP {(activeSession.totalAmount || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="fiery-card p-8 border-2 border-white/5 bg-[#1a1f35]/20 text-center opacity-60">
-           <LayoutGrid className="w-12 h-12 text-slate-800 mx-auto mb-4" />
-           <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">No active terminal sequence detected.</p>
-        </div>
-      )}
+
 
       {/* ─── SCANNER ACTIONS ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
@@ -490,141 +650,6 @@ export function PlayScreen({ member }: { member: any }) {
           </div>
         )}
       </div>
-
-      {/* ─── ACTIVE CHALLENGES ─────────────────────────────────────────────── */}
-      {challenges.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">ACTIVE CHALLENGES</h3>
-            <span className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-primary uppercase tracking-widest italic opacity-60">{challenges.length} Engagement</span>
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            {challenges.map(chal => (
-              <div key={chal.id} className={`fiery-card p-6 border-2 transition-all ${chal.status === 'WAITING_VERIFICATION' ? 'border-emerald-500/30 bg-emerald-500/5' : chal.status === 'PENDING' && chal.opponentId === member.id ? 'border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_30px_rgba(6,182,212,0.1)]' : 'border-primary/20 bg-primary/5'}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                      <Swords className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">VS {chal.opponentId === member.id ? (chal.challenger?.name || 'Rival') : (chal.opponent?.name || 'Rival')}</p>
-                      <p className="text-lg font-black text-white uppercase italic">
-                        {chal.isFightForTable ? 'KING FIGHT' : 'DUEL MATCH'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-[10px] font-black uppercase tracking-widest italic ${
-                      chal.status === 'ACCEPTED' 
-                        ? 'text-emerald-400' 
-                        : chal.status === 'WAITING_VERIFICATION' 
-                        ? 'text-yellow-400' 
-                        : chal.status === 'PENDING'
-                        ? 'text-cyan-400 animate-pulse'
-                        : 'text-primary'
-                    }`}>{chal.status}</p>
-                    <p className="text-[9px] text-slate-600 uppercase italic">{new Date(chal.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 mb-4">
-                    <div className="flex items-center gap-2">
-                        <Zap size={14} className="text-yellow-400" />
-                        <span className="text-[10px] font-black text-white uppercase italic">STAKE: {chal.pointsStake || 0} PTS</span>
-                    </div>
-                    {chal.isFightForTable && (
-                         <div className="flex items-center gap-2">
-                            <Crown size={14} className="text-primary" />
-                            <span className="text-[10px] font-black text-primary uppercase italic">FOR TABLE</span>
-                        </div>
-                    )}
-                </div>
-
-                {chal.status === 'PENDING' && (
-                    <div className="mt-2">
-                        {chal.opponentId === member.id ? (
-                            <div className="flex gap-3">
-                                <button 
-                                    onClick={() => handleRespondToChallenge(chal.id, 'ACCEPTED')}
-                                    className="flex-1 py-3.5 bg-emerald-500 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-secondary hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                                >
-                                    TERIMA (LAWANKAN)
-                                </button>
-                                <button 
-                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
-                                    className="flex-1 py-3.5 bg-rose-500/10 border border-rose-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all"
-                                >
-                                    TOLAK
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                <div className="w-full py-3.5 text-center rounded-xl bg-cyan-500/5 border border-cyan-500/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest italic animate-pulse">
-                                    MENUNGGU RIVAL MENERIMA...
-                                </div>
-                                <button 
-                                    onClick={() => handleRespondToChallenge(chal.id, 'DECLINED')}
-                                    className="w-full py-3.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest italic text-slate-400 hover:bg-white/10 active:scale-95 transition-all"
-                                >
-                                    BATALKAN TANTANGAN
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {chal.status === 'ACCEPTED' && (
-                    <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3 mb-2">
-                             <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
-                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-1">SCORE {member.name.split(' ')[0]}</p>
-                                <input 
-                                    type="number" 
-                                    placeholder="0"
-                                    id={`score1-${chal.id}`}
-                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-lg"
-                                />
-                             </div>
-                             <div className="bg-black/40 border border-white/5 p-3 rounded-xl text-center">
-                                <p className="text-[7px] text-slate-500 uppercase font-black italic mb-1">SCORE RIVAL</p>
-                                <input 
-                                    type="number" 
-                                    placeholder="0"
-                                    id={`score2-${chal.id}`}
-                                    className="w-full bg-transparent border-none text-center font-black text-white outline-none text-lg"
-                                />
-                             </div>
-                        </div>
-                        <button 
-                            onClick={() => {
-                                const s1 = parseInt((document.getElementById(`score1-${chal.id}`) as HTMLInputElement)?.value) || 0;
-                                const s2 = parseInt((document.getElementById(`score2-${chal.id}`) as HTMLInputElement)?.value) || 0;
-                                reportVictory(chal.id, s1, s2);
-                            }}
-                            className="w-full py-4 fiery-btn-primary flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] italic"
-                        >
-                            <CheckCircle2 size={16} /> LAPORKAN KEMENANGAN (CLAIM)
-                        </button>
-                    </div>
-                )}
-
-                {chal.status === 'WAITING_VERIFICATION' && (
-                     <div className="w-full py-4 text-center rounded-xl bg-yellow-400/10 border border-yellow-400/20">
-                        <div className="flex items-center justify-center gap-3 mb-1">
-                            <span className="text-lg font-black text-white italic tracking-tighter">{chal.score1}</span>
-                            <span className="text-slate-600">:</span>
-                            <span className="text-lg font-black text-white italic tracking-tighter">{chal.score2}</span>
-                        </div>
-                        <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest italic leading-none">Wait for cashier verification...</p>
-                     </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ─── MODALS ────────────────────────────────────────────────────────── */}
 

@@ -2,11 +2,31 @@ import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { useAppStore } from './store/appStore';
 
+const getBaseURL = () => {
+    const hostname = window.location.hostname;
+    
+    // Auto-detect local testing environment
+    if (
+        hostname === 'localhost' || 
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.')
+    ) {
+        return 'http://localhost:3000/api';
+    }
+    
+    return import.meta.env.VITE_API_URL || 'https://pos.vamospool.id/api';
+};
+
+const getSocketURL = () => {
+    return getBaseURL().replace(/\/api$/, '');
+};
+
 let socket: Socket | null = null;
 
 export function getSocket() {
     if (!socket) {
-        socket = io((import.meta.env.VITE_API_URL || 'https://pos.vamospool.id').replace('/api', ''));
+        socket = io(getSocketURL());
     }
     return socket;
 }
@@ -22,7 +42,7 @@ if (!deviceId) {
 }
 
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'https://pos.vamospool.id/api', 
+    baseURL: getBaseURL(), 
 });
 
 export function getAvatarUrl(photo: string | null | undefined): string | null {

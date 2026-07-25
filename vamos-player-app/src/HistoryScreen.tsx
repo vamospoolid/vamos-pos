@@ -27,6 +27,18 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
     fetchData();
   }, [member.id]);
 
+  const getDuration = (session: any) => {
+      if (session.durationOpts) return `${session.durationOpts}m`;
+      if (session.endTime && session.startTime) {
+          const ms = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
+          const hrs = Math.floor(ms / 3600000);
+          const mins = Math.floor((ms % 3600000) / 60000);
+          if (hrs > 0) return `${hrs}h ${mins}m`;
+          return `${mins}m`;
+      }
+      return 'OPEN TIME';
+  };
+
   return (
     <div className="fade-in space-y-8 pb-40">
       <div className="pt-6 flex items-center gap-4">
@@ -101,7 +113,7 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
                             <div className="flex items-center gap-2">
                                 <Clock size={12} className="text-slate-600" />
                                 <span className="text-[10px] font-black text-slate-500 uppercase italic">
-                                    {session.durationOpts ? `${session.durationOpts}m` : 'OPEN TIME'}
+                                    {getDuration(session)}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 justify-end">
@@ -111,6 +123,18 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
                                 </span>
                             </div>
                         </div>
+
+                        {session.orders && session.orders.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                                <p className="text-[9px] font-black text-slate-500 uppercase italic">Pesanan F&B</p>
+                                {session.orders.map((order: any) => (
+                                    <div key={order.id} className="flex justify-between items-center text-xs text-slate-300">
+                                        <span>{order.quantity}x {order.product?.name}</span>
+                                        <span className="font-mono">Rp {order.total?.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))
             ) : (

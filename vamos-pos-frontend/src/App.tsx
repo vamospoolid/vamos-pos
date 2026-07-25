@@ -20,6 +20,8 @@ import Discounts from './Discounts';
 import { VamosLogo } from './components/VamosLogo';
 import { getProductEmojiAndStyle } from './FnBOrder';
 import ActivationPage from './ActivationPage';
+import KDS from './KDS';
+import QROrder from './QROrder';
 
 // --- LICENSE MANAGEMENT COMPONENT (OWNER ONLY) ---
 function LicenseManagement() {
@@ -253,6 +255,12 @@ function App() {
 
   if (isLicensed === false) {
     return <ActivationPage />;
+  }
+
+  const isQrRoute = window.location.pathname.startsWith('/qr/');
+  if (isQrRoute) {
+    const tableId = window.location.pathname.split('/')[2];
+    return <QROrder tableId={tableId} />;
   }
 
   if (!token) {
@@ -987,6 +995,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   });
 
   const activeCount = mergedTables.filter(t => t.status === 'PLAYING').length;
+  const pendingKdsCount = sessions.flatMap((s: any) => s.orders || []).filter((o:any) => o.kdsStatus === 'PENDING').length;
 
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
@@ -994,10 +1003,14 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       <aside className="w-56 lg:w-64 bg-[#111] border-r border-[#1e1e1e] flex flex-col hidden md:flex shrink-0 relative">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3 border-b border-[#1e1e1e]">
-          <VamosLogo className="w-10 h-10" glowing />
-          <div>
-            <span className="text-lg font-black tracking-widest text-white">VAMOS POOL</span>
-            <p className="text-[9px] text-gray-600 uppercase tracking-widest font-bold">Billiard Management</p>
+          {venueConfig?.logoUrl ? (
+            <img src={venueConfig.logoUrl} alt="Logo" className="w-10 h-10 object-contain" />
+          ) : (
+            <VamosLogo className="w-10 h-10" glowing />
+          )}
+          <div className="flex-1 min-w-0">
+            <span className="text-lg font-black tracking-widest text-white truncate block">{venueConfig?.name?.toUpperCase() || 'VAMOS POOL'}</span>
+            <p className="text-[9px] text-gray-600 uppercase tracking-widest font-bold truncate">Billiard Management</p>
           </div>
         </div>
 
@@ -1034,6 +1047,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           <NavItem active={activeTab === 'bills'} onClick={() => setActiveTab('bills')} icon={<Receipt />} label="Pending Bills" badge={pendingBills.length > 0 ? pendingBills.length : null} badgeColor="red" />
           <NavItem active={activeTab === 'waitlist'} onClick={() => setActiveTab('waitlist')} icon={<Clock />} label="Waiting List" badge={waitlistCount > 0 ? waitlistCount : null} badgeColor="blue" />
           <NavItem active={activeTab === 'fnb-order'} onClick={() => setActiveTab('fnb-order')} icon={<Utensils />} label="New F&B Order" />
+          <NavItem active={activeTab === 'kds'} onClick={() => setActiveTab('kds')} icon={<Utensils />} label="Kitchen Display" accent="orange" badge={pendingKdsCount > 0 ? pendingKdsCount : null} badgeColor="red" />
           <NavItem active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} icon={<Package2 />} label="Store Inventory" />
 
           {/* Analytics */}
@@ -1281,46 +1295,62 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-10">
-                    {mergedTables.map((table) => (
-                      <TableCard
-                        key={table.id}
-                        table={table}
-                        venue={venueConfig}
-                        tick={tick}
-                        onStart={() => {
-                          setBillingMode('OPEN');
-                          setSelectedPackage('');
-                          setMemberId('');
-                          setMemberQuery('');
-                          setCustomMinutes(60);
-                          setStartTableId(table.id);
-                        }}
-                        onEnd={() => table.activeSession && setConfirmEndSessionId(table.activeSession.id)}
-                        onOrderFnB={() => setOrderSessionId(table.activeSession?.id || null)}
-                        onMove={() => setMoveSessionId(table.activeSession?.id || null)}
-                        onAddDuration={() => {
-                          setBillingMode('PACKAGE');
-                          setSelectedPackage('');
-                          setCustomMinutes(60);
-                          if (table.activeSession) setAddDurationSessionId(table.activeSession.id);
-                        }}
-                        onViewDetail={() => setDetailSession(table.activeSession)}
-                        onToggleRelay={venueConfig?.isRelayEnabled !== false ? async (tableId: string, command: 'on' | 'off') => {
-                          const t = tables.find(t => t.id === tableId);
-                          if (!t) return;
-                          try {
-                            const channel = (t as any).relayChannel;
-                            const res = await api.post(`/relay/${command}`, { channel });
-                            if (res.data.success) {
-                              vamosAlert(`Relay ${command.toUpperCase()} signal sent to Table ${t.name} (Channel ${channel})`);
-                            } else {
-                              vamosAlert(`Failed to send Relay ${command.toUpperCase()} signal.`);
+                    {[...mergedTables].sort((a, b) => {
+                      if (a.type === 'CAFE' && b.type !== 'CAFE') return 1;
+                      if (a.type !== 'CAFE' && b.type === 'CAFE') return -1;
+                      return 0;
+                    }).map((table, index, sorted) => (
+                      <React.Fragment key={table.id}>
+                        {table.type === 'CAFE' && (index === 0 || sorted[index - 1].type !== 'CAFE') && (
+                          <div className="col-span-full mt-6 mb-2 flex items-center gap-3 border-b border-[#222] pb-4">
+                              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                                  <Utensils className="w-5 h-5 text-orange-500" />
+                              </div>
+                              <div>
+                                  <h3 className="text-lg font-black text-white uppercase tracking-widest">Cafe & Resto Area</h3>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Meja Non-Billiard</p>
+                              </div>
+                          </div>
+                        )}
+                        <TableCard
+                          table={table}
+                          venue={venueConfig}
+                          tick={tick}
+                          onStart={() => {
+                            setBillingMode('OPEN');
+                            setSelectedPackage('');
+                            setMemberId('');
+                            setMemberQuery('');
+                            setCustomMinutes(60);
+                            setStartTableId(table.id);
+                          }}
+                          onEnd={() => table.activeSession && setConfirmEndSessionId(table.activeSession.id)}
+                          onOrderFnB={() => setOrderSessionId(table.activeSession?.id || null)}
+                          onMove={() => setMoveSessionId(table.activeSession?.id || null)}
+                          onAddDuration={() => {
+                            setBillingMode('PACKAGE');
+                            setSelectedPackage('');
+                            setCustomMinutes(60);
+                            if (table.activeSession) setAddDurationSessionId(table.activeSession.id);
+                          }}
+                          onViewDetail={() => setDetailSession(table.activeSession)}
+                          onToggleRelay={venueConfig?.isRelayEnabled !== false ? async (tableId: string, command: 'on' | 'off') => {
+                            const t = tables.find(t => t.id === tableId);
+                            if (!t) return;
+                            try {
+                              const channel = (t as any).relayChannel;
+                              const res = await api.post(`/relay/${command}`, { channel });
+                              if (res.data.success) {
+                                vamosAlert(`Relay ${command.toUpperCase()} signal sent to Table ${t.name} (Channel ${channel})`);
+                              } else {
+                                vamosAlert(`Failed to send Relay ${command.toUpperCase()} signal.`);
+                              }
+                            } catch (err: any) {
+                              vamosAlert(err.response?.data?.message || `Failed to trigger relay ${command}`);
                             }
-                          } catch (err: any) {
-                            vamosAlert(err.response?.data?.message || `Failed to trigger relay ${command}`);
-                          }
-                        } : undefined}
-                      />
+                          } : undefined}
+                        />
+                      </React.Fragment>
                     ))}
                   </div>
                 )}
@@ -1462,6 +1492,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             )}
 
             {activeTab === 'inventory' && <Inventory />}
+            {activeTab === 'kds' && <KDS />}
             {activeTab === 'fnb-order' && <FnBOrder />}
             {activeTab === 'waitlist' && <Waitlist tables={tables} members={members} />}
             {activeTab === 'pricing' && <Pricing />}
@@ -3090,7 +3121,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             <div className="p-6 bg-[#0a0a0a]">
               <div className="bg-[#111] border border-[#222] rounded-xl p-6 font-mono text-sm mb-6 max-h-[400px] overflow-y-auto whitespace-pre-wrap leading-relaxed shadow-inner">
                 {(() => {
-                  const header = `🎱 *VAMOS POOL - LIVE STATUS* 🎱\n🕒 *${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}*\n\n`;
+                  const header = `🎱 *${venueConfig?.name?.toUpperCase() || 'VAMOS POOL'} - LIVE STATUS* 🎱\n🕒 *${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}*\n\n`;
                   const body = mergedTables.map(t => {
                     let status = '';
                     if (t.status === 'AVAILABLE') {
@@ -3209,6 +3240,94 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
     const remainingMins = (totalDurationMs - elapsedMs) / 60000;
     return remainingMins > 0 && remainingMins <= warningMins;
   })();
+
+  if (table.type === 'CAFE') {
+      const isActive = !!table.activeSession;
+      
+      let cafeStatus = 'ORDER ACTIVE';
+      let badgeColor = 'bg-orange-500/10 border-orange-500/50 text-orange-500 animate-pulse';
+      let borderColor = 'border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.1)] bg-orange-500/5';
+      let statusMessage = 'Unpaid Bill';
+      let showIcon = true;
+
+      if (isActive && table.activeSession.orders) {
+        const pendingCount = table.activeSession.orders.filter((o:any) => o.kdsStatus === 'PENDING').length;
+        const processingCount = table.activeSession.orders.filter((o:any) => o.kdsStatus === 'PROCESSING').length;
+        const readyCount = table.activeSession.orders.filter((o:any) => o.kdsStatus === 'READY').length;
+
+        if (pendingCount > 0) {
+          cafeStatus = 'NEW ORDER!';
+          badgeColor = 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse';
+          borderColor = 'border-red-500/80 shadow-[0_0_30px_rgba(255,51,51,0.2)] bg-red-500/10';
+          statusMessage = `${pendingCount} Menunggu Dapur`;
+        } else if (processingCount > 0) {
+          cafeStatus = 'COOKING...';
+          badgeColor = 'bg-yellow-500/10 border-yellow-500/50 text-yellow-500';
+          borderColor = 'border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.2)] bg-yellow-500/5';
+          statusMessage = `${processingCount} Diproses Dapur`;
+        } else if (readyCount > 0) {
+          cafeStatus = 'READY TO SERVE';
+          badgeColor = 'bg-[#00ff66]/10 border-[#00ff66]/50 text-[#00ff66] animate-pulse';
+          borderColor = 'border-[#00ff66]/50 shadow-[0_0_30px_rgba(0,255,102,0.2)] bg-[#00ff66]/10';
+          statusMessage = `${readyCount} Siap Diantar!`;
+        }
+      }
+
+      return (
+        <div className={`bg-[#141414] border rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 min-h-[260px] relative group
+          ${isActive ? borderColor : 'border-[#222222] opacity-80'}`}
+        >
+          <div className="flex justify-between items-start mb-6 z-10">
+            <div>
+              <h3 className="text-xl font-bold mb-1">{table.name}</h3>
+              <p className="text-xs text-gray-400 tracking-wider uppercase">CAFE TABLE</p>
+            </div>
+            <div className="flex flex-col items-end space-y-2">
+              <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider
+                 ${isActive ? badgeColor : 'bg-gray-500/10 border-gray-500/50 text-gray-500'}`}
+              >
+                {isActive ? cafeStatus : 'AVAILABLE'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex-1 flex flex-col items-center justify-center py-4">
+             {isActive ? (
+                <>
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${cafeStatus === 'NEW ORDER!' ? 'bg-red-500/20 text-red-500 animate-bounce' : cafeStatus === 'READY TO SERVE' ? 'bg-[#00ff66]/20 text-[#00ff66]' : 'bg-orange-500/20 text-orange-500'}`}>
+                     <Utensils className="w-8 h-8" />
+                  </div>
+                  <div className="text-2xl font-black text-white mb-1 drop-shadow-md">
+                     Rp {(table.activeSession.fnbAmount || 0).toLocaleString()}
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-widest font-black ${cafeStatus === 'NEW ORDER!' ? 'text-red-400' : cafeStatus === 'READY TO SERVE' ? 'text-[#00ff66]' : 'text-gray-400'}`}>{statusMessage}</span>
+                </>
+             ) : (
+                <div className="w-16 h-16 rounded-full bg-[#0a0a0a] border border-[#222222] flex items-center justify-center opacity-50 relative">
+                  <Utensils className="w-6 h-6 text-gray-600" />
+                </div>
+             )}
+          </div>
+          
+          <div className="mt-4 flex space-x-2">
+             {isActive ? (
+                <>
+                   <button onClick={onViewDetail} className="flex-[0.5] py-3 bg-[#141414] border border-[#ff9900]/50 text-[#ff9900] rounded-xl text-xs font-black uppercase hover:bg-[#ff9900] hover:text-[#0a0a0a] transition-all flex items-center justify-center p-0 shadow-[0_0_10px_rgba(255,153,0,0.1)]">
+                     <Receipt className="w-4 h-4" />
+                   </button>
+                   <button onClick={onEnd} className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all shadow-[0_0_10px_rgba(255,51,51,0.2)] bg-[#ff3333]/10 border border-[#ff3333]/30 text-[#ff3333] hover:bg-[#ff3333] hover:text-white">
+                     Pay Bill
+                   </button>
+                </>
+             ) : (
+                <button disabled className="w-full py-3 rounded-xl text-[11px] font-black bg-[#111] border border-gray-600/30 text-gray-500 cursor-default uppercase tracking-widest">
+                  Scan QR To Order
+                </button>
+             )}
+          </div>
+        </div>
+      );
+  }
 
   return (
     <div className={`bg-[#141414] border rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 min-h-[260px] relative group

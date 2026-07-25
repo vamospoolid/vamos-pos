@@ -9,13 +9,15 @@ export class PrintService {
             const printerInterface = data.venue?.printerPath || 'RP58 Printer';
             logger.info(`🔍 [PRINT_DEBUG] Menyiapkan printer: ${printerInterface}`);
 
+            const width = data.venue?.printerWidth || 32;
+
             const printer = new ThermalPrinter({
                 type: PrinterTypes.EPSON,
                 interface: printerInterface, // No 'printer:' prefix to avoid driver error
                 characterSet: CharacterSet.PC437_USA,
                 removeSpecialCharacters: false,
                 lineCharacter: "=",
-                width: 32,
+                width: width,
             });
 
             // Note: We skip isPrinterConnected() because we use Windows Shared Printer bypassing driver checks
@@ -35,7 +37,7 @@ export class PrintService {
             printer.setTextNormal();
             printer.println(data.venue?.name?.toUpperCase() || 'VAMOS POOL & CAFE');
             printer.println(data.venue?.address || 'Billiard & Cafe');
-            printer.println("-".repeat(32));
+            printer.println("-".repeat(width));
 
             printer.alignLeft();
             const dateStr = new Date(data.paidAt || Date.now()).toLocaleString('id-ID', { 
@@ -46,7 +48,7 @@ export class PrintService {
             printer.println(`TGL: ${dateStr}`);
             printer.println(`BIL: #${(data.id || '').substring(0, 6).toUpperCase()} | MEJA: ${data.table?.name || '-'}`);
             if (data.member?.name) printer.println(`MEM: ${data.member.name.toUpperCase()}`);
-            printer.println("-".repeat(32));
+            printer.println("-".repeat(width));
 
             // Session
             if (data.tableAmount > 0) {
@@ -70,7 +72,7 @@ export class PrintService {
                 });
             }
 
-            printer.println("-".repeat(32));
+            printer.println("-".repeat(width));
 
             // Totals
             printer.tableCustom([
@@ -90,7 +92,7 @@ export class PrintService {
                 { text: "TOTAL", align: "LEFT", width: 0.4 },
                 { text: `Rp ${(data.finalAmount || 0).toLocaleString()}`, align: "RIGHT", width: 0.6 }
             ]);
-            printer.println("-".repeat(32));
+            printer.println("-".repeat(width));
 
             // Payment Detail
             const change = Math.max(0, (data.receivedAmount || 0) - (data.finalAmount || 0));
@@ -100,10 +102,22 @@ export class PrintService {
                 printer.println(`KEMBALI: Rp ${change.toLocaleString()}`);
             }
 
-            printer.println("-".repeat(32));
+            printer.println("-".repeat(width));
             printer.alignCenter();
+            
+            if (data.member && data.member.id) {
+                const pts = data.member.loyaltyPoints || 0;
+                printer.println(`TOTAL POIN ANDA: ${pts} PTS`);
+                printer.println(`Tukarkan poin dengan hadiah!`);
+            } else {
+                printer.println("JUMLAH POIN ANDA: 0");
+                printer.println("Daftar Member Vamos (GRATIS)");
+                printer.println("untuk kumpulkan poin hadiah!");
+            }
+            
+            printer.println("-".repeat(width));
             printer.println("TERIMA KASIH!");
-            printer.println("VAMOSPOOL.ID");
+            printer.println("app.vamospool.id");
             
             // Cut and Feed
             printer.cut();

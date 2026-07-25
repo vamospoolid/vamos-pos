@@ -59,12 +59,90 @@ export class ProductService {
         return updatedProduct;
     }
 
-    static async updateStock(id: string, stockChange: number, type: string = 'ADJUSTMENT', notes?: string) {
-        const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+    static async validateStock(id: string, quantity: number) {
+        const product = await prisma.product.findFirst({ 
+            where: { id, deletedAt: null },
+            include: { recipes: true } 
+        });
         if (!product) {
             throw new AppError('Product not found', 404);
         }
 
+        const venue = await prisma.venue.findFirst();
+        const isRecipeSystemEnabled = venue?.isRecipeSystemEnabled || false;
+
+        if (isRecipeSystemEnabled && product.recipes && product.recipes.length > 0) {
+            for (const ingredient of product.recipes) {
+                const materialChange = -quantity * ingredient.quantity;
+                const rawMaterial = await prisma.rawMaterial.findUnique({ where: { id: ingredient.rawMaterialId } });
+                if (!rawMaterial || rawMaterial.currentStock + materialChange < 0) {
+                    throw new AppError(`Bahan baku tidak mencukupi untuk menu ini (${rawMaterial?.name || 'Unknown'})`, 400);
+                }
+            }
+            return true;
+        }
+
+        if (product.stock < quantity) {
+            throw new AppError('Not enough stock available', 400);
+        }
+        return true;
+    }
+
+    static async updateStock(id: string, stockChange: number, type: string = 'ADJUSTMENT', notes?: string) {
+        const product = await prisma.product.findFirst({ 
+            where: { id, deletedAt: null },
+            include: { recipes: true } 
+        });
+        if (!product) {
+            throw new AppError('Product not found', 404);
+        }
+
+        // Cek pengaturan sistem resep
+        const venue = await prisma.venue.findFirst();
+        const isRecipeSystemEnabled = venue?.isRecipeSystemEnabled || false;
+
+        if (isRecipeSystemEnabled && product.recipes && product.recipes.length > 0) {
+            // Cek ketersediaan stok semua bahan baku sebelum memotong
+            if (stockChange < 0) {
+                for (const ingredient of product.recipes) {
+                    const materialChange = stockChange * ingredient.quantity;
+                    const rawMaterial = await prisma.rawMaterial.findUnique({ where: { id: ingredient.rawMaterialId } });
+                    if (!rawMaterial || rawMaterial.currentStock + materialChange < 0) {
+                        throw new AppError(`Bahan baku tidak mencukupi untuk menu ini (${rawMaterial?.name || 'Unknown'})`, 400);
+                    }
+                }
+            }
+
+            // Eksekusi pemotongan/penambahan stok bahan baku
+            for (const ingredient of product.recipes) {
+                const materialChange = stockChange * ingredient.quantity;
+                const rawMaterial = await prisma.rawMaterial.findUnique({ where: { id: ingredient.rawMaterialId } });
+                
+                if (rawMaterial) {
+                    const newMatStock = rawMaterial.currentStock + materialChange;
+                    
+                    await prisma.rawMaterial.update({
+                        where: { id: rawMaterial.id },
+                        data: { currentStock: newMatStock }
+                    });
+                    
+                    await prisma.rawMaterialHistory.create({
+                        data: {
+                            rawMaterialId: rawMaterial.id,
+                            quantity: materialChange,
+                            type: stockChange < 0 ? 'OUT' : 'IN',
+                            previousStock: rawMaterial.currentStock,
+                            newStock: newMatStock,
+                            notes: notes || `Resep otomatis: ${product.name}`
+                        }
+                    });
+                }
+            }
+            
+            return product;
+        }
+
+        // Logika bawaan (Jika tidak ada resep atau sistem resep dimatikan)
         const newStock = product.stock + stockChange;
         if (newStock < 0) {
             throw new AppError('Not enough stock available', 400);

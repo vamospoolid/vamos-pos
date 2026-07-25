@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { SystemService } from './system.service';
 import { BackupService } from '../../utils/backup.service';
 import { SyncService } from './sync.service';
+import { PrintService } from '../print/print.service';
+import { prisma } from '../../database/db';
 
 export class SystemController {
 
@@ -38,6 +40,32 @@ export class SystemController {
         try {
             const result = await SystemService.fixStuckTables();
             return res.json(result);
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async testPrinter(req: Request, res: Response) {
+        try {
+            const venue = await prisma.venue.findFirst();
+            const result = await PrintService.printReceipt({
+                id: 'TEST-12345',
+                tableAmount: 0,
+                totalAmount: 100000,
+                finalAmount: 100000,
+                discount: 0,
+                receivedAmount: 100000,
+                method: 'CASH',
+                paidAt: new Date(),
+                table: { name: 'TEST MEJA' },
+                member: { name: 'ADMIN VAMOS' },
+                orders: [
+                    { product: { name: 'Test Product 1' }, quantity: 1, total: 50000 },
+                    { product: { name: 'Test Product 2' }, quantity: 1, total: 50000 }
+                ],
+                venue: venue
+            });
+            return res.json({ success: true, message: 'Test print sent' });
         } catch (error: any) {
             return res.status(500).json({ success: false, message: error.message });
         }

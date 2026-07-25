@@ -16,11 +16,7 @@ conn.on('ready', () => {
     console.log('✅ SSH Connected!');
     
     const cmd = `
-        echo "=== NGINX SITES ENABLED ==="
-        ls -la /etc/nginx/sites-enabled/
-        
-        echo "\\n=== MENCARI KONFIGURASI VAMOS ==="
-        grep -i -R "vamospool.id" /etc/nginx/sites-available/ /etc/nginx/conf.d/ 2>/dev/null || echo "Belum ada konfigurasi untuk vamospool.id"
+        cat /etc/nginx/sites-available/vamos
     `;
 
     conn.exec(cmd, (err, stream) => {

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw, Trophy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw, Trophy, QrCode, Utensils } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import { QRCodeSVG } from 'qrcode.react';
@@ -18,6 +18,7 @@ export default function Settings() {
         closeTime: '23:00',
         relayComPort: 'COM3',
         printerPath: 'RP58 Printer',
+        printerWidth: 32,
         taxPercent: 11,
         servicePercent: 5,
         blinkWarningMinutes: 5,
@@ -25,15 +26,17 @@ export default function Settings() {
         syncIntervalSeconds: 30,
         splashImageUrl: '',
         qrisImageUrl: '',
+        logoUrl: '',
         phone: '',
         waVerificationText: '',
         isRelayEnabled: true,
-        timezoneOffset: 8
+        timezoneOffset: 8,
+        isRecipeSystemEnabled: false
     });
 
     // Form Table
     const [isTableModalOpen, setIsTableModalOpen] = useState(false);
-    const [tableForm, setTableForm] = useState({ id: '', venueId: '', name: '', type: 'REGULAR', relayChannel: 1, isKingTable: false });
+    const [tableForm, setTableForm] = useState({ id: '', venueId: '', name: '', type: 'REGULAR', area: '', relayChannel: 1, isKingTable: false });
     const [editingTable, setEditingTable] = useState(false);
 
     // Form User
@@ -88,6 +91,7 @@ export default function Settings() {
                     closeTime: serpongVenue.closeTime,
                     relayComPort: serpongVenue.relayComPort || 'COM3',
                     printerPath: serpongVenue.printerPath || 'RP58 Printer',
+                    printerWidth: serpongVenue.printerWidth ?? 32,
                     taxPercent: serpongVenue.taxPercent ?? 11,
                     servicePercent: serpongVenue.servicePercent ?? 5,
                     blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5,
@@ -95,10 +99,12 @@ export default function Settings() {
                     syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
                     splashImageUrl: serpongVenue.splashImageUrl || '',
                     qrisImageUrl: serpongVenue.qrisImageUrl || '',
+                    logoUrl: serpongVenue.logoUrl || '',
                     phone: serpongVenue.phone || '',
                     waVerificationText: serpongVenue.waVerificationText || '',
                     isRelayEnabled: serpongVenue.isRelayEnabled ?? true,
-                    timezoneOffset: serpongVenue.timezoneOffset ?? 8
+                    timezoneOffset: serpongVenue.timezoneOffset ?? 8,
+                    isRecipeSystemEnabled: serpongVenue.isRecipeSystemEnabled ?? false
                 });
             }
         } catch (err) {
@@ -133,6 +139,15 @@ export default function Settings() {
         return () => clearInterval(interval);
     }, []);
 
+    const handleTestPrinter = async () => {
+        try {
+            const res = await api.post('/system/print/test');
+            vamosAlert('Berhasil mengirim test print ke ' + venueForm.printerPath);
+        } catch (err: any) {
+            vamosAlert('Gagal print: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const handleSaveVenue = async () => {
         if (loading) return; // JANGAN SIMPAN JIKA BELUM SELESAI LOADING
         if (!venueForm.name || venueForm.name.trim() === '') {
@@ -154,7 +169,7 @@ export default function Settings() {
         }
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'splash' | 'qris' = 'splash') => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'splash' | 'qris' | 'logo' = 'splash') => {
         const file = e.target.files?.[0];
         if (!file) return;
         
@@ -166,8 +181,10 @@ export default function Settings() {
         reader.onloadend = () => {
             if (type === 'splash') {
                 setVenueForm({ ...venueForm, splashImageUrl: reader.result as string });
-            } else {
+            } else if (type === 'qris') {
                 setVenueForm({ ...venueForm, qrisImageUrl: reader.result as string });
+            } else {
+                setVenueForm({ ...venueForm, logoUrl: reader.result as string });
             }
         };
         reader.readAsDataURL(file);
@@ -444,6 +461,44 @@ export default function Settings() {
                                     <p className="text-[10px] text-gray-600 mt-2 font-medium px-1 italic">* Digunakan untuk sinkronisasi laporan harian di Cloud/VPS.</p>
                                 </div>
                                 <div className="p-4 bg-[#111] border border-[#222] rounded-xl">
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Sidebar Mini Logo</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] border border-[#222] overflow-hidden flex items-center justify-center">
+                                            {venueForm.logoUrl ? (
+                                                <img src={venueForm.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
+                                                    <Plus className="w-5 h-5 text-green-500" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <input 
+                                                type="file" 
+                                                id="logo-upload" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={(e) => handleImageUpload(e, 'logo')} 
+                                            />
+                                            <label 
+                                                htmlFor="logo-upload" 
+                                                className="inline-block px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-500 text-[9px] font-bold rounded cursor-pointer hover:bg-green-500 hover:text-white transition-all uppercase tracking-widest"
+                                            >
+                                                {venueForm.logoUrl ? 'Ganti Logo' : 'Upload Logo'}
+                                            </label>
+                                            {venueForm.logoUrl && (
+                                                <button 
+                                                    onClick={() => setVenueForm({ ...venueForm, logoUrl: '' })}
+                                                    className="ml-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-500 text-[9px] font-bold rounded hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            )}
+                                            <p className="text-[8px] text-gray-600 mt-2 font-medium italic">* Recommend: SVG atau PNG transparan untuk pojok kiri atas.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-[#111] border border-[#222] rounded-xl">
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Splash Screen Logo</label>
                                     <div className="flex items-center gap-4">
                                         <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] border border-[#222] overflow-hidden flex items-center justify-center">
@@ -621,12 +676,57 @@ export default function Settings() {
                                     <input type="text" value={venueForm.printerPath} onChange={e => setVenueForm({ ...venueForm, printerPath: e.target.value })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#00ff66]" placeholder="e.g. USB001" />
                                 </div>
                                 <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Printer Paper Width</label>
+                                    <select 
+                                        value={venueForm.printerWidth} 
+                                        onChange={e => setVenueForm({ ...venueForm, printerWidth: Number(e.target.value) })} 
+                                        className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#00ff66] transition-colors text-white"
+                                    >
+                                        <option value={32}>Kertas 58mm (32 Karakter) - Standar</option>
+                                        <option value={48}>Kertas 80mm (48 Karakter) - Lebar</option>
+                                        <option value={42}>Kertas 80mm (42 Karakter) - Medium</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-1">Lampu Berkedip Sebelum Habis (Menit)</label>
                                     <input type="number" min="1" value={venueForm.blinkWarningMinutes} onChange={e => setVenueForm({ ...venueForm, blinkWarningMinutes: Number(e.target.value) })} className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#00ff66]" placeholder="Misal: 5" />
                                     <p className="text-[10px] text-gray-600 mt-2 font-medium px-1 italic">* Lampu meja (relay) akan mulai berkedip setiap 1 menit saat billing Package / Jam Tetap mau habis.</p>
                                 </div>
-                                <button onClick={handleSaveVenue} className="w-full py-4 mt-2 bg-[#00ff66] text-[#0a0a0a] rounded-xl font-black text-sm hover:opacity-90 transition-all transform active:scale-95 flex items-center justify-center shadow-[0_0_20px_rgba(0,255,102,0.2)]">
-                                    <Save className="w-4 h-4 mr-2" /> Save Hardware Config
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button onClick={handleTestPrinter} className="w-full py-4 mt-2 bg-gray-800 text-white border border-gray-600 rounded-xl font-black text-sm hover:bg-gray-700 transition-all transform active:scale-95 flex items-center justify-center">
+                                        Test Printer
+                                    </button>
+                                    <button onClick={handleSaveVenue} className="w-full py-4 mt-2 bg-[#00ff66] text-[#0a0a0a] rounded-xl font-black text-sm hover:opacity-90 transition-all transform active:scale-95 flex items-center justify-center shadow-[0_0_20px_rgba(0,255,102,0.2)]">
+                                        <Save className="w-4 h-4 mr-2" /> Save Hardware Config
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Inventory Configuration */}
+                        <div className="bg-[#141414] border border-[#222] rounded-2xl p-6 shadow-xl">
+                            <div className="flex items-center mb-6">
+                                <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center mr-3 border border-orange-500/20">
+                                    <Database className="w-5 h-5 text-orange-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Sistem Inventori</h2>
+                                <div className={`ml-auto px-2 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase ${venueForm.isRecipeSystemEnabled ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'}`}>
+                                    {venueForm.isRecipeSystemEnabled ? 'PRESISI' : 'STANDAR'}
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${venueForm.isRecipeSystemEnabled ? 'bg-orange-500' : 'bg-gray-800'}`} onClick={() => setVenueForm({ ...venueForm, isRecipeSystemEnabled: !venueForm.isRecipeSystemEnabled })}>
+                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all ${venueForm.isRecipeSystemEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-white uppercase tracking-widest">Aktifkan Resep & Bahan Baku</p>
+                                            <p className="text-[9px] text-gray-500 font-medium">Hitung HPP & potong stok dari bahan baku.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={handleSaveVenue} className="w-full py-4 bg-orange-600/10 border border-orange-600/30 text-orange-500 rounded-xl font-bold hover:bg-orange-600 hover:text-white transition-all transform active:scale-95 flex items-center justify-center">
+                                    <Save className="w-4 h-4 mr-2" /> Simpan Pengaturan
                                 </button>
                             </div>
                         </div>
@@ -997,19 +1097,46 @@ export default function Settings() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[#222]">
-                                        {tables.map(t => (
-                                            <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
+                                        {[...tables].sort((a, b) => {
+                                            if (a.type === 'CAFE' && b.type !== 'CAFE') return 1;
+                                            if (a.type !== 'CAFE' && b.type === 'CAFE') return -1;
+                                            return 0;
+                                        }).map((t, index, sortedTables) => (
+                                            <React.Fragment key={t.id}>
+                                                {t.type === 'CAFE' && (index === 0 || sortedTables[index - 1].type !== 'CAFE') && (
+                                                    <tr>
+                                                        <td colSpan={6} className="bg-[#0a0a0a] px-6 py-4 border-y border-[#222]">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                                                                    <Utensils className="w-4 h-4 text-orange-500" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-xs font-black text-white uppercase tracking-widest block">Cafe & Resto Area</span>
+                                                                    <span className="text-[10px] text-gray-500">Meja Non-Billiard (QR Order Only)</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                                <tr className="hover:bg-white/[0.02] transition-colors group">
                                                 <td className="px-6 py-5">
                                                     <div className="font-black text-white">{t.name}</div>
-                                                    <div className="text-[10px] text-gray-500 font-mono tracking-tighter">{t.id.split('-')[0]}</div>
+                                                    <div className="flex gap-2 items-center mt-1">
+                                                        {t.area && <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-black tracking-widest uppercase">{t.area}</span>}
+                                                        <div className="text-[9px] text-gray-600 font-mono tracking-tighter">{t.id.split('-')[0]}</div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <span className="text-[9px] px-2 py-1 bg-white/5 border border-white/10 text-gray-300 rounded-md font-black tracking-widest">{t.type}</span>
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
-                                                    <span className={`bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] px-4 py-1.5 rounded-full font-mono font-black text-xs`}>
-                                                        CH {String(t.relayChannel).padStart(2, '0')}
-                                                    </span>
+                                                    {t.type === 'CAFE' ? (
+                                                        <span className="text-[10px] font-bold text-gray-600 italic whitespace-nowrap">N/A</span>
+                                                    ) : (
+                                                        <span className={`bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] px-3 py-1.5 rounded-full font-mono font-black text-xs whitespace-nowrap inline-block`}>
+                                                            CH {String(t.relayChannel).padStart(2, '0')}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
                                                     <button 
@@ -1027,29 +1154,38 @@ export default function Settings() {
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <div className="flex justify-end space-x-2">
-                                                        <div className="flex bg-[#111] border border-[#222] rounded-xl overflow-hidden mr-2">
-                                                            <button
-                                                                onClick={() => testRelay(t.relayChannel, 'on')}
-                                                                className="px-3 py-1.5 text-[10px] font-black text-[#00ff66] hover:bg-[#00ff66]/10 border-r border-[#222] transition-colors"
-                                                            >
-                                                                ON
-                                                            </button>
-                                                            <button
-                                                                onClick={() => testRelay(t.relayChannel, 'off')}
-                                                                className="px-3 py-1.5 text-[10px] font-black text-gray-500 hover:bg-gray-500/10 transition-colors"
-                                                            >
-                                                                OFF
-                                                            </button>
-                                                        </div>
-                                                        <button onClick={() => { setEditingTable(true); setTableForm({ id: t.id, venueId: t.venueId, name: t.name, type: t.type, relayChannel: t.relayChannel, isKingTable: !!t.isKingTable }); setIsTableModalOpen(true); }} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-[#00ff66] rounded-xl text-gray-400 hover:text-[#00ff66] transition-all" title="Edit Hardware Mapping">
+                                                        {t.type !== 'CAFE' && (
+                                                            <div className="flex bg-[#111] border border-[#222] rounded-xl overflow-hidden mr-2">
+                                                                <button
+                                                                    onClick={() => testRelay(t.relayChannel, 'on')}
+                                                                    className="px-3 py-1.5 text-[10px] font-black text-[#00ff66] hover:bg-[#00ff66]/10 border-r border-[#222] transition-colors"
+                                                                >
+                                                                    ON
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => testRelay(t.relayChannel, 'off')}
+                                                                    className="px-3 py-1.5 text-[10px] font-black text-gray-500 hover:bg-gray-500/10 transition-colors"
+                                                                >
+                                                                    OFF
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        <button onClick={() => { setEditingTable(true); setTableForm({ id: t.id, venueId: t.venueId, name: t.name, type: t.type, area: t.area || '', relayChannel: t.relayChannel, isKingTable: !!t.isKingTable }); setIsTableModalOpen(true); }} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-[#00ff66] rounded-xl text-gray-400 hover:text-[#00ff66] transition-all" title="Edit Hardware Mapping">
                                                             <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => {
+                                                            const url = `${window.location.origin}/qr/${t.id}`;
+                                                            window.open(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(url)}`, '_blank');
+                                                        }} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-blue-500 rounded-xl text-gray-400 hover:text-blue-500 transition-all" title="Get QR Code">
+                                                            <QrCode className="w-4 h-4" />
                                                         </button>
                                                         <button onClick={() => deleteTable(t.id)} className="p-2.5 bg-[#1a1a1a] border border-[#333] hover:border-red-500 rounded-xl text-gray-400 hover:text-red-500 transition-all" title="Delete Table">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>
-                                            </tr>
+                                                </tr>
+                                            </React.Fragment>
                                         ))}
                                         {tables.length === 0 && (
                                             <tr>
@@ -1158,6 +1294,10 @@ export default function Settings() {
                                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Display Label</label>
                                     <input type="text" value={tableForm.name} onChange={e => setTableForm({ ...tableForm, name: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00ff66] transition-all font-bold text-sm" placeholder="e.g. Table 01" />
                                 </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Area / Lokasi (Optional)</label>
+                                    <input type="text" value={tableForm.area} onChange={e => setTableForm({ ...tableForm, area: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00ff66] transition-all font-bold text-sm" placeholder="e.g. Lantai 1, Outdoor, VIP" />
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 pl-1">Category</label>
@@ -1168,11 +1308,12 @@ export default function Settings() {
                                             <option value="VVIP">VVIP Room</option>
                                             <option value="CAROM">Carom</option>
                                             <option value="SNOOKER">Snooker</option>
+                                            <option value="CAFE">Cafe / Resto</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-[#00aaff] uppercase tracking-[0.2em] mb-2 pl-1">Relay CH</label>
-                                        <input type="number" min="1" max="99" value={tableForm.relayChannel} onChange={e => setTableForm({ ...tableForm, relayChannel: parseInt(e.target.value) || 1 })} className="w-full bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00aaff] font-mono font-black text-center text-lg" />
+                                        <label className={`block text-[10px] font-black uppercase tracking-[0.2em] mb-2 pl-1 ${tableForm.type === 'CAFE' ? 'text-gray-600' : 'text-[#00aaff]'}`}>Relay CH</label>
+                                        <input type="number" min="1" max="99" value={tableForm.type === 'CAFE' ? 99 : tableForm.relayChannel} onChange={e => setTableForm({ ...tableForm, relayChannel: parseInt(e.target.value) || 1 })} disabled={tableForm.type === 'CAFE'} className={`w-full rounded-xl px-4 py-3 focus:outline-none font-mono font-black text-center text-lg transition-all ${tableForm.type === 'CAFE' ? 'bg-[#1a1a1a] border border-[#333] text-gray-600 cursor-not-allowed' : 'bg-[#00aaff]/10 border border-[#00aaff]/30 text-[#00aaff] focus:border-[#00aaff]'}`} />
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">

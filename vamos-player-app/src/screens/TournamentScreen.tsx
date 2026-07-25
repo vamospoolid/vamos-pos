@@ -16,12 +16,12 @@ const MOCK_TOURNAMENT = {
 };
 
 export function TournamentScreen({ activeTournaments }: { member: any, activeTournaments: any[] }) {
-  const { selectedTournament, setSelectedTournament } = useAppStore();
+  const { selectedTournament, setSelectedTournament, setActiveTab } = useAppStore();
   const tournament = selectedTournament || activeTournaments[0] || MOCK_TOURNAMENT;
   const isOngoing = tournament.status === 'ONGOING' || tournament.status === 'IN_PROGRESS';
   const isPending = tournament.status === 'PENDING' || tournament.status === 'UPCOMING' || !tournament.status;
   
-  const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>(isOngoing ? 'bracket' : 'info');
+  const [activeView, setActiveView] = useState<'info' | 'bracket' | 'rankings'>('info');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [isCompact, setIsCompact] = useState((tournament?.name || '').toLowerCase().includes('arisan'));
   const [paymentRef, setPaymentRef] = useState('');
@@ -62,7 +62,7 @@ export function TournamentScreen({ activeTournaments }: { member: any, activeTou
   return (
     <div className="fade-in space-y-8 pb-32">
       <div className="flex items-center px-4 pt-8">
-        <button onClick={() => setSelectedTournament(null)} className="w-10 h-10 rounded-[18px] bg-[#1a1f35] flex items-center justify-center text-white border border-white/5 active:scale-90 transition-all shadow-lg">
+        <button onClick={() => { setSelectedTournament(null); setActiveTab('dashboard'); }} className="w-10 h-10 rounded-[18px] bg-[#1a1f35] flex items-center justify-center text-white border border-white/5 active:scale-90 transition-all shadow-lg">
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 text-center -ml-10">

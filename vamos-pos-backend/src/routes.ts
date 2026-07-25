@@ -25,8 +25,10 @@ import discountRoutes from './modules/discounts/discount.route';
 import shiftRoutes from './modules/shifts/shift.route';
 import whatsappRoutes from './modules/whatsapp/whatsapp.route';
 import licenseRoutes from './modules/license/license.route';
+import inventoryRoutes from './modules/inventory/inventory.route';
 
 import paymentRoutes from './modules/payments/payment.route';
+import qrRoutes from './modules/qr/qr.route';
 
 const router = Router();
 
@@ -57,5 +59,7 @@ router.use('/announcements', announcementRoutes);
 router.use('/discounts', discountRoutes);
 router.use('/shifts', shiftRoutes);
 router.use('/license', licenseRoutes);
+router.use('/qr', qrRoutes);
+router.use('/inventory', inventoryRoutes);
 
 export default router;

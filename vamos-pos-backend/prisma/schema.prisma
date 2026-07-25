@@ -30,6 +30,7 @@ model Venue {
   closeTime           String    @default("23:00")
   relayComPort        String    @default("COM3")
   printerPath         String    @default("USB001")
+  printerWidth        Int       @default(32)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
@@ -40,11 +41,13 @@ model Venue {
   syncIntervalSeconds Int       @default(30)
   splashImageUrl      String?
   qrisImageUrl        String?
+  logoUrl             String?
   phone               String?   @default("6281244047610")
   waVerificationText  String?   @default("Halo Vamos Pool, saya ingin verifikasi akun member saya dengan ID:")
   isRelayEnabled      Boolean   @default(true)
   /// UTC offset in hours: 7=WIB, 8=WITA, 9=WIT. Used by VPS for timezone-aware reports.
   timezoneOffset      Int       @default(8)
+  isRecipeSystemEnabled Boolean @default(false)
   tables              Table[]
 }
 
@@ -53,6 +56,7 @@ model Table {
   venueId           String
   name              String
   type              String
+  area              String?
   status            TableStatus       @default(AVAILABLE)
   relayChannel      Int
   createdAt         DateTime          @default(now())
@@ -222,6 +226,7 @@ model Product {
   deletedAt    DateTime?
   orders       Order[]
   stockHistory StockHistory[]
+  recipes      RecipeIngredient[]
 }
 
 model StockHistory {
@@ -247,6 +252,7 @@ model Order {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
   syncStatus SyncState @default(PENDING)
+  kdsStatus  String    @default("PENDING") // PENDING, PROCESSING, READY, SERVED
   product    Product   @relation(fields: [productId], references: [id])
   session    Session   @relation(fields: [sessionId], references: [id])
 
@@ -721,4 +727,50 @@ model MemberQuest {
   quest  Quest  @relation(fields: [questId], references: [id])
 
   @@unique([memberId, questId, resetKey])
+}
+
+enum UnitType {
+  GRAM
+  MILLILITER
+  PIECES
+  PACK
+}
+
+model RawMaterial {
+  id            String               @id @default(uuid())
+  name          String
+  unit          UnitType
+  currentStock  Float                @default(0)
+  costPerUnit   Float                @default(0)
+  minStockAlert Float                @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  
+  recipes       RecipeIngredient[]
+  stockHistory  RawMaterialHistory[]
+}
+
+model RecipeIngredient {
+  id            String       @id @default(uuid())
+  productId     String
+  rawMaterialId String
+  quantity      Float
+  
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rawMaterial   RawMaterial  @relation(fields: [rawMaterialId], references: [id])
+  
+  @@unique([productId, rawMaterialId])
+}
+
+model RawMaterialHistory {
+  id            String       @id @default(uuid())
+  rawMaterialId String
+  quantity      Float
+  type          String       // IN, OUT, ADJUSTMENT, SPOILAGE
+  previousStock Float
+  newStock      Float
+  notes         String?
+  createdAt     DateTime     @default(now())
+  
+  rawMaterial   RawMaterial  @relation(fields: [rawMaterialId], references: [id])
 }

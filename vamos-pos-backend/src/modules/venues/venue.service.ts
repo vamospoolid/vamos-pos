@@ -49,11 +49,13 @@ export class VenueService {
         taxPercent?: number; 
         servicePercent?: number; 
         printerPath?: string; 
+        printerWidth?: number;
         blinkWarningMinutes?: number; 
         isSyncEnabled?: boolean; 
         syncIntervalSeconds?: number; 
         splashImageUrl?: string;
         qrisImageUrl?: string;
+        logoUrl?: string;
         phone?: string;
         waVerificationText?: string;
         timezoneOffset?: number;

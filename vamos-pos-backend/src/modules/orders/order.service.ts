@@ -5,14 +5,14 @@ import { ProductService } from '../products/product.service';
 
 export class OrderService {
     static async addOrder(sessionId: string, productId: string, quantity: number, userId: string) {
-        const session = await prisma.session.findUnique({ where: { id: sessionId } });
+        const session = await prisma.session.findUnique({ where: { id: sessionId }, include: { table: true } });
         if (!session || !['ACTIVE', 'PENDING', 'FINISHED'].includes(session.status)) {
             throw new AppError('Cannot add orders to this session', 400);
         }
 
         const product = await prisma.product.findUnique({ where: { id: productId } });
         if (!product) throw new AppError('Product not found', 404);
-        if (product.stock < quantity) throw new AppError('Not enough stock', 400);
+        await ProductService.validateStock(productId, quantity);
 
         const checkExisting = await prisma.order.findFirst({
             where: { sessionId, productId }
@@ -39,7 +39,8 @@ export class OrderService {
             });
         }
 
-        await ProductService.updateStock(productId, -quantity, 'SALE', `Sale for session ${session.customerName || sessionId}`);
+        const sessionDesc = session.customerName ? session.customerName : (session.table ? `Meja ${session.table.name}` : `Walk-In (${session.id.substring(0,6)})`);
+        await ProductService.updateStock(productId, -quantity, 'SALE', `Penjualan - ${sessionDesc}`);
 
         const fnbTotal = await prisma.order.aggregate({
             where: { sessionId },
@@ -59,7 +60,7 @@ export class OrderService {
     }
 
     static async removeOrder(orderId: string, userId: string) {
-        const order = await prisma.order.findUnique({ where: { id: orderId }, include: { session: true } });
+        const order = await prisma.order.findUnique({ where: { id: orderId }, include: { session: { include: { table: true } } } });
         if (!order) throw new AppError('Order not found', 404);
         if (!['ACTIVE', 'PENDING', 'FINISHED'].includes(order.session.status)) {
             throw new AppError('Cannot modify orders for this session', 400);
@@ -67,7 +68,8 @@ export class OrderService {
 
         await prisma.order.delete({ where: { id: orderId } });
 
-        await ProductService.updateStock(order.productId, order.quantity, 'RETURN', `Order removed from session ${order.session.customerName || order.sessionId}`);
+        const sessionDesc = order.session.customerName ? order.session.customerName : (order.session.table ? `Meja ${order.session.table.name}` : `Walk-In (${order.session.id.substring(0,6)})`);
+        await ProductService.updateStock(order.productId, order.quantity, 'RETURN', `Batal Penjualan - ${sessionDesc}`);
 
         const fnbTotal = await prisma.order.aggregate({
             where: { sessionId: order.sessionId },
@@ -85,5 +87,37 @@ export class OrderService {
 
         await AuditService.log(userId, 'ORDER_DELETE', 'Order', { orderId });
         return { success: true };
+    }
+
+    static async getKDSOrders() {
+        return await prisma.order.findMany({
+            where: {
+                kdsStatus: {
+                    not: 'SERVED'
+                }
+            },
+            include: {
+                product: true,
+                session: {
+                    include: {
+                        table: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'asc'
+            }
+        });
+    }
+
+    static async updateKDSStatus(orderId: string, status: string) {
+        if (!['PENDING', 'PROCESSING', 'READY', 'SERVED'].includes(status)) {
+            throw new AppError('Invalid KDS status', 400);
+        }
+        
+        return await prisma.order.update({
+            where: { id: orderId },
+            data: { kdsStatus: status }
+        });
     }
 }

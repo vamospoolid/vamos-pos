@@ -4,9 +4,10 @@ import { api, getAvatarUrl } from '../api';
 import { useAppStore } from '../store/appStore';
 import { HistoryScreen } from '../HistoryScreen';
 import { AchievementBadge } from '../components/AchievementBadge';
+import { RewardsScreen } from './RewardsScreen';
 
 export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void }) {
-  const [view, setView] = useState<'main' | 'history'>('main');
+  const [view, setView] = useState<'main' | 'history' | 'rewards'>('main');
   const [uploading, setUploading] = useState(false);
   const [rankData, setRankData] = useState<{ globalRank: number | null; totalWins: number; monthlyScore: number; tier: string } | null>(null);
   const [loadingRank, setLoadingRank] = useState(true);
@@ -63,6 +64,7 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
   };
 
   if (view === 'history') return <HistoryScreen member={member} onBack={() => setView('main')} />;
+  if (view === 'rewards') return <RewardsScreen member={member} onBack={() => setView('main')} />;
 
   const tierColors: Record<string, string> = {
     CHAMPION: '#ff5722', ELITE: '#a855f7', VETERAN: '#3b82f6',
@@ -176,10 +178,10 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
             </div>
 
             {/* Loyalty Points */}
-            <div className="bg-[#101423] rounded-[24px] p-5 border border-white/5">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Loyalty</p>
+            <button onClick={() => setView('rewards')} className="bg-[#101423] rounded-[24px] p-5 border border-white/5 text-left group hover:border-yellow-500/30 transition-colors">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic mb-2 group-hover:text-yellow-500 transition-colors">Loyalty Rewards</p>
               <p className="text-3xl font-black text-yellow-400 italic tracking-tighter leading-none">{member.loyaltyPoints ?? 0}<span className="text-[11px] text-slate-500 ml-1 not-italic">PTS</span></p>
-            </div>
+            </button>
           </div>
         )}
       </div>
