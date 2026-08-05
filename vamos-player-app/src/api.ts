@@ -1,21 +1,24 @@
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { useAppStore } from './store/appStore';
+import { Capacitor } from '@capacitor/core';
 
 const getBaseURL = () => {
     const hostname = window.location.hostname;
+    const isNative = Capacitor.isNativePlatform();
     
-    // Auto-detect local testing environment
+    // Auto-detect local testing environment (only if not running natively)
     if (
-        hostname === 'localhost' || 
+        !isNative && 
+        (hostname === 'localhost' || 
         hostname === '127.0.0.1' ||
         hostname.startsWith('192.168.') ||
-        hostname.startsWith('10.')
+        hostname.startsWith('10.'))
     ) {
         return 'http://localhost:3000/api';
     }
     
-    return import.meta.env.VITE_API_URL || 'https://pos.vamospool.id/api';
+    return import.meta.env.VITE_API_URL || 'https://api.vamospool.id/api';
 };
 
 const getSocketURL = () => {

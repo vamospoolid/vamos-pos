@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, getSocketURL } from './api';
 import { io } from 'socket.io-client';
-import { Loader2, CheckCircle, Clock, ChefHat, Play, Check } from 'lucide-react';
+import { Loader2, CheckCircle, Clock, ChefHat, Check } from 'lucide-react';
 import { vamosAlert } from './utils/dialog';
 
 const playNotificationSound = () => {
@@ -93,90 +93,57 @@ export default function KDS() {
         );
     }
 
-    const pendingOrders = orders.filter(o => o.kdsStatus === 'PENDING');
-    const processingOrders = orders.filter(o => o.kdsStatus === 'PROCESSING');
-    const readyOrders = orders.filter(o => o.kdsStatus === 'READY');
+    const activeOrders = orders.filter(o => ['PENDING', 'PROCESSING', 'READY'].includes(o.kdsStatus));
 
-    const OrderCard = ({ order, nextStatus, nextLabel, nextIcon: Icon, nextColor }: any) => (
-        <div className="bg-[#141414] border border-[#222] rounded-xl p-4 shadow-lg flex flex-col justify-between">
+    const OrderCard = ({ order }: any) => (
+        <div className="bg-[#1a1a1a] border border-[#333] rounded-xl p-4 flex flex-col justify-between h-full">
             <div>
                 <div className="flex justify-between items-start mb-2">
-                    <span className="text-white font-bold text-lg">{order.product?.name}</span>
-                    <span className="bg-[#222] text-white px-2 py-1 rounded text-sm font-bold">x{order.quantity}</span>
+                    <span className="text-gray-100 font-semibold text-lg leading-tight">{order.product?.name}</span>
+                    <span className="bg-[#333] text-gray-200 px-3 py-1 rounded-md text-sm font-bold ml-2">x{order.quantity}</span>
                 </div>
                 <div className="text-gray-400 text-sm mb-4">
-                    Table: <span className="text-white font-bold">{order.session?.table?.name || 'Direct'}</span>
+                    Meja: <span className="text-gray-200 font-medium">{order.session?.table?.name || 'Direct'}</span>
                 </div>
-                <div className="text-xs text-gray-500 mb-4">
-                    {new Date(order.createdAt).toLocaleTimeString()}
+                <div className="text-xs text-gray-500 mb-4 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
             </div>
             <button 
-                onClick={() => updateStatus(order.id, nextStatus)}
-                className={`w-full py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${nextColor} text-white`}
+                onClick={() => updateStatus(order.id, 'SERVED')}
+                className="w-full py-3 mt-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all bg-[#2c2c2c] hover:bg-green-600 hover:text-white text-gray-300 border border-[#444] hover:border-green-500"
             >
-                <Icon className="w-4 h-4" /> {nextLabel}
+                <Check className="w-4 h-4" /> Selesai
             </button>
         </div>
     );
 
     return (
-        <div className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden animate-in fade-in duration-300">
-            <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center border border-orange-500/30 text-orange-500">
-                    <ChefHat className="w-6 h-6" />
+        <div className="h-full flex flex-col bg-[#0f0f0f] text-gray-200 overflow-hidden">
+            <div className="flex items-center gap-4 mb-6 px-2">
+                <div className="w-10 h-10 bg-[#222] rounded-lg flex items-center justify-center text-gray-400">
+                    <ChefHat className="w-5 h-5" />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-black italic tracking-tight uppercase">Kitchen Display</h2>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em]">Real-time Order Management</p>
+                    <h2 className="text-xl font-bold tracking-tight">Kitchen Display</h2>
+                    <p className="text-xs text-gray-500">Daftar Pesanan Aktif</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-6 flex-1 overflow-hidden">
-                {/* Column 1: Pending */}
-                <div className="bg-[#111] rounded-2xl p-4 border border-[#222] flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#333]">
-                        <h3 className="font-bold text-red-500 flex items-center gap-2 uppercase tracking-widest text-xs">
-                            <Clock className="w-4 h-4" /> Pending
-                        </h3>
-                        <span className="bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-xs font-bold">{pendingOrders.length}</span>
+            <div className="flex-1 overflow-y-auto px-2 pb-6 custom-scrollbar">
+                {activeOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                        <CheckCircle className="w-12 h-12 mb-3 opacity-20" />
+                        <p>Tidak ada pesanan aktif</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                        {pendingOrders.map(o => (
-                            <OrderCard key={o.id} order={o} nextStatus="PROCESSING" nextLabel="Process" nextIcon={Play} nextColor="bg-orange-600 hover:bg-orange-500" />
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-max">
+                        {activeOrders.map(o => (
+                            <OrderCard key={o.id} order={o} />
                         ))}
                     </div>
-                </div>
-
-                {/* Column 2: Processing */}
-                <div className="bg-[#111] rounded-2xl p-4 border border-[#222] flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#333]">
-                        <h3 className="font-bold text-orange-500 flex items-center gap-2 uppercase tracking-widest text-xs">
-                            <ChefHat className="w-4 h-4" /> Processing
-                        </h3>
-                        <span className="bg-orange-500/20 text-orange-500 px-2 py-0.5 rounded text-xs font-bold">{processingOrders.length}</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                        {processingOrders.map(o => (
-                            <OrderCard key={o.id} order={o} nextStatus="READY" nextLabel="Ready" nextIcon={CheckCircle} nextColor="bg-green-600 hover:bg-green-500" />
-                        ))}
-                    </div>
-                </div>
-
-                {/* Column 3: Ready */}
-                <div className="bg-[#111] rounded-2xl p-4 border border-[#222] flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#333]">
-                        <h3 className="font-bold text-green-500 flex items-center gap-2 uppercase tracking-widest text-xs">
-                            <Check className="w-4 h-4" /> Ready to Serve
-                        </h3>
-                        <span className="bg-green-500/20 text-green-500 px-2 py-0.5 rounded text-xs font-bold">{readyOrders.length}</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                        {readyOrders.map(o => (
-                            <OrderCard key={o.id} order={o} nextStatus="SERVED" nextLabel="Served" nextIcon={Check} nextColor="bg-blue-600 hover:bg-blue-500" />
-                        ))}
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
