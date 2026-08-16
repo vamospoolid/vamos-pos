@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, X, User, Zap, Trophy, Swords, ScrollText, Camera, Share2, Loader2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, X, User, Trophy, Swords, ScrollText, Camera, Share2, Loader2, ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import { useAppStore } from '../store/appStore';
 
