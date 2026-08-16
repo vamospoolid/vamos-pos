@@ -192,20 +192,7 @@ export function TournamentScreen({ activeTournaments }: { member: any, activeTou
                   <p className="text-[9px] text-slate-500 mt-2 px-1 italic">Kosongkan jika ingin menggunakan nama profil Anda.</p>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">Payment Reference / Invoice ID <span className="text-primary opacity-60">(Opsional)</span></label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={paymentRef}
-                      onChange={e => setPaymentRef(e.target.value)}
-                      placeholder="Kosongkan jika pendaftaran manual..."
-                      className="w-full bg-[#101423] border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-primary text-white font-medium placeholder:text-slate-700 transition-all"
-                    />
-                    <Zap className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
-                  </div>
-                  <p className="text-[9px] text-slate-500 mt-3 px-1 italic">Jika Anda belum memiliki kode dari kasir, kosongkan saja. Anda bisa mendaftar dan melapor ke Admin nanti secara langsung di Arena.</p>
-                </div>
+
                 
                 <div className="bg-primary/5 border border-primary/10 p-5 rounded-2xl">
                   <div className="flex gap-3">

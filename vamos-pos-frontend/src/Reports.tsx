@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
-    Tooltip as RechartsTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
+    Tooltip as RechartsTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -41,6 +41,12 @@ export default function Reports({
     const [utilization, setUtilization] = useState<any[]>([]);
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
     const [topProducts, setTopProducts] = useState<any[]>([]);
+    const [fnbHistory, setFnbHistory] = useState<any[]>([]);
+    const [fnbLoading, setFnbLoading] = useState(true);
+    const [fnbFilter, setFnbFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
+    const [fnbStartDate, setFnbStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+    const [fnbEndDate, setFnbEndDate] = useState(new Date().toLocaleDateString('en-CA'));
+
     const [transactions, setTransactions] = useState<any[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [txFilter, setTxFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
@@ -143,6 +149,7 @@ export default function Reports({
             // so startDate/endDate captured here are always fresh
             fetchReports(startDate, endDate);
             fetchTransactions(txFilter, txStartDate, txEndDate);
+            fetchFnbHistory(fnbFilter, fnbStartDate, fnbEndDate);
         };
 
         socket.on('sessions:updated', handleUpdate);
@@ -155,7 +162,49 @@ export default function Reports({
         return () => {
             socket.disconnect();
         };
-    }, [timeFilter, startDate, endDate, txFilter, txStartDate, txEndDate]);
+    }, [timeFilter, startDate, endDate, txFilter, txStartDate, txEndDate, fnbFilter, fnbStartDate, fnbEndDate]);
+
+    // ─── FnB History Fetch ─────────────────────────────────────────────
+    const fetchFnbHistory = async (_f = fnbFilter, sd = fnbStartDate, ed = fnbEndDate) => {
+        setFnbLoading(true);
+        try {
+            const query = `?startDate=${sd}&endDate=${ed}`;
+            const res = await api.get(`/reports/fnb-history${query}`);
+            setFnbHistory(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to load fnb history', err);
+        } finally {
+            setFnbLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const opDate = getOperationalDate();
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        setFnbStartDate(opDate);
+        const finalEnd = fnbFilter === 'daily' ? opDate : todayStr;
+        setFnbEndDate(finalEnd);
+        fetchFnbHistory(fnbFilter, opDate, finalEnd);
+    }, [venue?.openTime]);
+
+    const handleFnbFilterChange = (f: 'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom') => {
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        let newStart = todayStr;
+
+        if (f === 'daily') newStart = getOperationalDate();
+        else if (f === 'yesterday') {
+            const opDate = new Date(getOperationalDate());
+            newStart = new Date(opDate.getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+        } 
+        else if (f === 'weekly') newStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+        else if (f === 'monthly') newStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+
+        setFnbFilter(f);
+        setFnbStartDate(newStart);
+        const finalEnd = (f === 'daily' || f === 'yesterday' || f === 'custom') ? newStart : todayStr;
+        setFnbEndDate(finalEnd);
+        fetchFnbHistory(f, newStart, finalEnd);
+    };
 
     // ─── Transaction List Fetch ─────────────────────────────────────────────
     const fetchTransactions = async (_f = txFilter, sd = txStartDate, ed = txEndDate) => {
@@ -1030,7 +1079,39 @@ export default function Reports({
                     </div>
                     <span className="ml-auto text-xs text-gray-600 font-mono">{topProducts.length} products</span>
                 </div>
-                <div className="overflow-x-auto">
+                
+                {topProducts.length > 0 && (
+                    <div className="p-6 border-b border-[#222]">
+                        <div className="h-64 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={topProducts.slice(0, 15)} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" vertical={false} />
+                                    <XAxis 
+                                        dataKey="product.name" 
+                                        stroke="#333" 
+                                        tick={{ fill: '#666', fontSize: 10 }} 
+                                        interval={0}
+                                        angle={-45}
+                                        textAnchor="end"
+                                    />
+                                    <YAxis stroke="#333" tick={{ fill: '#666', fontSize: 11 }} />
+                                    <RechartsTooltip
+                                        cursor={{ fill: 'rgba(255,153,0,0.1)' }}
+                                        contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#2a2a2a', borderRadius: '12px', fontSize: '12px' }}
+                                        formatter={(value: any, name: any) => {
+                                            if (name === 'quantitySold') return [`${value} units`, 'Units Sold'];
+                                            if (name === 'revenue') return [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Revenue'];
+                                            return [value, name];
+                                        }}
+                                    />
+                                    <Bar dataKey="quantitySold" name="quantitySold" fill="#ff9900" radius={[4, 4, 0, 0]} barSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="overflow-x-auto max-h-[400px] custom-scrollbar">
                     <table className="w-full text-sm">
                         <thead style={{ background: '#0f0f0f' }}>
                             <tr className="border-b border-[#222]">
@@ -1068,6 +1149,90 @@ export default function Reports({
                             {topProducts.length === 0 && (
                                 <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-600 text-sm">No F&B sales data yet.</td></tr>
                             )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* ─── F&B Transaction History ──────────────────── */}
+            <div id="fnb-history-section" className="bg-[#141414] border border-[#222] rounded-2xl overflow-hidden mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-6 py-4 border-b border-[#222]">
+                    <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-[#ff9900]" />
+                        <div>
+                            <h2 className="font-bold text-base">Riwayat Transaksi F&amp;B</h2>
+                            <p className="text-xs text-gray-500">Detail seluruh pemesanan F&amp;B</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="bg-[#0a0a0a] border border-[#333] rounded-xl p-1 flex items-center">
+                            {(['daily', 'yesterday', 'weekly', 'monthly'] as const).map(f => (
+                                <button key={f} onClick={() => handleFnbFilterChange(f)}
+                                    className="px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all"
+                                    style={{ background: fnbFilter === f ? '#00ff66' : 'transparent', color: fnbFilter === f ? '#0a0a0a' : '#6b7280' }}>
+                                    {f === 'daily' ? 'Harian' : f === 'yesterday' ? 'Kemarin' : f === 'weekly' ? 'Mingguan' : 'Bulanan'}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-1.5">
+                            <input type="date" value={fnbStartDate} onChange={e => setFnbStartDate(e.target.value)} className="bg-transparent text-xs text-gray-400 focus:outline-none" />
+                            <span className="text-gray-600 text-xs">→</span>
+                            <input type="date" value={fnbEndDate} onChange={e => setFnbEndDate(e.target.value)} className="bg-transparent text-xs text-gray-400 focus:outline-none" />
+                            <button onClick={() => { setFnbFilter('custom'); fetchFnbHistory('custom', fnbStartDate, fnbEndDate); }}
+                                className="px-3 py-1 bg-[#00ff66]/10 text-[#00ff66] text-xs font-bold rounded-lg border border-[#00ff66]/20 hover:bg-[#00ff66]/20 transition-all">Filter</button>
+                        </div>
+                    </div>
+                </div>
+                <div className="overflow-x-auto max-h-[400px] custom-scrollbar">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-10" style={{ background: '#0f0f0f' }}>
+                            <tr className="border-b border-[#222]">
+                                {['Waktu', 'Pemesan', 'Meja', 'Menu', 'Kategori', 'Harga', 'Qty', 'Total Harga'].map(col => (
+                                    <th key={col} className="px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">{col}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {fnbHistory.map((order, i) => (
+                                <tr key={i} className="border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors">
+                                    <td className="px-5 py-3.5 whitespace-nowrap">
+                                        <p className="text-white font-bold text-xs">
+                                            {new Date(order.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </p>
+                                        <p className="text-gray-500 font-mono text-[10px] mt-0.5">
+                                            {new Date(order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </td>
+                                    <td className="px-5 py-3.5">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-[#00aaff]/10 flex items-center justify-center text-[#00aaff] text-[10px] font-black flex-shrink-0">
+                                                {order.memberName !== 'Walk-in Guest' ? order.memberName.charAt(0).toUpperCase() : '?'}
+                                            </div>
+                                            <p className={`font-bold text-xs ${order.memberName === 'Walk-in Guest' ? 'text-gray-500' : 'text-white'}`}>{order.memberName}</p>
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-3.5 whitespace-nowrap">
+                                        <p className="text-white font-bold text-xs">{order.tableName}</p>
+                                    </td>
+                                    <td className="px-5 py-3.5 font-semibold text-white">{order.productName}</td>
+                                    <td className="px-5 py-3.5">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af' }}>
+                                            {order.category}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3.5 font-mono text-gray-400">Rp {Math.round(order.price).toLocaleString('id-ID')}</td>
+                                    <td className="px-5 py-3.5 font-mono font-black text-white text-center">{order.quantity}</td>
+                                    <td className="px-5 py-3.5 font-black font-mono text-[#ff9900]">
+                                        Rp {Math.round(order.totalPrice).toLocaleString('id-ID')}
+                                    </td>
+                                </tr>
+                            ))}
+                            {fnbLoading ? (
+                                <tr><td colSpan={8} className="px-5 py-12 text-center text-gray-600 text-sm">Memuat data...</td></tr>
+                            ) : fnbHistory.length === 0 ? (
+                                <tr><td colSpan={8} className="px-5 py-12 text-center text-gray-600 text-sm">Tidak ada riwayat pemesanan F&amp;B.</td></tr>
+                            ) : null}
                         </tbody>
                     </table>
                 </div>

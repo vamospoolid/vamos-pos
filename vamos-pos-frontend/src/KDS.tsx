@@ -119,16 +119,38 @@ export default function KDS() {
         </div>
     );
 
+    const clearAll = async () => {
+        if (!window.confirm('Yakin ingin menyelesaikan semua pesanan aktif?')) return;
+        try {
+            for (const order of activeOrders) {
+                await api.patch(`/orders/kds/${order.id}/status`, { status: 'SERVED' });
+            }
+            vamosAlert('Semua pesanan berhasil diselesaikan!');
+        } catch (err: any) {
+            vamosAlert('Gagal membersihkan pesanan');
+        }
+    };
+
     return (
         <div className="h-full flex flex-col bg-[#0f0f0f] text-gray-200 overflow-hidden">
-            <div className="flex items-center gap-4 mb-6 px-2">
-                <div className="w-10 h-10 bg-[#222] rounded-lg flex items-center justify-center text-gray-400">
-                    <ChefHat className="w-5 h-5" />
+            <div className="flex items-center justify-between mb-6 px-2 pt-2">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-[#222] rounded-lg flex items-center justify-center text-gray-400">
+                        <ChefHat className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight">Kitchen Display</h2>
+                        <p className="text-xs text-gray-500">Daftar Pesanan Aktif</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight">Kitchen Display</h2>
-                    <p className="text-xs text-gray-500">Daftar Pesanan Aktif</p>
-                </div>
+                {activeOrders.length > 0 && (
+                    <button 
+                        onClick={clearAll}
+                        className="px-4 py-2 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white rounded-lg text-sm font-bold transition-all border border-red-500/20 hover:border-red-600 flex items-center gap-2"
+                    >
+                        <CheckCircle className="w-4 h-4" /> Clear All
+                    </button>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto px-2 pb-6 custom-scrollbar">

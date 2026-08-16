@@ -45,6 +45,14 @@ export const getTopProducts = catchAsync(async (req: Request, res: Response) => 
     res.json({ success: true, data: result });
 });
 
+export const getFnbHistory = catchAsync(async (req: Request, res: Response) => {
+    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const result = await ReportService.getFnbHistory(days, startDate, endDate);
+    res.json({ success: true, data: result });
+});
+
 export const getTransactionList = catchAsync(async (req: Request, res: Response) => {
     const days = req.query.days ? parseInt(req.query.days as string) : 1;
     const startDate = req.query.startDate as string;

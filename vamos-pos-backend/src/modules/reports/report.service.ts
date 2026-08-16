@@ -511,8 +511,74 @@ export class ReportService {
             productSales[pid].revenue += (item.price * item.quantity);
         });
 
-        const sorted = Object.values(productSales).sort((a, b) => b.quantitySold - a.quantitySold).slice(0, 10);
+        const sorted = Object.values(productSales).sort((a, b) => b.quantitySold - a.quantitySold);
         return sorted;
+    }
+
+    static async getFnbHistory(days = 30, startDateStr?: string, endDateStr?: string) {
+        let start: Date;
+        let end: Date;
+
+        if (startDateStr && endDateStr) {
+            const openHour = await ReportService.getOpenHour();
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
+
+            const tzOffsetMs = getTimezoneOffsetMs();
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            start = new Date(startLocal.getTime() - tzOffsetMs);
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            end = new Date(endLocal.getTime() - tzOffsetMs - 1);
+        } else {
+            const today = await ReportService.getOperationalDayBounds(0);
+            const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
+            start = oldest.start;
+            end = today.end;
+        }
+
+        const dateFilter = { createdAt: { gte: start, lte: end } };
+
+        const orders = await prisma.order.findMany({
+            where: {
+                session: {
+                    status: 'PAID',
+                },
+                ...dateFilter
+            },
+            include: { 
+                product: true,
+                session: {
+                    include: {
+                        member: true,
+                        table: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        return orders
+            .filter(o => o.product) // Only F&B items
+            .map(o => {
+                const s = o.session as any;
+                return {
+                    id: o.id,
+                    createdAt: o.createdAt.toISOString(),
+                    productName: o.product?.name || '-',
+                    category: o.product?.category || '-',
+                    price: o.price,
+                    quantity: o.quantity,
+                    totalPrice: o.price * o.quantity,
+                    memberName: s?.member?.name || s?.customerName || 'Walk-in Guest',
+                    tableName: s?.table?.name || '-'
+                };
+            });
     }
 
     static async getTransactionList(days = 1, startDateStr?: string, endDateStr?: string) {
