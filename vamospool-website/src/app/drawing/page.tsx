@@ -326,12 +326,12 @@ export default function LiveDrawingPage() {
       });
 
       const data = await res.json();
-      if (!res.ok || !data.data?.token) {
+      const token = data.data?.token || data.token;
+      const user = data.data?.user || data.user;
+
+      if (!res.ok || !token) {
         throw new Error(data.message || "Email atau password salah");
       }
-
-      const token = data.data.token;
-      const user = data.data.user;
 
       setStaffToken(token);
       setStaffUser(user);
