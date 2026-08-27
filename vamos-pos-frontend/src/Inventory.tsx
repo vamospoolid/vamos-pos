@@ -25,6 +25,56 @@ export default function Inventory() {
     const [editingRaw, setEditingRaw] = useState<any>(null);
     const [rawFormData, setRawFormData] = useState<any>({ name: '', unit: 'GRAM', costPerUnit: '', minStockAlert: '', currentStock: '' });
 
+    // Recipe Detail Modal state
+    const [viewRecipeModal, setViewRecipeModal] = useState<any | null>(null);
+
+    // Calculate real-time available portions for a recipe product
+    const calculateProductPortions = (product: any) => {
+        if (!isRecipeSystemEnabled || !product.recipes || product.recipes.length === 0) {
+            return {
+                isRecipe: false,
+                portions: product.stock || 0,
+                bottleneck: null,
+                ingredients: []
+            };
+        }
+
+        let minPortions = Infinity;
+        let bottleneckItem: any = null;
+        const ingredientsList: any[] = [];
+
+        for (const ing of product.recipes) {
+            const raw = rawMaterials.find(r => r.id === ing.rawMaterialId) || ing.rawMaterial;
+            const currentStock = raw ? Number(raw.currentStock) || 0 : 0;
+            const requiredQty = Number(ing.quantity) || 1;
+            const possible = requiredQty > 0 ? Math.floor(currentStock / requiredQty) : 0;
+
+            const ingInfo = {
+                id: raw?.id || ing.rawMaterialId,
+                name: raw ? raw.name : 'Unknown Raw Material',
+                unit: raw ? raw.unit : '',
+                currentStock,
+                requiredPerPortion: requiredQty,
+                possiblePortions: possible,
+                costPerUnit: raw ? raw.costPerUnit || 0 : 0
+            };
+
+            ingredientsList.push(ingInfo);
+
+            if (possible < minPortions) {
+                minPortions = possible;
+                bottleneckItem = ingInfo;
+            }
+        }
+
+        return {
+            isRecipe: true,
+            portions: minPortions === Infinity ? 0 : Math.max(0, minPortions),
+            bottleneck: bottleneckItem,
+            ingredients: ingredientsList
+        };
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -363,30 +413,84 @@ export default function Inventory() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProducts.map(p => (
-                                    <tr key={p.id} className="border-b border-[#222222] hover:bg-white/5 transition-colors group">
-                                        <td className="py-4">
-                                            <p className="font-bold text-sm text-white flex items-center">
-                                                {p.name}
-                                                {isRecipeSystemEnabled && p.recipes?.length > 0 && (
-                                                    <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] font-black tracking-widest bg-orange-500/20 text-orange-400 uppercase">Recipe</span>
+                                {filteredProducts.map(p => {
+                                    const portionData = calculateProductPortions(p);
+                                    const isRecipeItem = portionData.isRecipe;
+                                    const currentPortions = portionData.portions;
+                                    const isOutOfStock = currentPortions <= 0;
+                                    const isLowStock = currentPortions > 0 && currentPortions <= 5;
+
+                                    return (
+                                        <tr key={p.id} className="border-b border-[#222222] hover:bg-white/5 transition-colors group">
+                                            <td className="py-4">
+                                                <p className="font-bold text-sm text-white flex items-center flex-wrap gap-1.5">
+                                                    {p.name}
+                                                    {isRecipeItem && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-widest bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase">Resep</span>
+                                                    )}
+                                                </p>
+                                                {isRecipeItem && isOutOfStock && portionData.bottleneck && (
+                                                    <p className="text-[10px] text-red-400 font-medium mt-0.5">
+                                                        ⚠️ Habis: {portionData.bottleneck.name} (0 {portionData.bottleneck.unit})
+                                                    </p>
                                                 )}
-                                            </p>
-                                        </td>
-                                        <td className="py-4"><span className="text-[10px] px-2 py-1 rounded-md bg-white/5 border border-[#222222] font-semibold text-gray-400">{p.category || 'Uncategorized'}</span></td>
-                                        <td className="py-4 text-right"><span className="font-mono font-bold text-[#ff9900]">{p.price.toLocaleString()}</span></td>
-                                        <td className="py-4 text-center"><span className={`font-bold font-mono px-3 py-1 rounded-full text-xs ${p.stock <= 5 ? 'bg-[#ff3333]/20 text-[#ff3333]' : 'bg-[#00ff66]/10 text-[#00ff66]'}`}>{p.stock}</span></td>
-                                        <td className="py-4 text-center">
-                                            <button onClick={() => setStockModal({ id: p.id, name: p.name, change: 0 })} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-[#141414] border border-[#222222] hover:border-[#00aaff] text-[#00aaff] px-3 py-1 rounded-lg font-bold">Manage</button>
-                                        </td>
-                                        <td className="py-4 text-right">
-                                            <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => openProductEdit(p)} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                                <button onClick={() => handleDeleteProduct(p.id)} className="p-2 hover:bg-[#ff3333]/20 rounded-lg text-gray-400 hover:text-[#ff3333] transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                {isRecipeItem && !isOutOfStock && portionData.bottleneck && (
+                                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                                        Dibatasi: {portionData.bottleneck.name} (Sisa {portionData.bottleneck.currentStock} {portionData.bottleneck.unit})
+                                                    </p>
+                                                )}
+                                            </td>
+                                            <td className="py-4"><span className="text-[10px] px-2 py-1 rounded-md bg-white/5 border border-[#222222] font-semibold text-gray-400">{p.category || 'Uncategorized'}</span></td>
+                                            <td className="py-4 text-right"><span className="font-mono font-bold text-[#ff9900]">{p.price.toLocaleString()}</span></td>
+                                            <td className="py-4 text-center">
+                                                {isRecipeItem ? (
+                                                    <div className="inline-flex flex-col items-center">
+                                                        <span className={`font-bold font-mono px-3 py-1 rounded-full text-xs ${
+                                                            isOutOfStock 
+                                                                ? 'bg-red-500/20 text-red-400 border border-red-500/40' 
+                                                                : isLowStock 
+                                                                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40' 
+                                                                    : 'bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/30'
+                                                        }`}>
+                                                            {currentPortions} Porsi
+                                                        </span>
+                                                        <span className="text-[8px] text-orange-400/80 font-bold uppercase tracking-tight mt-0.5">
+                                                            Otomatis Resep
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`font-bold font-mono px-3 py-1 rounded-full text-xs ${p.stock <= 5 ? 'bg-[#ff3333]/20 text-[#ff3333]' : 'bg-[#00ff66]/10 text-[#00ff66]'}`}>
+                                                        {p.stock}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 text-center">
+                                                {isRecipeItem ? (
+                                                    <button 
+                                                        onClick={() => setViewRecipeModal({ product: p, portionData })}
+                                                        className="text-xs bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500 hover:text-white text-orange-400 px-3 py-1.5 rounded-lg font-bold transition-colors"
+                                                        title="Lihat rincian bahan & restock"
+                                                    >
+                                                        🔍 Rincian Resep
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => setStockModal({ id: p.id, name: p.name, change: 0 })} 
+                                                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-[#141414] border border-[#222222] hover:border-[#00aaff] text-[#00aaff] px-3 py-1 rounded-lg font-bold"
+                                                    >
+                                                        Manage
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="py-4 text-right">
+                                                <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openProductEdit(p)} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2 hover:bg-[#ff3333]/20 rounded-lg text-gray-400 hover:text-[#ff3333] transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {filteredProducts.length === 0 && (
                                     <tr><td colSpan={6} className="text-center py-10 text-gray-500 italic">No products found.</td></tr>
                                 )}
@@ -548,6 +652,89 @@ export default function Inventory() {
                         <div className="p-6 border-t border-[#222222] flex space-x-3">
                             <button onClick={() => setStockModal(null)} className="flex-1 py-3 rounded-xl bg-[#0a0a0a] border border-[#222222] text-white font-semibold">Batal</button>
                             <button onClick={handleStockUpdate} disabled={Number(stockModal.change) === 0 || !stockModal.change} className="flex-1 py-3 rounded-xl bg-[#00aaff] text-white font-bold hover:bg-[#0099ee] disabled:opacity-50">Terapkan</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recipe Breakdown & Composition Modal */}
+            {viewRecipeModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#141414] border border-orange-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-[0_0_60px_rgba(249,115,22,0.25)] flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b border-[#222222] bg-[#0a0a0a] flex justify-between items-center">
+                            <div>
+                                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                                    <span>🧪 Rincian Resep:</span>
+                                    <span className="text-orange-400">{viewRecipeModal.product.name}</span>
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Kapasitas Porsi Real-Time: <b className="text-green-400">{viewRecipeModal.portionData.portions} Porsi Tersedia</b>
+                                </p>
+                            </div>
+                            <button onClick={() => setViewRecipeModal(null)} className="text-gray-500 hover:text-white"><X className="w-5 h-5"/></button>
+                        </div>
+
+                        <div className="p-5 overflow-y-auto space-y-3">
+                            <div className="bg-black/40 border border-[#222222] rounded-xl p-3 text-xs text-gray-400">
+                                💡 <b className="text-gray-200">Info Sistem Resep:</b> Stok menu ini dihitung otomatis dari sisa bahan baku terkecil. Untuk menambah porsi menu ini, silakan restock bahan baku yang bersangkutan di bawah ini.
+                            </div>
+
+                            <div className="space-y-2">
+                                {viewRecipeModal.portionData.ingredients.map((ing: any, i: number) => {
+                                    const isLimiting = viewRecipeModal.portionData.bottleneck?.id === ing.id;
+                                    const isZero = ing.currentStock <= 0;
+
+                                    return (
+                                        <div key={i} className={`p-3 rounded-xl border flex items-center justify-between ${
+                                            isZero 
+                                                ? 'bg-red-500/10 border-red-500/30' 
+                                                : isLimiting 
+                                                    ? 'bg-yellow-500/10 border-yellow-500/30' 
+                                                    : 'bg-[#181818] border-[#262626]'
+                                        }`}>
+                                            <div>
+                                                <p className="text-sm font-bold text-white flex items-center gap-2">
+                                                    {ing.name}
+                                                    {isLimiting && (
+                                                        <span className="text-[8px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 px-1.5 py-0.5 rounded font-black uppercase">
+                                                            Bahan Pembatas
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-0.5">
+                                                    Takaran: <span className="text-orange-400 font-mono font-bold">{ing.requiredPerPortion} {ing.unit}</span> per gelas • Sisa di Gudang: <span className="text-white font-mono font-bold">{ing.currentStock} {ing.unit}</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="text-right flex items-center gap-3">
+                                                <div>
+                                                    <p className="text-xs font-mono font-bold text-green-400">{ing.possiblePortions} porsi</p>
+                                                    <p className="text-[9px] text-gray-500">Kapasitas</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const rawId = ing.id;
+                                                        setViewRecipeModal(null);
+                                                        setStockModal({ id: rawId, name: ing.name, change: 0, isRaw: true });
+                                                    }}
+                                                    className="text-xs bg-[#00aaff]/10 hover:bg-[#00aaff] text-[#00aaff] hover:text-white border border-[#00aaff]/30 px-2.5 py-1.5 rounded-lg font-bold transition-colors"
+                                                >
+                                                    + Restock
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-[#222222] bg-[#0a0a0a] flex justify-end">
+                            <button 
+                                onClick={() => setViewRecipeModal(null)} 
+                                className="px-6 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors"
+                            >
+                                Tutup
+                            </button>
                         </div>
                     </div>
                 </div>

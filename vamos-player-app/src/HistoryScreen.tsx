@@ -151,12 +151,12 @@ export function HistoryScreen({ member, onBack }: { member: any, onBack: () => v
                         
                         {/* Elite Shimmer & Breathing Light Indicator */}
                         {match.isWinner && <div className="elite-shimmer opacity-40" />}
-                        <div className={`absolute top-0 left-0 w-1.5 h-full ${match.isWinner ? 'bg-primary animate-breathing shadow-[0_0_15px_rgba(255,87,34,0.5)]' : 'bg-slate-800'} z-20`} />
+                        <div className={`absolute top-0 left-0 w-1.5 h-full ${match.isWinner ? 'bg-primary animate-breathing shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-slate-800'} z-20`} />
                         
                         <div className="flex justify-between items-center mb-6 relative z-10">
                             <div className="flex items-center gap-5">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${match.isWinner ? 'bg-primary/10 border-primary/40 shadow-[0_0_40px_rgba(255,87,34,0.2)]' : 'bg-slate-800/40 border-white/5'}`}>
-                                    <Swords size={26} className={match.isWinner ? 'text-primary drop-shadow-[0_0_10px_rgba(255,87,34,0.5)]' : 'text-slate-600'} />
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${match.isWinner ? 'bg-primary/10 border-primary/40 shadow-[0_0_40px_rgba(6,182,212,0.2)]' : 'bg-slate-800/40 border-white/5'}`}>
+                                    <Swords size={26} className={match.isWinner ? 'text-primary drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'text-slate-600'} />
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-1.5 opacity-60">

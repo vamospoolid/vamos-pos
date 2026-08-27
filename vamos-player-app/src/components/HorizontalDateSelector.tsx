@@ -27,7 +27,7 @@ export function HorizontalDateSelector({ selectedDate, onDateChange }: Horizonta
             onClick={() => onDateChange(date)}
             className={`flex-shrink-0 flex flex-col items-center justify-center w-[52px] py-4 rounded-[18px] transition-all duration-300 ${
               isSelected 
-                ? 'bg-primary text-white shadow-[0_8px_20px_rgba(255,87,34,0.3)] scale-110' 
+                ? 'bg-primary text-black font-black shadow-[0_8px_20px_rgba(6,182,212,0.35)] scale-110' 
                 : 'text-slate-500 hover:text-slate-300'
             }`}
           >

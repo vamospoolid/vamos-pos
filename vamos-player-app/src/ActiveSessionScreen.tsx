@@ -134,13 +134,13 @@ export function ActiveSessionScreen() {
                     <div className="absolute inset-0 bg-white/5 rounded-[32px] animate-ping opacity-20" />
                     <Clock className="w-10 h-10 text-slate-700" />
                 </div>
-                <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-3">No Active Protocol</h2>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed mb-12 italic opacity-60">Authorize a mission at any arena sector to begin live tracking.</p>
+                <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-3">Tidak Ada Sesi Aktif</h2>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed mb-12 italic opacity-60">Belum ada meja aktif. Mulai sesi di kasir atau booking lewat aplikasi.</p>
                 <button
                     onClick={() => setActiveTab('dashboard')}
                     className="fiery-btn-secondary px-10 py-4 text-xs font-black uppercase tracking-widest"
                 >
-                    Return to HQ
+                    Kembali ke Beranda
                 </button>
             </div>
         );
@@ -167,7 +167,7 @@ export function ActiveSessionScreen() {
                 </div>
                 <div className="px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] italic">{activeSession ? 'ENGAGED' : 'F&B ACTIVE'}</span>
+                    <span className="text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] italic">{activeSession ? 'AKTIF' : 'F&B AKTIF'}</span>
                 </div>
             </header>
 
@@ -250,12 +250,12 @@ export function ActiveSessionScreen() {
                                 <UtensilsCrossed className="w-8 h-8 text-primary" />
                             </div>
                             <div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Standalone Provision</p>
-                                <p className="text-2xl font-black text-white italic uppercase tracking-tighter">F&B Operation</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Pesanan Mandiri</p>
+                                <p className="text-2xl font-black text-white italic uppercase tracking-tighter">Pesanan F&B</p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Total Bill</p>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 italic">Total Tagihan</p>
                             <p className="text-3xl font-black text-primary italic tracking-tighter">{fnbTotal.toLocaleString()} <span className="text-xs">Rp</span></p>
                         </div>
                     </div>
@@ -264,19 +264,19 @@ export function ActiveSessionScreen() {
                 {/* F&B List */}
                 <div className="space-y-6">
                     <div className="flex justify-between items-center px-1">
-                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Provisions Detail</h3>
+                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Detail Pesanan</h3>
                         <button
                             onClick={() => setActiveTab('menu')}
                             className="fiery-btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all italic flex items-center gap-3"
                         >
                             <UtensilsCrossed className="w-4 h-4" />
-                            Provision Hub
+                            Pesan Menu
                         </button>
                     </div>
 
                     {(!allOrders || allOrders.length === 0) ? (
                         <div className="fiery-card py-24 text-center border-dashed border-white/10 opacity-60">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic leading-relaxed">No supplies deployed.<br />Combat readiness at 100%.</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic leading-relaxed">Belum ada pesanan.<br />Yuk pesan menu favorit kamu!</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -294,7 +294,7 @@ export function ActiveSessionScreen() {
                                     <div className="text-right flex flex-col items-end">
                                         <p className="text-xl font-black text-white italic tracking-tighter mb-2">{(order.total || 0).toLocaleString()}</p>
                                         <span className="text-[8px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full flex items-center uppercase tracking-widest italic fiery-glow">
-                                            <CheckCircle2 className="w-2.5 h-2.5 mr-2" strokeWidth={3} /> Verified
+                                            <CheckCircle2 className="w-2.5 h-2.5 mr-2" strokeWidth={3} /> Terverifikasi
                                         </span>
                                     </div>
                                 </div>

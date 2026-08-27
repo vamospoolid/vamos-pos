@@ -36,7 +36,7 @@ export function Toast({ id, message, type = 'info', duration = 5000, onClose, ti
         error: 'bg-rose-500/10 border-rose-500/20',
         warning: 'bg-amber-500/10 border-amber-500/20',
         info: 'bg-blue-500/10 border-blue-500/20',
-        match: 'bg-primary/10 border-primary/20 shadow-[0_0_20px_rgba(255,87,34,0.15)]'
+        match: 'bg-primary/10 border-primary/20 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
     };
 
     return (

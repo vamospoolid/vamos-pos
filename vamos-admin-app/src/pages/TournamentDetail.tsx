@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trophy, Users, Settings, Shuffle, Save, Plus, AlertCircle, RefreshCw, Check, Trash2, XCircle, Download } from 'lucide-react';
 import { tournamentsApi, membersApi } from '../services/api';
-import type { Tournament, Match, Member, Participant } from '../services/api';
+import type { Tournament, Match, Member } from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
 import { io } from 'socket.io-client';
 import { jsPDF } from 'jspdf';
@@ -258,151 +258,305 @@ const TournamentDetail: React.FC = () => {
             format: 'a4'
         });
 
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
+        const pageWidth = doc.internal.pageSize.getWidth();   // 297mm
+        const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
 
-        // Theme colors (Clean & White Dominant)
         const colors = {
-            primary: [37, 99, 235],    // blue-600
-            secondary: [15, 23, 42],   // slate-900 (Text)
-            muted: [100, 116, 139],    // slate-500
-            border: [226, 232, 240],   // slate-200
-            winner: [5, 150, 105],     // emerald-600
+            primary: [37, 99, 235],       // #2563eb Blue
+            secondary: [15, 23, 42],      // #0f172a Slate-900 (Dark text)
+            muted: [100, 116, 139],       // #64748b Slate-500
+            border: [203, 213, 225],      // #cbd5e1 Slate-300
             cardBg: [255, 255, 255],
-            headerLine: [37, 99, 235]
+            cardHeader: [241, 245, 249],  // #f1f5f9
+            winner: [16, 185, 129],       // #10b981 Emerald
+            goldBg: [254, 252, 232],
+            goldBorder: [250, 204, 21]
         };
 
-        // Header (Narrowed to 25mm)
+        // ─── 1. HEADER ───
         doc.setFillColor(255, 255, 255);
-        doc.rect(0, 0, pageWidth, 25, 'F');
-        
-        // Identity Line
-        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.setLineWidth(1);
-        doc.line(15, 22, pageWidth - 15, 22);
+        doc.rect(0, 0, pageWidth, 24, 'F');
 
-        // Logo text 
+        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setLineWidth(0.8);
+        doc.line(12, 22, pageWidth - 12, 22);
+
+        // Left: Brand
         doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text("VAMOS", 15, 15);
-        
+        doc.text("VAMOS", 12, 14);
+
         doc.setFontSize(8);
         doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.setFont('helvetica', 'bold');
-        doc.text("SMART ARENA POOL & CAFE", 45, 15);
+        doc.text("SMART ARENA POOL & CAFE", 42, 14);
 
-        // Tournament Title (Right Aligned)
+        // Right: Tournament Info
         doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-        doc.setFontSize(14);
-        doc.text(tournament.name.toUpperCase(), pageWidth - 15, 13, { align: 'right' });
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(tournament.name.toUpperCase(), pageWidth - 12, 12, { align: 'right' });
 
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
         const dateStr = tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'UNDEFINED';
-        doc.text(`${tournament.venue?.toUpperCase() || 'VAMOS MAIN SECTOR'} | ${dateStr.toUpperCase()}`, pageWidth - 15, 18, { align: 'right' });
+        doc.text(`${tournament.venue?.toUpperCase() || 'VAMOS SMART ARENA'} • ${dateStr.toUpperCase()} • ${tournament.participants?.length || 32} PLAYERS`, pageWidth - 12, 18, { align: 'right' });
 
-        // Content Setup
-        const matchesByRound: Record<number, Match[]> = {};
-        tournament.matches?.forEach(m => {
-            if (!matchesByRound[m.round]) matchesByRound[m.round] = [];
-            matchesByRound[m.round].push(m);
+        // ─── 2. SEPARATE MATCHES INTO POOL A (LEFT) & POOL B (RIGHT) ───
+        const round1Matches = (tournament.matches || [])
+            .filter(m => Number(m.round) === 1)
+            .sort((a, b) => Number(a.matchNumber) - Number(b.matchNumber));
+
+        if (round1Matches.length === 0) {
+            alert('Bagan masih kosong. Silakan generate drawing bagan terlebih dahulu.');
+            return;
+        }
+
+        const totalR1 = round1Matches.length;
+        const halfR1 = Math.ceil(totalR1 / 2);
+
+        const startY = 32;
+        const availableHeight = pageHeight - startY - 14;
+        const cardHeight = totalR1 <= 8 ? 14 : 12;
+        const cardWidth = totalR1 <= 8 ? 48 : 42;
+
+        // Pool A Header (Left)
+        doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.roundedRect(12, startY - 6, 88, 4.5, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text("POOL A • BAGAN ATAS", 56, startY - 3, { align: 'center' });
+
+        // Pool B Header (Right)
+        doc.setFillColor(225, 29, 72);
+        doc.roundedRect(pageWidth - 100, startY - 6, 88, 4.5, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text("POOL B • BAGAN BAWAH", pageWidth - 56, startY - 3, { align: 'center' });
+
+        // Center Grand Final Header
+        doc.setFillColor(234, 179, 8);
+        doc.roundedRect(pageWidth / 2 - 22, startY - 6, 44, 4.5, 1, 1, 'F');
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text("🏆 GRAND FINAL", pageWidth / 2, startY - 3, { align: 'center' });
+
+        const drawMatchBox = (m: any, x: number, y: number, width = cardWidth, height = cardHeight, isFinal = false) => {
+            doc.setDrawColor(isFinal ? colors.goldBorder[0] : colors.border[0], isFinal ? colors.goldBorder[1] : colors.border[1], isFinal ? colors.goldBorder[2] : colors.border[2]);
+            doc.setLineWidth(isFinal ? 0.4 : 0.2);
+            doc.setFillColor(isFinal ? colors.goldBg[0] : 255, isFinal ? colors.goldBg[1] : 255, isFinal ? colors.goldBg[2] : 255);
+            doc.roundedRect(x, y, width, height, 0.8, 0.8, 'FD');
+
+            const p1 = m?.player1;
+            const p2 = m?.player2;
+            const p1Name = p1 ? (p1.name || p1.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
+            const p2Name = p2 ? (p2.name || p2.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
+            const p1HC = p1?.handicap ? `[${p1.handicap}]` : '';
+            const p2HC = p2?.handicap ? `[${p2.handicap}]` : '';
+
+            const p1Score = m?.score1 ?? 0;
+            const p2Score = m?.score2 ?? 0;
+            const p1Winner = m?.winnerId && m?.winnerId === m?.player1Id;
+            const p2Winner = m?.winnerId && m?.winnerId === m?.player2Id;
+
+            // Player 1 line
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', p1Winner ? 'bold' : 'normal');
+            doc.setTextColor(p1Winner ? colors.winner[0] : colors.secondary[0], p1Winner ? colors.winner[1] : colors.secondary[1], p1Winner ? colors.winner[2] : colors.secondary[2]);
+            let d1 = p1Name.toUpperCase();
+            if (d1.length > 17) d1 = d1.substring(0, 15) + '..';
+            doc.text(d1, x + 2, y + 4.2);
+            if (p1HC) {
+                doc.setFontSize(5);
+                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                doc.text(p1HC, x + width - 6.5, y + 4.2, { align: 'right' });
+            }
+            doc.setFontSize(6.5);
+            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+            doc.text(String(p1Score), x + width - 2, y + 4.2, { align: 'right' });
+
+            // Divider
+            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+            doc.setLineWidth(0.15);
+            doc.line(x + 1.5, y + 6, x + width - 1.5, y + 6);
+
+            // Player 2 line
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', p2Winner ? 'bold' : 'normal');
+            doc.setTextColor(p2Winner ? colors.winner[0] : colors.secondary[0], p2Winner ? colors.winner[1] : colors.secondary[1], p2Winner ? colors.winner[2] : colors.secondary[2]);
+            let d2 = p2Name.toUpperCase();
+            if (d2.length > 17) d2 = d2.substring(0, 15) + '..';
+            doc.text(d2, x + 2, y + 10);
+            if (p2HC) {
+                doc.setFontSize(5);
+                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                doc.text(p2HC, x + width - 6.5, y + 10, { align: 'right' });
+            }
+            doc.setFontSize(6.5);
+            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+            doc.text(String(p2Score), x + width - 2, y + 10, { align: 'right' });
+
+            // Match number badge
+            if (m?.matchNumber) {
+                doc.setFillColor(colors.cardHeader[0], colors.cardHeader[1], colors.cardHeader[2]);
+                doc.rect(x + width - 7, y, 7, 2.5, 'F');
+                doc.setFontSize(4);
+                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                doc.text(`#${m.matchNumber}`, x + width - 3.5, y + 1.8, { align: 'center' });
+            }
+        };
+
+        const leftMatches = round1Matches.slice(0, halfR1);
+        const rightMatches = round1Matches.slice(halfR1);
+        const r1Spacing = availableHeight / halfR1;
+
+        const leftPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
+        const rightPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
+
+        // 1. Left Wing - Round 1 (x=12)
+        leftMatches.forEach((m: any, idx: number) => {
+            const x = 12;
+            const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
+            leftPos[`1_${idx}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+            drawMatchBox(m, x, y);
         });
 
-        const sortedRounds = Object.keys(matchesByRound).map(Number).sort((a, b) => a - b);
-        const totalRoundsCount = sortedRounds.length;
-        const colWidth = (pageWidth - 30) / totalRoundsCount;
-        const startY = 40; // Adjusted starting Y for content
-        const cardWidth = colWidth - 8;
-        const cardHeight = 14; // Slightly slimmer cards
+        // 2. Left Wing - Round 2
+        const leftR2Count = Math.max(1, Math.floor(halfR1 / 2));
+        for (let i = 0; i < leftR2Count; i++) {
+            const x = 52;
+            const m1Y = leftPos[`1_${i * 2}`].cy;
+            const m2Y = leftPos[`1_${i * 2 + 1}`].cy;
+            const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+            leftPos[`2_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+            drawMatchBox(null, x, y);
 
-        // Position tracking
-        const matchPositions: Record<string, { x: number, y: number }> = {};
+            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+            doc.setLineWidth(0.3);
+            const midX = (leftPos[`1_${i * 2}`].cx + x) / 2;
+            doc.line(leftPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
+            doc.line(leftPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+            doc.line(midX, m1Y, midX, m2Y);
+            doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
+        }
 
-        sortedRounds.forEach((r, rIdx) => {
-            const roundMatches = matchesByRound[r].sort((a, b) => a.matchNumber - b.matchNumber);
-            const x = 15 + (rIdx * colWidth);
+        // 3. Left Wing - Quarter Final
+        const leftQFCount = Math.max(1, Math.floor(leftR2Count / 2));
+        if (halfR1 >= 8) {
+            for (let i = 0; i < leftQFCount; i++) {
+                const x = 92;
+                const m1Y = leftPos[`2_${i * 2}`].cy;
+                const m2Y = leftPos[`2_${i * 2 + 1}`].cy;
+                const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+                leftPos[`3_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+                drawMatchBox(null, x, y);
 
-            // Round Header Text (Minimalist)
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-            doc.text(roundLabel(r, totalRoundsCount), x + cardWidth / 2, startY - 5, { align: 'center' });
-
-            const totalAvailableHeight = pageHeight - startY - 20;
-            const matchesCount = roundMatches.length;
-
-            roundMatches.forEach((m, mIdx) => {
-                const spacing = totalAvailableHeight / matchesCount;
-                const y = startY + (mIdx * spacing) + (spacing / 2) - cardHeight / 2;
-
-                matchPositions[`${r}-${mIdx}`] = { x, y };
-
-                // Draw Slimmer Card
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-                doc.setLineWidth(0.2);
-                doc.setFillColor(255, 255, 255);
-                doc.roundedRect(x, y, cardWidth, cardHeight, 0.5, 0.5, 'FD');
+                doc.setLineWidth(0.3);
+                const midX = (leftPos[`2_${i * 2}`].cx + x) / 2;
+                doc.line(leftPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
+                doc.line(leftPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                doc.line(midX, m1Y, midX, m2Y);
+                doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
+            }
+        }
 
-                // Helper for player text
-                const drawPlayer = (p: Participant | undefined, score: number | null | undefined, py: number, isWinner: boolean) => {
-                    const pName = p?.name || (p as any)?.member?.name || (m.status === 'COMPLETED' ? 'BYE' : 'TBD');
-                    const pHC = (p as any)?.member?.handicap || (p as any)?.handicap;
-                    const hcStr = pHC ? `[HC:${pHC}]` : '';
-
-                    doc.setFontSize(7);
-                    doc.setFont('helvetica', isWinner ? 'bold' : 'normal');
-                    doc.setTextColor(isWinner ? colors.winner[0] : colors.secondary[0], isWinner ? colors.winner[1] : colors.secondary[1], isWinner ? colors.winner[2] : colors.secondary[2]);
-
-                    let displayName = pName.toUpperCase();
-                    if (displayName.length > 18) displayName = displayName.substring(0, 16) + '..';
-
-                    doc.text(displayName, x + 2.5, py);
-
-                    if (hcStr) {
-                        doc.setFontSize(5.5);
-                        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                        doc.text(hcStr, x + cardWidth - 8, py, { align: 'right' });
-                    }
-
-                    // Score
-                    doc.setFontSize(7.5);
-                    doc.text(String(score || 0), x + cardWidth - 2, py, { align: 'right' });
-                };
-
-                const p1Winner = m.score1 !== null && m.score2 !== null && m.score1! > m.score2!;
-                const p2Winner = m.score2 !== null && m.score1 !== null && m.score2! > m.score1!;
-
-                drawPlayer(m.player1, m.score1, y + 5, p1Winner);
-                // Subtle Divider
-                doc.setDrawColor(248, 250, 252);
-                doc.line(x + 2, y + 7, x + cardWidth - 2, y + 7);
-                drawPlayer(m.player2, m.score2, y + 11, p2Winner);
-
-                // Connector lines to NEXT round
-                if (rIdx < totalRoundsCount - 1) {
-                    const nextX = x + cardWidth;
-                    const midX = nextX + (colWidth - cardWidth) / 2;
-                    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-                    doc.line(nextX, y + cardHeight / 2, midX, y + cardHeight / 2);
-
-                    if (mIdx % 2 !== 0) {
-                        const prevMatchY = matchPositions[`${r}-${mIdx - 1}`].y;
-                        doc.line(midX, prevMatchY + cardHeight / 2, midX, y + cardHeight / 2);
-                        doc.line(midX, (prevMatchY + y) / 2 + cardHeight / 2, x + colWidth, (prevMatchY + y) / 2 + cardHeight / 2);
-                    }
-                }
-            });
+        // 4. Right Wing - Round 1
+        const rightX = pageWidth - 12 - cardWidth;
+        rightMatches.forEach((m: any, idx: number) => {
+            const x = rightX;
+            const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
+            rightPos[`1_${idx}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+            drawMatchBox(m, x, y);
         });
 
-        // Legend / Stat Footer (Cleaner White Design)
-        doc.setFillColor(252, 252, 252);
-        doc.rect(0, pageHeight - 12, pageWidth, 12, 'F');
+        // 5. Right Wing - Round 2
+        for (let i = 0; i < leftR2Count; i++) {
+            const x = rightX - 40;
+            const m1Y = rightPos[`1_${i * 2}`].cy;
+            const m2Y = rightPos[`1_${i * 2 + 1}`].cy;
+            const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+            rightPos[`2_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+            drawMatchBox(null, x, y);
+
+            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+            doc.setLineWidth(0.3);
+            const midX = (rightPos[`1_${i * 2}`].cx + x + cardWidth) / 2;
+            doc.line(rightPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
+            doc.line(rightPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+            doc.line(midX, m1Y, midX, m2Y);
+            doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
+        }
+
+        // 6. Right Wing - Quarter Final
+        if (halfR1 >= 8) {
+            for (let i = 0; i < leftQFCount; i++) {
+                const x = rightX - 80;
+                const m1Y = rightPos[`2_${i * 2}`].cy;
+                const m2Y = rightPos[`2_${i * 2 + 1}`].cy;
+                const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+                rightPos[`3_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+                drawMatchBox(null, x, y);
+
+                doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                doc.setLineWidth(0.3);
+                const midX = (rightPos[`2_${i * 2}`].cx + x + cardWidth) / 2;
+                doc.line(rightPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
+                doc.line(rightPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                doc.line(midX, m1Y, midX, m2Y);
+                doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
+            }
+        }
+
+        // 7. Center Grand Final
+        const lastLeftKey = halfR1 >= 8 ? '3' : '2';
+        const leftSF_Y = halfR1 >= 8 
+            ? (leftPos['3_0'].cy + leftPos['3_1'].cy) / 2
+            : (leftPos['2_0'].cy + leftPos['2_1'].cy) / 2;
+
+        const rightSF_Y = halfR1 >= 8 
+            ? (rightPos['3_0'].cy + rightPos['3_1'].cy) / 2
+            : (rightPos['2_0'].cy + rightPos['2_1'].cy) / 2;
+
+        const finalWidth = 46;
+        const finalHeight = 15;
+        const finalX = (pageWidth - finalWidth) / 2;
+        const finalY = (leftSF_Y + rightSF_Y) / 2 - finalHeight / 2;
+
+        drawMatchBox(null, finalX, finalY, finalWidth, finalHeight, true);
+
+        // Connectors to Final
+        const leftMidX = ((halfR1 >= 8 ? leftPos['3_0'].cx : leftPos['2_0'].cx) + finalX) / 2;
+        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setLineWidth(0.4);
+        const lKey0 = `${lastLeftKey}_0`;
+        const lKey1 = `${lastLeftKey}_1`;
+        doc.line(leftPos[lKey0].cx, leftPos[lKey0].cy, leftMidX, leftPos[lKey0].cy);
+        doc.line(leftPos[lKey1].cx, leftPos[lKey1].cy, leftMidX, leftPos[lKey1].cy);
+        doc.line(leftMidX, leftPos[lKey0].cy, leftMidX, leftPos[lKey1].cy);
+        doc.line(leftMidX, leftSF_Y, finalX, leftSF_Y);
+
+        const rightMidX = ((halfR1 >= 8 ? rightPos['3_0'].cx : rightPos['2_0'].cx) + finalX + finalWidth) / 2;
+        doc.setDrawColor(225, 29, 72);
+        doc.setLineWidth(0.4);
+        const rKey0 = `${lastLeftKey}_0`;
+        const rKey1 = `${lastLeftKey}_1`;
+        doc.line(rightPos[rKey0].cx, rightPos[rKey0].cy, rightMidX, rightPos[rKey0].cy);
+        doc.line(rightPos[rKey1].cx, rightPos[rKey1].cy, rightMidX, rightPos[rKey1].cy);
+        doc.line(rightMidX, rightPos[rKey0].cy, rightMidX, rightPos[rKey1].cy);
+        doc.line(rightMidX, rightSF_Y, finalX + finalWidth, rightSF_Y);
+
+        // ─── 3. FOOTER ───
+        doc.setFillColor(248, 250, 252);
+        doc.rect(0, pageHeight - 9, pageWidth, 9, 'F');
         doc.setFontSize(6.5);
         doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-        doc.text(`TOTAL OPERATIVES: ${tournament.participants?.length || 0} | FORMAT: ${tournament.format || 'SINGLE ELIMINATION'}`, 15, pageHeight - 5);
-        doc.text(`VAMOS SMART ARENA - OFFICIAL BRACKET | ${new Date().toLocaleString('id-ID')}`, pageWidth - 15, pageHeight - 5, { align: 'right' });
+        doc.text(`TOTAL PARTICIPANTS: ${tournament.participants?.length || 32} SLOTS | FORMAT: ${tournament.format || 'SINGLE ELIMINATION (8-BALL)'}`, 12, pageHeight - 3.5);
+        doc.text(`VAMOS SMART ARENA - OFFICIAL BRACKET SHEET | GENERATED: ${new Date().toLocaleString('id-ID')}`, pageWidth - 12, pageHeight - 3.5, { align: 'right' });
 
         doc.save(`BRACKET-${tournament.name.toUpperCase().replace(/\s+/g, '-')}.pdf`);
     };

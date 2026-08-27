@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { User, Camera, Loader2, Trophy, Swords, Download, ChevronRight, Smartphone } from 'lucide-react';
+import { User, Camera, Loader2, Trophy, Swords, Download, ChevronRight, Smartphone, BookOpen } from 'lucide-react';
 import { api, getAvatarUrl } from '../api';
 import { useAppStore } from '../store/appStore';
 import { HistoryScreen } from '../HistoryScreen';
 import { AchievementBadge } from '../components/AchievementBadge';
 import { RewardsScreen } from './RewardsScreen';
+import { HelpGuideModal } from '../components/HelpGuideModal';
 
 export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () => void }) {
   const [view, setView] = useState<'main' | 'history' | 'rewards'>('main');
   const [uploading, setUploading] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [rankData, setRankData] = useState<{ globalRank: number | null; totalWins: number; monthlyScore: number; tier: string } | null>(null);
   const [loadingRank, setLoadingRank] = useState(true);
   const { refreshMemberData, setActiveTab, addToast } = useAppStore();
@@ -67,7 +69,7 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
   if (view === 'rewards') return <RewardsScreen member={member} onBack={() => setView('main')} />;
 
   const tierColors: Record<string, string> = {
-    CHAMPION: '#ff5722', ELITE: '#a855f7', VETERAN: '#3b82f6',
+    CHAMPION: '#06b6d4', ELITE: '#a855f7', VETERAN: '#3b82f6',
     OPERATIVE: '#10b981', ROOKIE: '#94a3b8',
   };
   const tierColor = tierColors[rankData?.tier?.toUpperCase() ?? ''] ?? '#94a3b8';
@@ -207,10 +209,26 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
           <ChevronRight className="w-5 h-5 text-slate-700" />
         </button>
 
+        <button 
+          onClick={() => setShowHelpModal(true)} 
+          className="w-full fiery-card flex items-center justify-between p-5 rounded-[28px] border-2 border-cyan-500/20 group hover:border-cyan-500/40 active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.1)]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 flex items-center justify-center border border-cyan-500/25">
+              <BookOpen className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div className="text-left">
+              <span className="font-black text-white text-sm uppercase italic leading-none block mb-1">Pusat Panduan & Bantuan</span>
+              <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest">Cara Duel, Booking, & Bantuan CS</span>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-cyan-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+        </button>
+
         <a
           href="/VamosPlayer.apk"
-          download="VamosPlayer_v5_Latest.apk"
-          className="w-full fiery-card flex items-center justify-between p-5 rounded-[28px] border-2 border-primary/30 group hover:bg-primary/10 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,87,34,0.1)]"
+          download="VamosPlayer.apk"
+          className="w-full fiery-card flex items-center justify-between p-5 rounded-[28px] border-2 border-primary/30 group hover:bg-primary/10 active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.15)]"
         >
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center border border-primary/25">
@@ -238,6 +256,13 @@ export function ProfileScreen({ member, onLogout }: { member: any, onLogout: () 
           Keluar Profil
         </button>
       </div>
+
+      {/* ─── HELP GUIDE MODAL ─── */}
+      <HelpGuideModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        initialCategory="all"
+      />
     </div>
   );
 }

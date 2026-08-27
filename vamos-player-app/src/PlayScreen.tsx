@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QrCode, ScanLine, Crown, Swords, LayoutGrid, Zap, X, CheckCircle2, Copy, Target, ChevronRight, UtensilsCrossed } from 'lucide-react';
+import { QrCode, ScanLine, Crown, Swords, Zap, X, CheckCircle2, Copy, Target, ChevronRight, UtensilsCrossed, HelpCircle } from 'lucide-react';
 import { TableCard } from './components/TableCard';
-import { BulletinCarousel } from './components/BulletinCarousel';
 import { QuestCard } from './components/QuestCard';
 import { LiveTicker } from './components/LiveTicker';
+import { PackagePromoCard } from './components/PackagePromoCard';
+import { HelpGuideModal } from './components/HelpGuideModal';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, getSocket } from './api';
 import { useAppStore } from './store/appStore';
@@ -17,6 +18,7 @@ export function PlayScreen({ member }: { member: any }) {
   const [loadingLobby, setLoadingLobby] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
+  const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [pendingOpponentId, setPendingOpponentId] = useState<string | null>(null);
   const [isChoosingStake, setIsChoosingStake] = useState(false);
   const [selectedStake, setSelectedStake] = useState(0);
@@ -27,26 +29,6 @@ export function PlayScreen({ member }: { member: any }) {
   const activeSession = member.sessions?.find((s: any) => s.status === 'ACTIVE');
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    if (activeSession) {
-      const timer = setInterval(() => {
-         setElapsed(Date.now() - new Date(activeSession.startTime).getTime());
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [activeSession]);
-
-  const formatElapsed = (ms: number) => {
-    if (ms < 0) ms = 0;
-    const totalSecs = Math.floor(ms / 1000);
-    const h = Math.floor(totalSecs / 3600);
-    const m = Math.floor((totalSecs % 3600) / 60);
-    const s = totalSecs % 60;
-    if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-    return `${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-  };
 
   const fetchKings = useCallback(async () => {
     try {
@@ -292,70 +274,78 @@ export function PlayScreen({ member }: { member: any }) {
   }));
 
   return (
-    <div className="fade-in space-y-10 pb-10">
-      <div className="pt-6">
-        <h1 className="text-xl font-black italic tracking-tighter uppercase text-white">
-          PLAY <span className="text-primary">ARENA</span>
-        </h1>
-        <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
+    <div className="fade-in space-y-8 pb-10">
+      <div className="flex justify-between items-end pt-6">
+        <div>
+          <h1 className="text-xl font-black italic tracking-tighter uppercase text-white">
+            PLAY <span className="text-primary">ARENA</span>
+          </h1>
+          <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic opacity-60">Deploy Combat Protocol & Verify Identity</p>
+        </div>
+        <button
+          onClick={() => setShowHelpGuide(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-black uppercase italic tracking-widest hover:bg-cyan-500/20 active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+        >
+          <HelpCircle className="w-3.5 h-3.5" /> Panduan
+        </button>
       </div>
 
-      {/* ─── LIVE SCOREBOARD / SESSION BANNER (TOP) ────────────────────────── */}
-      {activeSession && (
-        <button 
-          onClick={() => setActiveTab('active-session')}
-          className="w-full fiery-card p-0 bg-primary/10 border-2 border-primary/30 relative overflow-hidden group text-left active:scale-95 transition-all shadow-[0_0_40px_rgba(255,87,34,0.15)]"
+      {/* ─── SCANNER ACTIONS (MOVED TO TOP) ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={() => setShowMyQR(true)}
+          className="fiery-card p-6 flex flex-col items-center gap-3 transition-all hover:bg-white/5 active:scale-95 group border border-cyan-500/20 hover:border-cyan-500/40 shadow-[0_0_25px_rgba(6,182,212,0.08)]"
         >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-[60px] group-hover:bg-primary/30 transition-all pointer-events-none" />
-          <div className="absolute top-6 right-6">
-             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/30 group-hover:scale-110 group-hover:bg-primary group-hover:text-secondary transition-all">
-                <ChevronRight size={20} strokeWidth={3} />
-             </div>
+          <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/25 group-hover:border-cyan-400/50 group-hover:scale-105 transition-all">
+            <QrCode className="w-7 h-7 text-cyan-400" />
           </div>
-          
-          <div className="p-6 lg:p-8 relative z-10 flex flex-col gap-6">
-            <div className="flex justify-between items-start pr-14">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_rgba(255,87,34,0.8)] animate-pulse" />
-                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] italic leading-none">Meja Aktif</p>
-                </div>
-                <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">{activeSession.table?.name || 'Voucher Session'}</h3>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#0a0d18]/80 p-4 rounded-[20px] border border-white/10 backdrop-blur-md">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Waktu Berjalan</p>
-                <p className="text-lg font-bold font-mono text-white tracking-tight">
-                  {formatElapsed(elapsed || (Date.now() - new Date(activeSession.startTime).getTime()))}
-                </p>
-              </div>
-              <div className="bg-[#0a0d18]/80 p-4 rounded-[20px] border border-white/10 backdrop-blur-md">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic">Total Tagihan</p>
-                <p className="text-lg font-black text-emerald-400 font-mono tracking-tight">Rp {(activeSession.totalAmount || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
+          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] italic">Identity QR</p>
         </button>
-      )}
 
-      {/* QUICK F&B ACCESS BUTTON */}
+        <button
+          onClick={() => setIsScanning(true)}
+          className="fiery-card p-6 flex flex-col items-center gap-3 transition-all hover:bg-white/5 active:scale-95 group border border-cyan-500/20 hover:border-cyan-500/40 shadow-[0_0_25px_rgba(6,182,212,0.15)]"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-cyan-500 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform text-black">
+            <ScanLine className="w-7 h-7 text-black" strokeWidth={2.5} />
+          </div>
+          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] italic">Scan Rival</p>
+        </button>
+      </div>
+
+      {/* ─── QUICK FIGHT GUIDE BANNER ─── */}
+      <button
+        onClick={() => setShowHelpGuide(true)}
+        className="w-full bg-gradient-to-r from-cyan-500/10 via-blue-500/5 to-transparent border border-cyan-500/25 hover:border-cyan-500/50 rounded-2xl p-3.5 flex items-center justify-between group active:scale-98 transition-all shadow-[0_0_20px_rgba(6,182,212,0.06)]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
+            <Swords className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-black text-white italic uppercase tracking-wider">CARA DUEL & SCAN RIVAL</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Ketuk untuk panduan 6 langkah main & taruhan poin</p>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-cyan-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+      </button>
+
+      {/* QUICK F&B ACCESS BUTTON - only when session active */}
       {activeSession && (
         <button 
           onClick={() => setActiveTab('active-session')}
-          className="w-full bg-gradient-to-r from-orange-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between group active:scale-95 transition-all shadow-[0_0_20px_rgba(249,115,22,0.1)]"
+          className="w-full bg-gradient-to-r from-cyan-500/10 via-indigo-500/5 to-transparent border border-cyan-500/30 rounded-2xl p-4 flex items-center justify-between group active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.1)]"
         >
           <div className="flex items-center gap-4">
-             <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
-                <UtensilsCrossed className="w-5 h-5 text-orange-400" />
+             <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
+                <UtensilsCrossed className="w-5 h-5 text-cyan-400" />
              </div>
              <div className="text-left">
                 <h4 className="text-sm font-black text-white italic uppercase tracking-widest">PESANAN F&B</h4>
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Lihat tagihan & order menu</p>
              </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-orange-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+          <ChevronRight className="w-5 h-5 text-cyan-400 opacity-60 group-hover:opacity-100 transition-opacity" />
         </button>
       )}
 
@@ -495,23 +485,8 @@ export function PlayScreen({ member }: { member: any }) {
         </div>
       )}
 
-      {/* ─── BOOKING MEJA ─── */}
-      <button 
-        onClick={() => setActiveTab('booking')}
-        className="w-full bg-gradient-to-r from-[#1a2535]/80 to-[#0d1a2a]/80 border border-blue-500/20 rounded-[28px] p-6 flex items-center gap-6 group active:scale-95 transition-all shadow-lg hover:border-blue-400/40"
-      >
-        <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-          <LayoutGrid className="w-7 h-7 text-blue-400" strokeWidth={2.5} />
-        </div>
-        <div className="flex-1 text-left">
-          <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] italic mb-1">Reserve Protocol</p>
-          <h3 className="text-lg font-black text-white italic uppercase tracking-tighter leading-none mb-1">BOOKING MEJA</h3>
-          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest italic">Pesan meja & pilih jadwal main</p>
-        </div>
-        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400/60 group-hover:text-blue-400 transition-colors border border-blue-500/10">
-          <ChevronRight className="w-5 h-5" />
-        </div>
-      </button>
+      {/* ─── PROMO BOOKING PAKET (Menggantikan Booking Meja) ─── */}
+      <PackagePromoCard />
 
       {/* ─── TRAINING MODE ENTRY ─── */}
       <button 
@@ -538,33 +513,6 @@ export function PlayScreen({ member }: { member: any }) {
       />
 
       <LiveTicker />
-
-      <BulletinCarousel />
-
-
-
-      {/* ─── SCANNER ACTIONS ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => setShowMyQR(true)}
-          className="fiery-card p-8 flex flex-col items-center gap-4 transition-all hover:bg-white/5 active:scale-95 group"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/40 transition-all">
-            <QrCode className="w-8 h-8 text-primary" />
-          </div>
-          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] italic">Identity QR</p>
-        </button>
-
-        <button
-          onClick={() => setIsScanning(true)}
-          className="fiery-card p-8 flex flex-col items-center gap-4 transition-all hover:bg-white/5 active:scale-95 group"
-        >
-          <div className="w-16 h-16 rounded-[28px] bg-primary flex items-center justify-center fiery-glow shadow-primary/20 group-hover:scale-110 transition-transform">
-            <ScanLine className="w-8 h-8 text-secondary" />
-          </div>
-          <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] italic">Scan Rival</p>
-        </button>
-      </div>
 
       {/* ─── ARENA LOBBY SECTION ────────────────────────────────────────────── */}
       <div className="space-y-6">
@@ -818,6 +766,13 @@ export function PlayScreen({ member }: { member: any }) {
             </div>
         </div>
       )}
+
+      {/* ─── HELP & FIGHT GUIDE MODAL ─── */}
+      <HelpGuideModal 
+        isOpen={showHelpGuide} 
+        onClose={() => setShowHelpGuide(false)} 
+        initialCategory="fight" 
+      />
 
     </div>
   );

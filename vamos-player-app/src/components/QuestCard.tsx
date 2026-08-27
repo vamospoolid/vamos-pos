@@ -52,7 +52,7 @@ export function QuestCard({ quests, onClaim }: QuestCardProps) {
                 <div className="space-y-1.5">
                    <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
                       <div 
-                        className={`h-full bg-gradient-to-r transition-all duration-700 ${quest.progress >= quest.target ? 'from-emerald-500 to-teal-400' : 'from-primary to-orange-400'}`}
+                        className={`h-full bg-gradient-to-r transition-all duration-700 ${quest.progress >= quest.target ? 'from-emerald-500 to-teal-400' : 'from-cyan-400 to-blue-500'}`}
                         style={{ width: `${Math.min(100, (quest.progress / quest.target) * 100)}%` }}
                       />
                    </div>

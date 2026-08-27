@@ -10,6 +10,7 @@ import { LeaderboardScreen } from './LeaderboardScreen';
 import { TournamentScreen } from './screens/TournamentScreen';
 import { RewardsScreen } from './RewardsScreen';
 import { BookingScreen } from './BookingScreen';
+import { BookingPaketScreen } from './BookingPaketScreen';
 import { ActiveSessionScreen } from './ActiveSessionScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { MenuScreen } from './MenuScreen';
@@ -190,10 +191,10 @@ function MainApp() {
       {incomingChallenge && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8">
           <div className="absolute inset-0 bg-[#0a0d18]/95 backdrop-blur-2xl" />
-          <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-8 border-2 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_80px_rgba(255,87,34,0.25)]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+          <div className="relative w-full max-w-sm fiery-card rounded-[48px] p-8 border-2 border-primary/40 text-center scale-in overflow-hidden shadow-[0_0_80px_rgba(6,182,212,0.25)]">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/15 rounded-full blur-[80px] pointer-events-none" />
             
-            <div className="w-20 h-20 rounded-[28px] bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(255,87,34,0.15)]">
+            <div className="w-20 h-20 rounded-[28px] bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
               <Swords className="w-10 h-10 text-primary animate-pulse" />
             </div>
 
@@ -273,6 +274,7 @@ function MainApp() {
         {activeTab === 'tournaments' && <TournamentScreen activeTournaments={tournaments} member={member} />}
         {activeTab === 'rewards' && <RewardsScreen />}
         {activeTab === 'booking' && <BookingScreen />}
+        {activeTab === 'booking-paket' && <BookingPaketScreen />}
         {activeTab === 'active-session' && <ActiveSessionScreen />}
         {activeTab === 'profile' && <ProfileScreen member={member} onLogout={() => useAppStore.getState().logout()} />}
         {activeTab === 'menu' && <MenuScreen />}
@@ -297,11 +299,11 @@ function MainApp() {
               onClick={() => setActiveTab(item.id as any)} 
               className={`nav-item flex flex-col items-center justify-center transition-all duration-300 ${isActive ? 'active translate-y-[-6px]' : 'opacity-40'}`}
             >
-              <div className={`icon-container p-2.5 rounded-2xl transition-all duration-500 ${isActive ? 'bg-primary shadow-[0_5px_15px_rgba(255,87,34,0.4)] text-white' : 'text-slate-400'}`}>
+              <div className={`icon-container p-2.5 rounded-2xl transition-all duration-500 ${isActive ? 'bg-cyan-500 shadow-[0_5px_15px_rgba(6,182,212,0.4)] text-black' : 'text-slate-400'}`}>
                 <item.icon className="w-5 h-5" strokeWidth={isActive ? 3 : 2} />
               </div>
               {isActive && (
-                <div className="w-1 h-1 bg-primary rounded-full mt-1 animate-pulse" />
+                <div className="w-1 h-1 bg-cyan-400 rounded-full mt-1 animate-pulse" />
               )}
             </button>
           );

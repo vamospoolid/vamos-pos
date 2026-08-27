@@ -8,20 +8,20 @@ html {
 }
 
 @theme {
-  --color-primary: #ff5722;
-  --color-secondary: #0d0f14;
-  --color-accent: #ff6b00;
-  --color-surface: #1a1d26;
-  --color-surface-highlight: #232733;
+  --color-primary: #06b6d4;
+  --color-secondary: #070b14;
+  --color-accent: #38bdf8;
+  --color-surface: #0c1424;
+  --color-surface-highlight: #111d35;
   --font-display: "Outfit", sans-serif;
 }
 
 :root {
-  --bg-main: #0d0f14;
-  --bg-card: #161823;
-  --bg-card-elevated: #1a1d26;
-  --accent: #ff5722;
-  --accent-glow: rgba(255, 87, 34, 0.5);
+  --bg-main: #070b14;
+  --bg-card: #0d1628;
+  --bg-card-elevated: #111d35;
+  --accent: #06b6d4;
+  --accent-glow: rgba(6, 182, 212, 0.5);
   --text-primary: #ffffff;
   --text-secondary: #94a3b8;
   --radius-xl: 1.5rem;
@@ -30,7 +30,7 @@ html {
 
 body {
   background-color: var(--bg-main);
-  background: radial-gradient(circle at 50% 0%, #1a1d2e 0%, #0d0f14 100%);
+  background: radial-gradient(circle at 50% 0%, #0c1836 0%, #070b14 100%);
   color: #ffffff;
   font-family: 'Outfit', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -41,10 +41,10 @@ body {
   overflow-x: hidden;
 }
 
-/* Fiery UI v2 - E-Sports Edition */
+/* Fiery UI v2 - Blue/Cyan Esports Edition */
 .fiery-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-xl);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
   position: relative;
@@ -52,8 +52,8 @@ body {
 }
 
 .fiery-card-highlight {
-  background: linear-gradient(145deg, #1d2133 0%, #161823 100%);
-  border: 1px solid rgba(255, 87, 34, 0.15);
+  background: linear-gradient(145deg, #111d35 0%, #0d1628 100%);
+  border: 1px solid rgba(6, 182, 212, 0.25);
   border-radius: var(--radius-xl);
 }
 
@@ -62,13 +62,13 @@ body {
 }
 
 .fiery-btn-primary {
-  background: linear-gradient(135deg, #ff5722 0%, #ff1744 100%);
-  color: white;
-  font-weight: 800;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: #040812;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   border-radius: 1.2rem;
-  box-shadow: 0 8px 25px rgba(255, 87, 34, 0.3);
+  box-shadow: 0 8px 25px rgba(6, 182, 212, 0.35);
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -88,17 +88,17 @@ body {
 .fiery-nav {
   position: sticky;
   bottom: 0;
-  background: rgba(13, 15, 20, 0.95);
+  background: rgba(7, 11, 20, 0.95);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(6, 182, 212, 0.15);
   border-radius: 2.5rem 2.5rem 0 0;
   padding: 1.2rem 1.5rem calc(1.2rem + env(safe-area-inset-bottom, 20px)) 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 1000;
-  box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.8);
 }
 
 .nav-item {
@@ -113,15 +113,15 @@ body {
 }
 
 .nav-item.active {
-  color: var(--accent);
+  color: #06b6d4;
   transform: translateY(-4px);
 }
 
 .nav-item.active .icon-container {
-  background: rgba(255, 87, 34, 0.1);
+  background: rgba(6, 182, 212, 0.15);
   border-radius: 1rem;
   padding: 0.4rem;
-  box-shadow: 0 0 15px rgba(255, 87, 34, 0.2);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
 }
 
 /* Typography Enhancements */
@@ -184,12 +184,12 @@ h1, h2, h3, h4 {
 
 /* Premium Victory Stage Effects */
 .glass-pilar {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.15) 0%, rgba(255, 255, 255, 0.02) 100%);
   backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(6, 182, 212, 0.3);
+  border-left: 1px solid rgba(6, 182, 212, 0.15);
+  border-right: 1px solid rgba(6, 182, 212, 0.15);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(6, 182, 212, 0.08);
 }
 
 .text-monumental {
@@ -203,7 +203,7 @@ h1, h2, h3, h4 {
 }
 
 .champion-aura {
-  background: radial-gradient(circle at 50% 50%, rgba(255, 87, 34, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.2) 0%, transparent 70%);
   filter: blur(40px);
 }
 
@@ -229,9 +229,9 @@ h1, h2, h3, h4 {
 
 /* Elite Commercial Effects */
 .glass-card-deep {
-  background: rgba(26, 31, 53, 0.4);
+  background: rgba(13, 22, 40, 0.6);
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.15);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.86);
 }
 
@@ -249,7 +249,7 @@ h1, h2, h3, h4 {
     135deg,
     transparent 0%,
     rgba(255, 255, 255, 0.05) 45%,
-    rgba(255, 255, 255, 0.15) 50%,
+    rgba(6, 182, 212, 0.15) 50%,
     rgba(255, 255, 255, 0.05) 55%,
     transparent 100%
   );
@@ -264,8 +264,8 @@ h1, h2, h3, h4 {
 
 /* Splash Screen Special Animations */
 @keyframes splash-pulse {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(255, 87, 34, 0.4)); }
-  50% { transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(255, 87, 34, 0.8)); }
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 25px rgba(6, 182, 212, 0.5)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 45px rgba(6, 182, 212, 0.9)); }
 }
 
 .animate-splash-logo {
@@ -292,19 +292,19 @@ h1, h2, h3, h4 {
 }
 
 /* ═══════════════════════════════════════════════
-   PREMIUM DISCOVERY - REDESIGN SYSTEM
+   PREMIUM BLUE/CYAN REDESIGN SYSTEM
    ═══════════════════════════════════════════════ */
 
 .fiery-glass {
-  background: rgba(26, 31, 53, 0.6);
+  background: rgba(13, 22, 40, 0.7);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.15);
 }
 
 .fiery-gradient-card {
-  background: linear-gradient(135deg, #ff5722 0%, #ff1744 100%);
-  box-shadow: 0 15px 35px rgba(255, 87, 34, 0.25);
+  background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
+  box-shadow: 0 15px 35px rgba(6, 182, 212, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -316,8 +316,8 @@ h1, h2, h3, h4 {
 
 .fiery-search-container:focus-within {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 87, 34, 0.4);
-  box-shadow: 0 0 20px rgba(255, 87, 34, 0.1);
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
 }
 
 .fiery-date-item {
@@ -325,8 +325,8 @@ h1, h2, h3, h4 {
 }
 
 .fiery-date-item.active {
-  background: linear-gradient(180deg, #ff5722 0%, #ff1744 100%);
-  box-shadow: 0 10px 25px rgba(255, 87, 34, 0.2);
+  background: linear-gradient(180deg, #06b6d4 0%, #2563eb 100%);
+  box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);
   transform: scale(1.05);
 }
 
@@ -334,7 +334,7 @@ h1, h2, h3, h4 {
   background: rgba(7, 11, 20, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.1);
 }
 
 /* Custom Scrollbar for Horizontal Date Picker */

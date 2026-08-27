@@ -22,6 +22,13 @@ export class ProductService {
 
         return prisma.product.findMany({
             where: whereClause,
+            include: {
+                recipes: {
+                    include: {
+                        rawMaterial: true
+                    }
+                }
+            },
             orderBy: {
                 name: 'asc'
             }

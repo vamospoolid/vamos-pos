@@ -1,286 +1,392 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Calendar, Users, DollarSign, ChevronRight, Clock, CheckCircle2, Circle } from "lucide-react";
+import { Trophy, Calendar, Users, DollarSign, ChevronRight, ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react";
 
 const tournaments = [
   {
     id: 1,
-    status: "LIVE",
-    name: "Vamos Open Championship 2025",
-    format: "9-Ball / Double Elimination",
-    date: "20–22 Juni 2025",
-    participants: 64,
-    maxParticipants: 64,
-    prize: "Rp 25.000.000",
+    status: "ONGOING",
+    statusLabel: "SEDANG BERJALAN",
+    name: "FUN GAME HC 3 SERIES 1",
+    format: "8-Ball Single Elimination (POBSI Standard)",
+    date: "Sabtu, 22 Agustus 2026",
+    participants: 32,
+    maxParticipants: 32,
+    prize: "Rp 4.200.000",
     fee: "Rp 150.000",
-    color: "#C9A84C",
-    progress: 100,
+    color: "#00F0FF",
   },
   {
     id: 2,
     status: "OPEN",
-    name: "Makassar Pool Masters Series",
-    format: "8-Ball / Single Elimination",
-    date: "5–6 Juli 2025",
-    participants: 28,
-    maxParticipants: 32,
-    prize: "Rp 10.000.000",
-    fee: "Rp 100.000",
-    color: "#2D6A4F",
-    progress: 87,
+    statusLabel: "PENDAFTARAN DIBUKA",
+    name: "VAMOS OPEN 9-BALL CHAMPIONSHIP",
+    format: "9-Ball Double to Single Elimination",
+    date: "5–7 September 2026",
+    participants: 48,
+    maxParticipants: 64,
+    prize: "Rp 25.000.000",
+    fee: "Rp 200.000",
+    color: "#0066FF",
   },
   {
     id: 3,
-    status: "OPEN",
-    name: "Vamos Youth Cup 2025",
-    format: "10-Ball / Round Robin",
-    date: "19–20 Juli 2025",
+    status: "UPCOMING",
+    statusLabel: "SEGERA",
+    name: "MAKASSAR YOUTH POOL CUP 2026",
+    format: "10-Ball Handicap 3-4 Series",
+    date: "20–21 September 2026",
     participants: 12,
-    maxParticipants: 16,
-    prize: "Rp 5.000.000",
-    fee: "Gratis",
-    color: "#1A3A5C",
-    progress: 75,
-  },
+    maxParticipants: 32,
+    prize: "Rp 7.500.000",
+    fee: "Rp 100.000",
+    color: "#10B981",
+  }
 ];
 
-// Bracket data
-const bracket = {
-  rounds: [
-    {
-      name: "Semifinal",
-      matches: [
-        { p1: "Ahmad R.", p2: "Budi S.", score1: 5, score2: 3, done: true, winner: 1 },
-        { p1: "Citra M.", p2: "Deni K.", score1: 5, score2: 4, done: true, winner: 1 },
-      ],
-    },
-    {
-      name: "Final",
-      matches: [
-        { p1: "Ahmad R.", p2: "Citra M.", score1: null, score2: null, done: false, winner: null },
-      ],
-    },
-  ],
-};
+// Sample live bracket matches matching our anti-clash & semifinal convergence engine
+const poolAMatches = [
+  { id: 1, p1: "ANDRY GOMES", p2: "STARBOY", score1: 5, score2: 2, winner: 1 },
+  { id: 2, p1: "RIVAL AND (1)", p2: "BAHRIADI 59", score1: 5, score2: 4, winner: 1 },
+  { id: 3, p1: "FARIZ VAMOS (1)", p2: "PUTRA AND", score1: 5, score2: 3, winner: 1 },
+  { id: 4, p1: "AHLAN SALOPI (1)", p2: "HAYYUL", score1: 5, score2: 1, winner: 1 },
+];
 
-function BracketMatch({ match }: { match: any }) {
-  return (
-    <div style={{
-      border: "1px solid var(--border-subtle)",
-      borderRadius: "10px",
-      overflow: "hidden",
-      background: "var(--bg-secondary)",
-      minWidth: "200px",
-    }}>
-      {[1, 2].map((n) => {
-        const name = n === 1 ? match.p1 : match.p2;
-        const score = n === 1 ? match.score1 : match.score2;
-        const isWinner = match.winner === n;
-        return (
-          <div key={n} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "10px 14px",
-            borderBottom: n === 1 ? "1px solid var(--border-subtle)" : "none",
-            background: isWinner ? "rgba(201,168,76,0.08)" : "transparent",
-          }}>
-            <span style={{
-              fontSize: "13px", fontWeight: isWinner ? 700 : 400,
-              color: isWinner ? "var(--gold)" : "var(--text-secondary)",
-              fontFamily: isWinner ? "Montserrat" : "Inter",
-            }}>
-              {name}
-            </span>
-            <span style={{
-              fontFamily: "Montserrat", fontWeight: 800, fontSize: "14px",
-              color: isWinner ? "var(--gold)" : "var(--text-muted)",
-            }}>
-              {score !== null ? score : "–"}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+const poolBMatches = [
+  { id: 9, p1: "RAMS 59 (1)", p2: "SHAFA VAMOS", score1: 5, score2: 3, winner: 1 },
+  { id: 10, p1: "CING VAMOS (1)", p2: "FATUL 59", score1: 5, score2: 2, winner: 1 },
+  { id: 11, p1: "RAHMAT DONE (1)", p2: "SAFAR SALOPI", score1: 5, score2: 4, winner: 1 },
+  { id: 12, p1: "ADRIL AND (1)", p2: "ICCANK", score1: 5, score2: 1, winner: 1 },
+];
 
 export default function TournamentSection() {
-  const [activeTab, setActiveTab] = useState<"list" | "bracket">("list");
+  const [activeTab, setActiveTab] = useState<"tournaments" | "bracket">("tournaments");
 
   return (
-    <section id="tournament" style={{ padding: "120px 0", position: "relative" }}>
+    <section id="tournaments" style={{ padding: "100px 0", position: "relative" }}>
+      {/* Background radial aura */}
       <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, height: "1px",
-        background: "linear-gradient(90deg, transparent, var(--border), transparent)",
+        position: "absolute",
+        top: "20%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "700px",
+        height: "500px",
+        background: "radial-gradient(circle, rgba(0, 102, 255, 0.1) 0%, transparent 70%)",
+        pointerEvents: "none",
+        filter: "blur(60px)",
       }} />
-      <div className="bg-radial-gold" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
 
-      <div className="container" style={{ position: "relative" }}>
-        {/* Header */}
-        <div style={{ marginBottom: "56px" }}>
-          <div className="section-label">🏆 Turnamen</div>
+      <div className="container" style={{ position: "relative", zIndex: 5 }}>
+        {/* Section Header */}
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div className="section-label">🏆 TOURNAMENTS & LIVE BRACKET</div>
           <h2 className="section-title">
-            Kompetisi <span className="gold-text">Bergengsi</span>
+            Kompetisi Bergengsi & <span className="gold-text">Bagan Live</span>
           </h2>
-          <p className="section-desc">
-            Dari pemula hingga profesional, Vamos Pool menghadirkan turnamen berkualitas tinggi dengan prize pool menarik sepanjang tahun.
+          <p className="section-desc" style={{ margin: "0 auto 32px auto" }}>
+            Ikuti turnamen biliar resmi bersertifikasi Handicap POBSI dengan total hadiah puluhan juta rupiah dan sistem live drawing anti-clash.
           </p>
-        </div>
 
-        {/* Tab switcher */}
-        <div style={{
-          display: "inline-flex", background: "var(--bg-secondary)", borderRadius: "10px",
-          padding: "4px", border: "1px solid var(--border-subtle)", marginBottom: "40px",
-        }}>
-          {[{ key: "list", label: "Turnamen Aktif" }, { key: "bracket", label: "Bracket / Bagan" }].map((tab) => (
+          {/* Tab Switcher */}
+          <div style={{
+            display: "inline-flex",
+            background: "rgba(10, 16, 32, 0.8)",
+            padding: "6px",
+            borderRadius: "100px",
+            border: "1px solid rgba(0, 240, 255, 0.2)",
+          }}>
             <button
-              key={tab.key}
-              id={`tab-${tab.key}`}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab("tournaments")}
               style={{
-                padding: "10px 24px",
-                borderRadius: "8px",
+                background: activeTab === "tournaments" ? "linear-gradient(135deg, #00F0FF, #0066FF)" : "transparent",
+                color: activeTab === "tournaments" ? "#040811" : "#94A3B8",
                 border: "none",
-                cursor: "pointer",
+                padding: "10px 24px",
+                borderRadius: "100px",
                 fontFamily: "Montserrat",
                 fontWeight: 700,
-                fontSize: "12px",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                transition: "all 0.2s ease",
-                background: activeTab === tab.key ? "linear-gradient(135deg, var(--gold-light), var(--gold))" : "transparent",
-                color: activeTab === tab.key ? "#0A0A0F" : "var(--text-muted)",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "all 0.25s ease",
               }}
             >
-              {tab.label}
+              Daftar Turnamen
             </button>
-          ))}
+
+            <button
+              onClick={() => setActiveTab("bracket")}
+              style={{
+                background: activeTab === "bracket" ? "linear-gradient(135deg, #00F0FF, #0066FF)" : "transparent",
+                color: activeTab === "bracket" ? "#040811" : "#94A3B8",
+                border: "none",
+                padding: "10px 24px",
+                borderRadius: "100px",
+                fontFamily: "Montserrat",
+                fontWeight: 700,
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+              }}
+            >
+              Interactive Live Bracket
+            </button>
+          </div>
         </div>
 
-        {/* Tournament List */}
-        {activeTab === "list" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {/* Content Tab 1: Tournaments List */}
+        {activeTab === "tournaments" && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: "24px",
+          }}>
             {tournaments.map((t) => (
-              <div key={t.id} className="glass-card" style={{ padding: "32px", position: "relative", overflow: "hidden" }}>
-                {/* Color accent */}
+              <div key={t.id} className="glass-card" style={{
+                padding: "32px 28px",
+                background: "rgba(10, 16, 32, 0.75)",
+                border: "1px solid rgba(0, 240, 255, 0.2)",
+                position: "relative",
+              }}>
+                {/* Status Badge */}
                 <div style={{
-                  position: "absolute", top: 0, left: 0, width: "4px", height: "100%",
-                  background: `linear-gradient(180deg, ${t.color}, ${t.color}40)`,
-                }} />
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: t.status === "ONGOING" ? "rgba(0, 240, 255, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                  border: `1px solid ${t.status === "ONGOING" ? "rgba(0, 240, 255, 0.4)" : "rgba(16, 185, 129, 0.4)"}`,
+                  color: t.status === "ONGOING" ? "#00F0FF" : "#10B981",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  fontFamily: "Montserrat",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                  textTransform: "uppercase"
+                }}>
+                  <span style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: t.status === "ONGOING" ? "#00F0FF" : "#10B981",
+                  }} />
+                  <span>{t.statusLabel}</span>
+                </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "20px" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-                      <span style={{
-                        fontFamily: "Montserrat", fontWeight: 800, fontSize: "10px",
-                        letterSpacing: "0.2em", textTransform: "uppercase",
-                        padding: "4px 10px", borderRadius: "100px",
-                        background: t.status === "LIVE" ? "rgba(201,168,76,0.15)" : "rgba(45,106,79,0.15)",
-                        color: t.status === "LIVE" ? "var(--gold)" : "#4CAF7D",
-                        border: `1px solid ${t.status === "LIVE" ? "rgba(201,168,76,0.3)" : "rgba(45,106,79,0.3)"}`,
-                      }}>
-                        {t.status === "LIVE" ? "🔴 LIVE" : "✅ OPEN"}
-                      </span>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "Montserrat" }}>{t.format}</span>
-                    </div>
+                <h3 style={{
+                  fontFamily: "Montserrat",
+                  fontSize: "20px",
+                  fontWeight: 800,
+                  color: "#F1F5F9",
+                  marginBottom: "8px",
+                }}>
+                  {t.name}
+                </h3>
+                <p style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "24px" }}>
+                  {t.format}
+                </p>
 
-                    <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: "20px", marginBottom: "16px" }}>
-                      {t.name}
-                    </h3>
-
-                    <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
-                      {[
-                        { icon: <Calendar size={14} />, val: t.date },
-                        { icon: <Users size={14} />, val: `${t.participants}/${t.maxParticipants} Peserta` },
-                        { icon: <Trophy size={14} />, val: t.prize },
-                        { icon: <DollarSign size={14} />, val: `Fee: ${t.fee}` },
-                      ].map((item, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-secondary)", fontSize: "13px" }}>
-                          <span style={{ color: "var(--gold)" }}>{item.icon}</span>
-                          {item.val}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Progress bar */}
-                    <div style={{ marginTop: "20px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Slot terisi</span>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: t.color }}>{t.progress}%</span>
-                      </div>
-                      <div style={{ height: "4px", background: "var(--border-subtle)", borderRadius: "2px" }}>
-                        <div style={{ height: "100%", width: `${t.progress}%`, background: `linear-gradient(90deg, ${t.color}80, ${t.color})`, borderRadius: "2px", transition: "width 1s ease" }} />
-                      </div>
-                    </div>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                  padding: "16px",
+                  background: "rgba(4, 8, 17, 0.6)",
+                  borderRadius: "12px",
+                  marginBottom: "24px",
+                  border: "1px solid rgba(255, 255, 255, 0.05)"
+                }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Tanggal</div>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#F1F5F9" }}>{t.date}</div>
                   </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end" }}>
-                    {t.status === "OPEN" ? (
-                      <a href="#contact" className="btn-gold" id={`register-tournament-${t.id}`} style={{ whiteSpace: "nowrap" }}>
-                        Daftar Sekarang
-                      </a>
-                    ) : (
-                      <a href="#" className="btn-outline" style={{ whiteSpace: "nowrap" }}>
-                        Lihat Bracket →
-                      </a>
-                    )}
-                    <span style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "right" }}>
-                      Prize Pool <span style={{ color: "var(--gold)", fontWeight: 700 }}>{t.prize}</span>
-                    </span>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Total Hadiah</div>
+                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#00F0FF" }}>{t.prize}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Entry Fee</div>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#F1F5F9" }}>{t.fee}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Slot Peserta</div>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#10B981" }}>
+                      {t.participants} / {t.maxParticipants} Slot
+                    </div>
                   </div>
                 </div>
+
+                <a
+                  href="https://wa.me/62811444000?text=Halo%20Vamos,%20saya%20ingin%20mendaftar%20turnamen%20"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-gold"
+                  style={{
+                    width: "100%",
+                    textAlign: "center",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "12px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <Trophy size={16} />
+                  <span>Daftar Turnamen Ini</span>
+                </a>
               </div>
             ))}
           </div>
         )}
 
-        {/* Bracket View */}
+        {/* Content Tab 2: Live Bracket Interactive Preview */}
         {activeTab === "bracket" && (
-          <div className="glass-card" style={{ padding: "40px" }}>
-            <div style={{ marginBottom: "28px" }}>
-              <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: "18px", marginBottom: "4px" }}>
-                Vamos Open Championship 2025
-              </h3>
-              <span className="badge">🔴 Live</span>
+          <div className="glass-card" style={{
+            padding: "36px 28px",
+            background: "rgba(10, 16, 32, 0.85)",
+            border: "1px solid rgba(0, 240, 255, 0.25)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "12px" }}>
+              <div>
+                <span style={{ fontSize: "12px", color: "#00F0FF", fontWeight: 800, textTransform: "uppercase" }}>
+                  Official Tournament Bracket
+                </span>
+                <h3 style={{ fontFamily: "Montserrat", fontSize: "22px", fontWeight: 900, color: "#F1F5F9" }}>
+                  FUN GAME HC 3 SERIES 1
+                </h3>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{
+                  background: "rgba(0, 240, 255, 0.1)",
+                  border: "1px solid rgba(0, 240, 255, 0.3)",
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  color: "#00F0FF",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                }}>
+                  Dual-Wing Format • 32 Players
+                </div>
+
+                <a
+                  href="/bracket"
+                  className="btn-gold"
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <span>Buka Detail Bagan</span>
+                  <ChevronRight size={14} />
+                </a>
+              </div>
             </div>
 
-            <div style={{ display: "flex", gap: "48px", overflowX: "auto", paddingBottom: "16px" }}>
-              {bracket.rounds.map((round, ri) => (
-                <div key={ri} style={{ minWidth: "220px" }}>
-                  <div style={{
-                    fontFamily: "Montserrat", fontWeight: 700, fontSize: "11px",
-                    letterSpacing: "0.15em", textTransform: "uppercase",
-                    color: "var(--text-muted)", marginBottom: "20px",
-                  }}>
-                    {round.name}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px", justifyContent: "space-around" }}>
-                    {round.matches.map((match, mi) => (
-                      <BracketMatch key={mi} match={match} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              {/* Champion placeholder */}
-              <div style={{ minWidth: "160px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            {/* 2-Wing Layout Showcase */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "28px",
+            }} className="bracket-wings-grid">
+              
+              {/* Pool A: Left Wing */}
+              <div>
                 <div style={{
-                  fontFamily: "Montserrat", fontWeight: 700, fontSize: "11px",
-                  letterSpacing: "0.15em", textTransform: "uppercase",
-                  color: "var(--text-muted)", marginBottom: "20px",
-                }}>Juara</div>
-                <div className="glass-card glow-gold" style={{
-                  padding: "24px", textAlign: "center",
-                  border: "1px solid var(--border)",
+                  background: "linear-gradient(135deg, #00F0FF, #0066FF)",
+                  color: "#040811",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  textAlign: "center",
+                  marginBottom: "16px",
+                  fontFamily: "Montserrat",
                 }}>
-                  <div style={{ fontSize: "28px", marginBottom: "8px" }}>🏆</div>
-                  <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>Ditentukan Final</div>
+                  POOL A • BAGAN ATAS
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {poolAMatches.map((m) => (
+                    <div key={m.id} style={{
+                      background: "rgba(4, 8, 17, 0.7)",
+                      border: "1px solid rgba(0, 240, 255, 0.18)",
+                      borderRadius: "8px",
+                      padding: "10px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: m.winner === 1 ? "#00F0FF" : "#94A3B8", fontWeight: m.winner === 1 ? 700 : 500 }}>
+                        <span>{m.p1} [HC: 3]</span>
+                        <span>{m.score1}</span>
+                      </div>
+                      <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.06)" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: m.winner === 2 ? "#00F0FF" : "#94A3B8", fontWeight: m.winner === 2 ? 700 : 500 }}>
+                        <span>{m.p2} [HC: 3]</span>
+                        <span>{m.score2}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pool B: Right Wing */}
+              <div>
+                <div style={{
+                  background: "linear-gradient(135deg, #E11D48, #BE123C)",
+                  color: "#FFFFFF",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  textAlign: "center",
+                  marginBottom: "16px",
+                  fontFamily: "Montserrat",
+                }}>
+                  POOL B • BAGAN BAWAH
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {poolBMatches.map((m) => (
+                    <div key={m.id} style={{
+                      background: "rgba(4, 8, 17, 0.7)",
+                      border: "1px solid rgba(225, 29, 72, 0.25)",
+                      borderRadius: "8px",
+                      padding: "10px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: m.winner === 1 ? "#F43F5E" : "#94A3B8", fontWeight: m.winner === 1 ? 700 : 500 }}>
+                        <span>{m.p1} [HC: 3]</span>
+                        <span>{m.score1}</span>
+                      </div>
+                      <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.06)" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: m.winner === 2 ? "#F43F5E" : "#94A3B8", fontWeight: m.winner === 2 ? 700 : 500 }}>
+                        <span>{m.p2} [HC: 3]</span>
+                        <span>{m.score2}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .bracket-wings-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

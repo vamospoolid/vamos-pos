@@ -1,4 +1,4 @@
-import { MapPin, Users, Zap, Trophy, Flame } from 'lucide-react';
+import { MapPin, Users, Zap, Trophy, Flame, Calendar } from 'lucide-react';
 
 interface FeaturedBookingCardProps {
   title: string;
@@ -7,9 +7,11 @@ interface FeaturedBookingCardProps {
   entryFee?: string;
   players: string;
   startsIn?: string;
-  status: 'Open' | 'Booked' | 'Private';
+  date?: string;
+  status: 'Open' | 'Booked' | 'Private' | 'Full';
   isPremium?: boolean;
   onJoin: () => void;
+  onViewBracket?: () => void;
 }
 
 export function FeaturedBookingCard({ 
@@ -19,13 +21,16 @@ export function FeaturedBookingCard({
   entryFee,
   players, 
   startsIn, 
+  date,
   status, 
   isPremium,
-  onJoin 
+  onJoin,
+  onViewBracket
 }: FeaturedBookingCardProps) {
-  // Psychology: Scarcity detection (e.g. "12/16" -> 4 left)
+  // Psychology: Scarcity detection (e.g. "32/32" -> Full, "12/16" -> 4 left)
   const [current, max] = players.split('/').map(Number);
-  const isFillingUp = max && (max - current) <= 4;
+  const isFull = Boolean(max && current >= max);
+  const isFillingUp = Boolean(max && !isFull && (max - current) <= 4);
 
   return (
     <div className={`relative w-full rounded-[40px] p-8 overflow-hidden transition-all active:scale-[0.97] group border shadow-[0_25px_60px_rgba(0,0,0,0.6)] ${
@@ -50,12 +55,25 @@ export function FeaturedBookingCard({
       )}
 
       {/* Tags & Urgency Indicators */}
-      <div className="flex items-center gap-4 mb-8 relative z-10">
+      <div className="flex flex-wrap items-center gap-2.5 mb-8 relative z-10">
         <div className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] italic ${
-          status === 'Open' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+          isFull
+            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+            : status === 'Open'
+            ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+            : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
         }`}>
-          {status}
+          {isFull ? 'Bagan Full' : status}
         </div>
+
+        {date && (
+          <div className="flex items-center gap-1.5 bg-primary/15 text-primary border border-primary/25 px-3.5 py-1.5 rounded-xl">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="text-[9px] font-black uppercase tracking-widest italic">
+              {date}
+            </span>
+          </div>
+        )}
         
         {startsIn && (
           <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-xl border border-white/5">
@@ -68,7 +86,7 @@ export function FeaturedBookingCard({
       </div>
 
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 gap-6 mb-10 relative z-10">
+      <div className="grid grid-cols-1 gap-6 mb-8 relative z-10">
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-4">
              <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-[0.95] group-hover:text-primary transition-colors duration-300">
@@ -96,11 +114,15 @@ export function FeaturedBookingCard({
                 <Users className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest italic">{players}</span>
               </div>
-              {isFillingUp && (
-                <span className="text-[8px] font-black text-red-500 uppercase tracking-widest italic animate-pulse bg-red-500/10 px-2 py-0.5 rounded-md">
+              {isFull ? (
+                <span className="text-[8px] font-black text-rose-400 uppercase tracking-widest italic bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                  Slot Penuh
+                </span>
+              ) : isFillingUp ? (
+                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest italic animate-pulse bg-amber-500/10 px-2 py-0.5 rounded-md">
                   Last Call
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -123,21 +145,57 @@ export function FeaturedBookingCard({
         )}
       </div>
 
-      {/* High-Contrast Action Button */}
-      <button 
-        onClick={onJoin}
-        className={`w-full py-6 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] italic transition-all relative overflow-hidden flex items-center justify-center gap-4 group/btn ${
-          isPremium 
-            ? 'bg-primary text-white shadow-[0_15px_40px_rgba(255,87,34,0.4)] hover:shadow-[0_20px_50px_rgba(255,87,34,0.6)] hover:scale-[1.02]' 
-            : 'bg-white text-black hover:bg-slate-200 shadow-xl'
-        }`}
-      >
-        <span className="relative z-10">DAFTAR SEKARANG</span>
-        <ChevronRight className="w-5 h-5 relative z-10 group-hover/btn:translate-x-1 transition-transform" />
-        
-        {/* Button shine effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
-      </button>
+      {/* Action Buttons Section */}
+      {isFull ? (
+        <div className="space-y-3 relative z-10">
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={onViewBracket || onJoin}
+              className="py-5 px-4 rounded-[22px] font-black text-xs uppercase tracking-[0.15em] italic transition-all relative overflow-hidden flex items-center justify-center gap-2 bg-primary text-black shadow-[0_10px_30px_rgba(6,182,212,0.4)] hover:shadow-[0_15px_40px_rgba(6,182,212,0.6)] hover:scale-[1.02] active:scale-95 group/btn"
+            >
+              <Trophy className="w-4 h-4 shrink-0" />
+              <span className="truncate">LIHAT BAGAN</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+            </button>
+
+            <button 
+              onClick={onJoin}
+              className="py-5 px-4 rounded-[22px] font-black text-xs uppercase tracking-[0.15em] italic transition-all relative overflow-hidden flex items-center justify-center gap-2 bg-white/10 text-white hover:bg-white/15 border border-white/10 active:scale-95 group/btn"
+            >
+              <span className="truncate">DAFTAR / INFO</span>
+              <ChevronRight className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
+          <p className="text-[8px] font-black text-center text-slate-500 uppercase tracking-widest italic">
+            Bagan telah terisi penuh. Anda dapat melihat bagan pertandingan atau mendaftar cadangan.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 relative z-10">
+          <button 
+            onClick={onJoin}
+            className={`w-full py-6 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] italic transition-all relative overflow-hidden flex items-center justify-center gap-4 group/btn ${
+              isPremium 
+                ? 'bg-primary text-black font-black shadow-[0_15px_40px_rgba(6,182,212,0.4)] hover:shadow-[0_20px_50px_rgba(6,182,212,0.6)] hover:scale-[1.02]' 
+                : 'bg-white text-black hover:bg-slate-200 shadow-xl'
+            }`}
+          >
+            <span className="relative z-10">DAFTAR SEKARANG</span>
+            <ChevronRight className="w-5 h-5 relative z-10 group-hover/btn:translate-x-1 transition-transform" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+          </button>
+
+          {onViewBracket && (
+            <button
+              onClick={onViewBracket}
+              className="w-full py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] italic text-primary/70 hover:text-primary hover:bg-primary/10 transition-all flex items-center justify-center gap-2"
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>LIHAT BAGAN TOURNAMENT</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

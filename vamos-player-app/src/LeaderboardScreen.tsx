@@ -164,10 +164,10 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                             <div className="absolute w-48 h-48 champion-aura top-0 left-1/2 -translate-x-1/2 pointer-events-none" />
                             
                             <div className="relative mb-8 z-30 transition-all duration-700 group-hover:-translate-y-4">
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-40 pointer-events-none drop-shadow-[0_0_15px_rgba(255,87,34,0.6)]">
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-40 pointer-events-none drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]">
                                     <Crown className="w-10 h-10 text-primary fill-primary animate-bounce" />
                                 </div>
-                                <div className="w-24 h-24 rounded-[32px] bg-[#0a0d18] border-[3px] border-primary p-1.5 shadow-[0_0_50px_rgba(255,87,34,0.4)] overflow-hidden">
+                                <div className="w-24 h-24 rounded-[32px] bg-[#0a0d18] border-[3px] border-primary p-1.5 shadow-[0_0_50px_rgba(6,182,212,0.4)] overflow-hidden">
                                      {getAvatarUrl(top3[0].photo) && !imageErrors[top3[0].id] ? (
                                         <img 
                                             src={getAvatarUrl(top3[0].photo)!} 
@@ -181,7 +181,7 @@ export function LeaderboardScreen({ leaderboard: initialLeaderboard, currentUser
                                 <div className="absolute -bottom-2 -right-2 bg-primary text-[#0d0f14] w-8 h-8 rounded-xl flex items-center justify-center border-4 border-[#0d0f14] italic font-black text-xs shadow-xl scale-110">#1</div>
                             </div>
 
-                            <div className="glass-pilar w-full h-48 rounded-t-[40px] relative overflow-hidden border-primary/20 group-hover:border-primary/40 transition-colors border-b-0 shadow-[0_0_30px_rgba(255,87,34,0.1)]">
+                            <div className="glass-pilar w-full h-48 rounded-t-[40px] relative overflow-hidden border-primary/20 group-hover:border-primary/40 transition-colors border-b-0 shadow-[0_0_30px_rgba(6,182,212,0.15)]">
                                  <div className="animate-shimmer" />
                                  <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
                             </div>

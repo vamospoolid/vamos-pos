@@ -19,8 +19,8 @@ export const VamosLogo: React.FC<VamosLogoProps> = ({
             {glowing && (
                 <style>{`
                     @keyframes ${styleId}_glow {
-                        from { filter: drop-shadow(0 0 4px rgba(255,87,34,0.4)) drop-shadow(0 0 10px rgba(255,87,34,0.2)); }
-                        to   { filter: drop-shadow(0 0 12px rgba(255,87,34,0.8)) drop-shadow(0 0 20px rgba(255,87,34,0.4)); }
+                        from { filter: drop-shadow(0 0 6px rgba(6,182,212,0.5)) drop-shadow(0 0 15px rgba(6,182,212,0.25)); }
+                        to   { filter: drop-shadow(0 0 16px rgba(6,182,212,0.9)) drop-shadow(0 0 30px rgba(6,182,212,0.5)); }
                     }
                     .${styleId} { animation: ${styleId}_glow 2.5s ease-in-out infinite alternate; }
                 `}</style>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trophy, Target, Users, ChevronDown, Play, Star } from "lucide-react";
+import Image from "next/image";
+import { Trophy, Target, Users, ChevronRight, Play, Star, MapPin, Sparkles, Activity } from "lucide-react";
 
 const stats = [
-  { value: "24", suffix: "", label: "Meja Premium", icon: "🎱" },
-  { value: "1200", suffix: "+", label: "Member Aktif", icon: "👥" },
-  { value: "48", suffix: "+", label: "Turnamen Digelar", icon: "🏆" },
-  { value: "5", suffix: "★", label: "Rating Venue", icon: "⭐" },
+  { value: "16", suffix: " Unit", label: "Meja 9-ft Tournament", icon: "🎱" },
+  { value: "1250", suffix: "+", label: "Member Aktif", icon: "👥" },
+  { value: "50", suffix: "+ Jt", label: "Prize Pool Bulanan", icon: "🏆" },
+  { value: "5.0", suffix: " ★", label: "Rating Kepuasan", icon: "⭐" },
 ];
 
 function CountUp({ end, suffix }: { end: number; suffix: string }) {
@@ -21,12 +22,16 @@ function CountUp({ end, suffix }: { end: number; suffix: string }) {
         if (entry.isIntersecting && !started.current) {
           started.current = true;
           let start = 0;
-          const duration = 1800;
+          const duration = 1500;
           const step = (end / duration) * 16;
           const timer = setInterval(() => {
             start += step;
-            if (start >= end) { setCount(end); clearInterval(timer); }
-            else setCount(Math.floor(start));
+            if (start >= end) {
+              setCount(end);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(start));
+            }
           }, 16);
         }
       },
@@ -50,101 +55,297 @@ export default function HeroSection() {
         justifyContent: "center",
         position: "relative",
         overflow: "hidden",
-        paddingTop: "72px",
+        paddingTop: "90px",
+        paddingBottom: "60px",
+        background: "radial-gradient(ellipse at 50% 20%, rgba(0, 102, 255, 0.15) 0%, rgba(4, 8, 17, 1) 75%)",
       }}
     >
-      {/* Background layers */}
+      {/* Dynamic Background Neon Orbs */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: "radial-gradient(ellipse at 60% 50%, rgba(201,168,76,0.07) 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(45,106,79,0.07) 0%, transparent 50%)",
+        position: "absolute",
+        top: "10%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "600px",
+        height: "600px",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(0, 240, 255, 0.12) 0%, rgba(0, 102, 255, 0.04) 50%, transparent 80%)",
+        filter: "blur(60px)",
         pointerEvents: "none",
       }} />
 
-      {/* Animated billiard balls */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-        {[
-          { size: 80, top: "15%", right: "10%", color: "#C9A84C", delay: "0s" },
-          { size: 50, top: "65%", right: "18%", color: "#2D6A4F", delay: "1.5s" },
-          { size: 35, top: "30%", right: "28%", color: "#1A3A5C", delay: "0.8s" },
-          { size: 60, bottom: "20%", left: "8%", color: "#8B2020", delay: "2s" },
-          { size: 28, top: "50%", left: "20%", color: "#C9A84C", delay: "1s" },
-        ].map((ball, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              width: ball.size, height: ball.size,
-              borderRadius: "50%",
-              background: `radial-gradient(circle at 35% 35%, ${ball.color}90, ${ball.color}20)`,
-              border: `1px solid ${ball.color}40`,
-              top: ball.top, right: ball.right,
-              bottom: (ball as any).bottom, left: (ball as any).left,
-              animation: `float ${3 + i * 0.5}s ease-in-out infinite`,
-              animationDelay: ball.delay,
-              opacity: 0.6,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Grid lines */}
+      {/* Grid Pattern Overlay */}
       <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        backgroundImage: "linear-gradient(rgba(201,168,76,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.03) 1px, transparent 1px)",
-        backgroundSize: "80px 80px",
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        backgroundImage: "linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px)",
+        backgroundSize: "60px 60px",
+        opacity: 0.8,
       }} />
 
-      <div className="container" style={{ position: "relative", zIndex: 1, paddingTop: "60px", paddingBottom: "100px" }}>
-        {/* Badge */}
-        <div style={{ marginBottom: "28px" }}>
-          <span className="badge">
-            <Star size={10} fill="currentColor" />
-            Premier Billiard Venue — Makassar
-          </span>
+      <div className="container" style={{ position: "relative", zIndex: 10 }}>
+        {/* Top Badges & Live Status */}
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "24px",
+        }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "rgba(0, 240, 255, 0.08)",
+            border: "1px solid rgba(0, 240, 255, 0.3)",
+            padding: "6px 14px",
+            borderRadius: "100px",
+            color: "#00F0FF",
+            fontSize: "12px",
+            fontWeight: 700,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            boxShadow: "0 0 15px rgba(0, 240, 255, 0.2)",
+          }}>
+            <Sparkles size={14} />
+            <span>Smart Billiard & Esports Arena</span>
+          </div>
+
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "rgba(16, 185, 129, 0.12)",
+            border: "1px solid rgba(16, 185, 129, 0.35)",
+            padding: "6px 12px",
+            borderRadius: "100px",
+            color: "#10B981",
+            fontSize: "11px",
+            fontWeight: 700,
+            fontFamily: "Montserrat",
+          }}>
+            <span style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: "#10B981",
+              boxShadow: "0 0 8px #10B981",
+              display: "inline-block"
+            }} />
+            <span>VENUE BUKA • 10:00 – 02:00 WITA</span>
+          </div>
         </div>
 
-        {/* Main heading */}
-        <h1 style={{ fontSize: "clamp(3rem, 8vw, 6.5rem)", fontWeight: 900, lineHeight: 1.0, marginBottom: "28px", maxWidth: "800px" }}>
-          Where<br />
-          <span className="gold-text">Champions</span><br />
-          Are Made.
-        </h1>
+        {/* Main Content Grid (Text Left, Visual Right) */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: "40px",
+          alignItems: "center",
+        }} className="hero-grid">
+          
+          {/* Left Column: Heading & CTA */}
+          <div>
+            <h1 style={{
+              fontSize: "clamp(2.4rem, 5.5vw, 4.2rem)",
+              fontWeight: 900,
+              lineHeight: 1.1,
+              marginBottom: "20px",
+              fontFamily: "Montserrat, sans-serif",
+            }}>
+              Sensasi Main Biliar{" "}
+              <span className="gold-text">
+                Kelas Turnamen
+              </span>{" "}
+              di Smart Arena
+            </h1>
 
-        <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: "var(--text-secondary)", maxWidth: "480px", lineHeight: 1.8, marginBottom: "44px" }}>
-          Venue billiard premium dengan 24 meja kelas dunia, ekosistem turnamen terlengkap, dan komunitas pemain terbaik di Makassar.
-        </p>
+            <p style={{
+              fontSize: "clamp(1rem, 2vw, 1.15rem)",
+              color: "#94A3B8",
+              lineHeight: 1.7,
+              marginBottom: "36px",
+              maxWidth: "580px",
+            }}>
+              Nikmati meja 9-ft berstandar POBSI dengan kain Simonis Electric Blue, pencahayaan LED anti-shadow, sistem digital live scoring, serta Cafe & Resto berkelas.
+            </p>
 
-        {/* CTA buttons */}
-        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "80px" }}>
-          <a href="#tournament" className="btn-gold" id="hero-cta-tournament">
-            🏆 Ikuti Turnamen
-          </a>
-          <a href="#venue" className="btn-outline" id="hero-cta-venue">
-            Lihat Venue
-          </a>
+            {/* CTA Buttons */}
+            <div style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "16px",
+              alignItems: "center",
+              marginBottom: "40px",
+            }}>
+              <a
+                href="https://wa.me/62811444000?text=Halo%20Vamos%20Smart%20Arena,%20saya%20ingin%20reservasi%20meja%20billiard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  fontSize: "14px",
+                  padding: "16px 32px",
+                }}
+              >
+                <span>Reservasi Meja</span>
+                <ChevronRight size={18} />
+              </a>
+
+              <a
+                href="#tournaments"
+                className="btn-outline"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "14px",
+                  padding: "15px 28px",
+                }}
+              >
+                <Trophy size={16} />
+                <span>Lihat Bagan Turnamen</span>
+              </a>
+            </div>
+
+            {/* Quick Live Table Status Card */}
+            <div className="glass-card" style={{
+              padding: "18px 24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              maxWidth: "520px",
+              border: "1px solid rgba(0, 240, 255, 0.2)",
+              background: "rgba(10, 16, 32, 0.75)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "10px",
+                  background: "rgba(0, 240, 255, 0.12)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#00F0FF"
+                }}>
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Status Meja Real-time
+                  </div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#F1F5F9" }}>
+                    12 dari 16 Meja Siap Dimainkan
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#10B981",
+                background: "rgba(16, 185, 129, 0.15)",
+                padding: "4px 10px",
+                borderRadius: "6px",
+              }}>
+                Tersedia
+              </span>
+            </div>
+          </div>
+
+          {/* Right Column: Hero Visual Arena Mockup */}
+          <div style={{ position: "relative" }}>
+            <div style={{
+              position: "relative",
+              borderRadius: "20px",
+              overflow: "hidden",
+              border: "1px solid rgba(0, 240, 255, 0.3)",
+              boxShadow: "0 20px 50px rgba(0, 102, 255, 0.25)",
+              background: "rgba(10, 16, 32, 0.8)",
+            }}>
+              <img
+                src="/images/VAMOS_ARENA_PREVIEW.png"
+                alt="Vamos Smart Arena Pool & Cafe"
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  display: "block",
+                  objectFit: "cover",
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                }}
+              />
+              
+              {/* Overlay Gradient */}
+              <div style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: "24px",
+                background: "linear-gradient(180deg, transparent 0%, rgba(4, 8, 17, 0.95) 90%)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+              }}>
+                <div>
+                  <div style={{ fontSize: "12px", color: "#00F0FF", fontWeight: 700, textTransform: "uppercase" }}>
+                    Official Tournament Arena
+                  </div>
+                  <div style={{ fontSize: "16px", fontWeight: 800, color: "#F1F5F9" }}>
+                    VAMOS SMART ARENA
+                  </div>
+                </div>
+                <div style={{
+                  background: "linear-gradient(135deg, #00F0FF, #0066FF)",
+                  color: "#040811",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  <Star size={12} fill="#040811" />
+                  <span>POBSI GRADE</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Stats row */}
+        {/* Bottom Stats Row */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-          gap: "1px",
-          background: "var(--border-subtle)",
-          borderRadius: "16px",
-          overflow: "hidden",
-          maxWidth: "700px",
+          gap: "16px",
+          marginTop: "60px",
+          paddingTop: "40px",
+          borderTop: "1px solid rgba(0, 240, 255, 0.12)",
         }}>
-          {stats.map((s) => (
-            <div key={s.label} style={{
-              background: "var(--bg-secondary)",
-              padding: "24px 20px",
+          {stats.map((s, idx) => (
+            <div key={idx} className="glass-card" style={{
+              padding: "20px 16px",
               textAlign: "center",
+              background: "rgba(10, 16, 32, 0.6)",
             }}>
-              <div style={{ fontSize: "28px", marginBottom: "8px" }}>{s.icon}</div>
-              <div className="stat-number" style={{ fontSize: "2rem" }}>
-                <CountUp end={parseInt(s.value)} suffix={s.suffix} />
+              <div style={{ fontSize: "20px", marginBottom: "4px" }}>{s.icon}</div>
+              <div style={{
+                fontSize: "clamp(1.5rem, 3vw, 2.2rem)",
+                fontWeight: 900,
+                fontFamily: "Montserrat",
+                color: "#00F0FF",
+                marginBottom: "4px",
+              }}>
+                {s.value}
               </div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "Montserrat", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: "4px" }}>
+              <div style={{ fontSize: "12px", color: "#94A3B8", fontWeight: 500 }}>
                 {s.label}
               </div>
             </div>
@@ -152,15 +353,14 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* Scroll indicator */}
-      <div style={{
-        position: "absolute", bottom: "32px", left: "50%", transform: "translateX(-50%)",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
-        animation: "float 2s ease-in-out infinite",
-      }}>
-        <span style={{ fontSize: "10px", fontFamily: "Montserrat", fontWeight: 600, letterSpacing: "0.2em", color: "var(--text-muted)", textTransform: "uppercase" }}>Scroll</span>
-        <ChevronDown size={16} color="var(--text-muted)" />
-      </div>
+      {/* Media query for desktop 2 columns layout */}
+      <style jsx>{`
+        @media (min-width: 960px) {
+          .hero-grid {
+            grid-template-columns: 1.15fr 0.85fr !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

@@ -11,8 +11,8 @@ interface AppState {
     logout: () => void;
 
     // --- Realtime / UI States ---
-    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store';
-    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store') => void;
+    activeTab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'booking-paket' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store';
+    setActiveTab: (tab: 'dashboard' | 'play' | 'tournaments' | 'profile' | 'active-session' | 'rewards' | 'booking' | 'booking-paket' | 'menu' | 'leaderboard' | 'live-table' | 'ledger' | 'training' | 'store') => void;
 
     rewardsTab: 'catalog' | 'vault' | 'history' | 'tiers';
     setRewardsTab: (tab: 'catalog' | 'vault' | 'history' | 'tiers') => void;
@@ -33,6 +33,8 @@ interface AppState {
     // --- Tournament Selection ---
     selectedTournament: any | null;
     setSelectedTournament: (t: any | null) => void;
+    tournamentInitialView: 'info' | 'bracket' | 'rankings';
+    setTournamentInitialView: (view: 'info' | 'bracket' | 'rankings') => void;
 
     // Global Actions
     refreshMemberData: () => Promise<void>;
@@ -71,6 +73,8 @@ export const useAppStore = create<AppState>()(
 
             selectedTournament: null,
             setSelectedTournament: (t) => set({ selectedTournament: t }),
+            tournamentInitialView: 'info',
+            setTournamentInitialView: (tournamentInitialView) => set({ tournamentInitialView }),
 
             refreshMemberData: async () => {
                 const { member } = get();

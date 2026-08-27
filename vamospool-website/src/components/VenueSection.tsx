@@ -1,160 +1,256 @@
 "use client";
 
-import { MapPin, Clock, Wifi, Car, Coffee, Tv, Zap, Shield } from "lucide-react";
+import { Zap, Tv, Wifi, Coffee, Car, Shield, Award, Sparkles, CheckCircle2, ChevronRight } from "lucide-react";
 
-const facilities = [
-  { icon: <Zap size={20} />, title: "24 Meja Premium", desc: "Meja Brunswick & Predator dengan kain Simonis 860" },
-  { icon: <Tv size={20} />, title: "Live Streaming", desc: "Setup streaming untuk semua meja utama" },
-  { icon: <Wifi size={20} />, title: "WiFi Ultra Fast", desc: "Koneksi fiber 500Mbps untuk semua area venue" },
-  { icon: <Coffee size={20} />, title: "F&B Lounge", desc: "Kafe premium dengan menu spesial dan minuman segar" },
-  { icon: <Car size={20} />, title: "Parkir Luas", desc: "Area parkir aman untuk 50+ kendaraan" },
-  { icon: <Shield size={20} />, title: "CCTV 24 Jam", desc: "Keamanan venue terjaga sepanjang waktu" },
+const features = [
+  {
+    icon: <Zap size={22} />,
+    title: "16 Meja 9-ft Standar POBSI",
+    desc: "Menggunakan kain Simonis 860 Electric Blue dan bola Aramith Tournament Pro Cup untuk akurasi pantulan maksimal."
+  },
+  {
+    icon: <Tv size={22} />,
+    title: "Pencahayaan LED Anti-Shadow",
+    desc: "Lampu LED khusus turnamen yang merata tanpa bayangan stick, memberikan visibilitas tajam di setiap sudut."
+  },
+  {
+    icon: <Award size={22} />,
+    title: "VIP Private Rooms",
+    desc: "Ruang kedap suara ber-AC dengan sofa mewah, Smart TV 65-inch untuk streaming, dan layanan F&B eksklusif."
+  },
+  {
+    icon: <Coffee size={22} />,
+    title: "Vamos Cafe & Resto",
+    desc: "Sajian kopi mocktail, signature rice bowl, steak, snack platter, dan berbagai minuman dingin segar."
+  },
+  {
+    icon: <Wifi size={22} />,
+    title: "WiFi High-Speed 500Mbps",
+    desc: "Koneksi fiber ultra cepat untuk live streaming, mobile gaming, dan produktivitas para pengunjung."
+  },
+  {
+    icon: <Car size={22} />,
+    title: "Parkir Luas & Aman 24 Jam",
+    desc: "Area parkir mobil & motor yang aman dengan pengawasan security dan CCTV 24 jam nonstop."
+  }
 ];
 
-const tables = [
-  { type: "Pool / 9-Ball", count: 16, cloth: "Simonis 860 Electric Blue", price: "Rp 30.000/jam" },
-  { type: "Snooker", count: 4, cloth: "Strachan 6811 Tournament", price: "Rp 50.000/jam" },
-  { type: "VIP Table", count: 4, cloth: "Simonis 860 Championship Green", price: "Rp 80.000/jam" },
-];
-
-const hours = [
-  { day: "Senin – Jumat", time: "10:00 – 01:00" },
-  { day: "Sabtu", time: "09:00 – 02:00" },
-  { day: "Minggu", time: "09:00 – 00:00" },
-  { day: "Event / Turnamen", time: "Sesuai Jadwal" },
+const tariffs = [
+  {
+    name: "Regular Zone (9-ft)",
+    cloth: "Simonis 860 Electric Blue",
+    desc: "Arena utama biliar ber-AC dingin & meja standar turnamen",
+    rate: "Rp 35.000",
+    unit: "/ jam",
+    popular: false,
+    badge: "Open Arena"
+  },
+  {
+    name: "Happy Hour Package",
+    cloth: "Pukul 10:00 – 17:00 WITA",
+    desc: "Paket hemat main siang khusus pelajar, mahasiswa & member",
+    rate: "Rp 25.000",
+    unit: "/ jam",
+    popular: true,
+    badge: "Paling Hemat"
+  },
+  {
+    name: "VIP Private Room",
+    cloth: "Dedicated Tournament Table",
+    desc: "Ruang privat eksklusif + Smart TV 65-inch + Sound System",
+    rate: "Rp 75.000",
+    unit: "/ jam",
+    popular: false,
+    badge: "Eksklusif VIP"
+  }
 ];
 
 export default function VenueSection() {
   return (
-    <section id="venue" style={{ padding: "120px 0", position: "relative" }}>
-      {/* Background accent */}
+    <section id="venue" style={{ padding: "100px 0", position: "relative" }}>
+      {/* Divider Glow */}
       <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, height: "1px",
-        background: "linear-gradient(90deg, transparent, var(--border), transparent)",
+        position: "absolute",
+        top: 0,
+        left: "10%",
+        right: "10%",
+        height: "1px",
+        background: "linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.4), transparent)",
       }} />
-      <div className="bg-radial-green" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
 
-      <div className="container" style={{ position: "relative" }}>
-        {/* Header */}
-        <div style={{ marginBottom: "72px" }}>
-          <div className="section-label">🏟️ Venue</div>
+      <div className="container" style={{ position: "relative", zIndex: 5 }}>
+        {/* Section Header */}
+        <div style={{ textAlign: "center", marginBottom: "64px" }}>
+          <div className="section-label">🏟️ THE ARENA & FACILITY</div>
           <h2 className="section-title">
-            Fasilitas <span className="gold-text">Kelas Dunia</span>
+            Fasilitas <span className="gold-text">Kelas Dunia</span> di Setiap Sudut
           </h2>
-          <p className="section-desc">
-            Didesain untuk pengalaman bermain terbaik. Setiap detail dipilih dengan cermat untuk memastikan kenyamanan dan performa optimal.
+          <p className="section-desc" style={{ margin: "0 auto" }}>
+            Setiap meja dan fasilitas di Vamos Smart Arena dirancang untuk memenuhi standar kompetisi biliar profesional Indonesia.
           </p>
         </div>
 
-        {/* Facilities Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px", marginBottom: "80px" }}>
-          {facilities.map((f, i) => (
-            <div key={i} className="glass-card" style={{ padding: "28px", display: "flex", gap: "16px", alignItems: "flex-start" }}>
+        {/* Feature Cards Grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "20px",
+          marginBottom: "80px",
+        }}>
+          {features.map((item, idx) => (
+            <div key={idx} className="glass-card" style={{
+              padding: "28px 24px",
+              background: "rgba(10, 16, 32, 0.7)",
+              border: "1px solid rgba(0, 240, 255, 0.15)",
+            }}>
               <div style={{
-                width: 44, height: 44, borderRadius: "10px", flexShrink: 0,
-                background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--gold)",
+                width: "48px",
+                height: "48px",
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(0, 102, 255, 0.2))",
+                border: "1px solid rgba(0, 240, 255, 0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00F0FF",
+                marginBottom: "20px",
               }}>
-                {f.icon}
+                {item.icon}
               </div>
-              <div>
-                <h3 style={{ fontFamily: "Montserrat", fontWeight: 700, fontSize: "15px", marginBottom: "6px", color: "var(--text-primary)" }}>
-                  {f.title}
-                </h3>
-                <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                  {f.desc}
-                </p>
-              </div>
+              <h3 style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontSize: "17px",
+                fontWeight: 700,
+                color: "#F1F5F9",
+                marginBottom: "10px",
+              }}>
+                {item.title}
+              </h3>
+              <p style={{ fontSize: "13px", color: "#94A3B8", lineHeight: 1.6 }}>
+                {item.desc}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* Tables & Hours */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
-          {/* Tables */}
-          <div className="glass-card" style={{ padding: "40px" }}>
-            <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: "20px", marginBottom: "8px" }}>
-              Tipe Meja
-            </h3>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px" }}>Spesifikasi lengkap setiap meja</p>
-            <table className="table-gold">
-              <thead>
-                <tr>
-                  <th>Tipe</th>
-                  <th style={{ textAlign: "center" }}>Unit</th>
-                  <th style={{ textAlign: "right" }}>Tarif</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tables.map((t, i) => (
-                  <tr key={i}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "14px" }}>{t.type}</div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>{t.cloth}</div>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span className="badge" style={{ fontSize: "12px" }}>{t.count}</span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <span className="gold-text" style={{ fontFamily: "Montserrat", fontWeight: 700, fontSize: "14px", WebkitTextFillColor: "var(--gold)" }}>
-                        {t.price}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Pricing / Tariff Cards Header */}
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "rgba(0, 240, 255, 0.08)",
+            padding: "6px 14px",
+            borderRadius: "100px",
+            color: "#00F0FF",
+            fontSize: "12px",
+            fontWeight: 700,
+            textTransform: "uppercase",
+            marginBottom: "12px"
+          }}>
+            <Sparkles size={14} />
+            <span>Tarif & Paket Main</span>
           </div>
+          <h3 style={{
+            fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)",
+            fontFamily: "Montserrat",
+            fontWeight: 800,
+            color: "#F1F5F9",
+          }}>
+            Harga Sewa Meja Transparan
+          </h3>
+        </div>
 
-          {/* Hours + Location */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div className="glass-card" style={{ padding: "36px", flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "24px" }}>
-                <Clock size={18} color="var(--gold)" />
-                <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: "18px" }}>Jam Operasional</h3>
-              </div>
-              {hours.map((h, i) => (
-                <div key={i} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "12px 0",
-                  borderBottom: i < hours.length - 1 ? "1px solid var(--border-subtle)" : "none",
+        {/* Tariff Cards Grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "24px",
+        }}>
+          {tariffs.map((t, idx) => (
+            <div key={idx} className="glass-card" style={{
+              padding: "36px 28px",
+              position: "relative",
+              background: t.popular ? "rgba(10, 28, 54, 0.9)" : "rgba(10, 16, 32, 0.7)",
+              border: t.popular ? "2px solid #00F0FF" : "1px solid rgba(0, 240, 255, 0.18)",
+              boxShadow: t.popular ? "0 0 35px rgba(0, 240, 255, 0.25)" : "none",
+            }}>
+              {t.popular && (
+                <div style={{
+                  position: "absolute",
+                  top: "-12px",
+                  right: "24px",
+                  background: "linear-gradient(135deg, #00F0FF, #0066FF)",
+                  color: "#040811",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  fontFamily: "Montserrat",
+                  padding: "4px 12px",
+                  borderRadius: "100px",
+                  textTransform: "uppercase",
                 }}>
-                  <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{h.day}</span>
-                  <span style={{ fontFamily: "Montserrat", fontWeight: 700, fontSize: "13px", color: "var(--gold)" }}>{h.time}</span>
+                  {t.badge}
                 </div>
-              ))}
-            </div>
+              )}
 
-            <div className="glass-card" style={{ padding: "36px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-                <MapPin size={18} color="var(--gold)" />
-                <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: "18px" }}>Lokasi</h3>
+              <div style={{ fontSize: "12px", color: "#00F0FF", fontWeight: 700, textTransform: "uppercase", marginBottom: "8px" }}>
+                {t.badge}
               </div>
-              <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "16px" }}>
-                Jl. Boulevard Raya No. 88, Panakukang, Makassar, Sulawesi Selatan 90231
+
+              <h4 style={{
+                fontFamily: "Montserrat",
+                fontSize: "20px",
+                fontWeight: 800,
+                color: "#F1F5F9",
+                marginBottom: "4px",
+              }}>
+                {t.name}
+              </h4>
+              <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "24px" }}>
+                {t.cloth}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "20px" }}>
+                <span style={{
+                  fontFamily: "Montserrat",
+                  fontSize: "32px",
+                  fontWeight: 900,
+                  color: "#F1F5F9",
+                }}>
+                  {t.rate}
+                </span>
+                <span style={{ fontSize: "14px", color: "#94A3B8" }}>
+                  {t.unit}
+                </span>
+              </div>
+
+              <p style={{ fontSize: "13px", color: "#94A3B8", lineHeight: 1.6, marginBottom: "28px" }}>
+                {t.desc}
               </p>
+
               <a
-                href="https://maps.google.com"
+                href={`https://wa.me/62811444000?text=Halo%20Vamos%20Pool,%20saya%20ingin%20booking%20${encodeURIComponent(t.name)}`}
                 target="_blank"
-                className="btn-outline"
-                style={{ padding: "10px 20px", fontSize: "12px", display: "inline-block" }}
-                id="venue-maps-link"
+                rel="noopener noreferrer"
+                className={t.popular ? "btn-gold" : "btn-outline"}
+                style={{
+                  width: "100%",
+                  textAlign: "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "12px",
+                  fontSize: "13px",
+                }}
               >
-                Buka di Maps
+                <span>Pesan Meja Ini</span>
+                <ChevronRight size={16} />
               </a>
             </div>
-          </div>
+          ))}
         </div>
       </div>
-
-      <style>{`
-        @media (max-width: 768px) {
-          #venue .container > div:last-child {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }

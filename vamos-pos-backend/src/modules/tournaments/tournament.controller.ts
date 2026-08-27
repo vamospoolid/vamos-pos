@@ -95,6 +95,13 @@ export const resetBracket = catchAsync(async (req: AuthRequest, res: Response) =
     res.json({ success: true, data: dt });
 });
 
+export const reshuffleBracket = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const dt = await TournamentService.reshuffleBracket(id);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: dt });
+});
+
 export const removeParticipant = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id, participantId } = req.params;
     const dt = await TournamentService.removeParticipant(id, participantId);
