@@ -1774,7 +1774,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
             {activeTab === 'inventory' && <Inventory />}
             {activeTab === 'kds' && <KDS />}
-            {activeTab === 'fnb-order' && <FnBOrder onOpenCheckout={openCheckout} />}
+            {activeTab === 'fnb-order' && <FnBOrder onOpenCheckout={openCheckout} onRefresh={fetchData} />}
             {activeTab === 'waitlist' && <Waitlist tables={tables} members={members} />}
             {activeTab === 'pricing' && <Pricing />}
             {activeTab === 'discounts' && <Discounts />}

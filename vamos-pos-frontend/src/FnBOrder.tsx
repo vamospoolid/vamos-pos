@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from './api';
 import { vamosAlert } from './utils/dialog';
-import { Utensils, Search, Minus, Plus, ShoppingBag, User, DollarSign, Loader2 } from 'lucide-react';
+import { Utensils, Search, Minus, Plus, ShoppingBag, User, DollarSign, Loader2, Clock } from 'lucide-react';
 
 export const getProductEmojiAndStyle = (name: string, category: string) => {
     const lowerName = name.toLowerCase();
@@ -63,7 +63,7 @@ export const getProductEmojiAndStyle = (name: string, category: string) => {
     return { emoji, gradient, border, badgeBg };
 };
 
-export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: any) => void } = {}) {
+export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout?: (bill: any) => void; onRefresh?: () => void } = {}) {
     const [products, setProducts] = useState<any[]>([]);
     const [cart, setCart] = useState<{ product: any, qty: number }[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -78,10 +78,18 @@ export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: a
     const [payMethod, setPayMethod] = useState<'CASH' | 'QRIS' | 'DEBIT'>('CASH');
     const [receivedAmount, setReceivedAmount] = useState(0);
     const [tempSessionId, setTempSessionId] = useState<string | null>(null);
+    const [isCartVisible, setIsCartVisible] = useState(false);
 
     useEffect(() => {
         fetchProducts();
         fetchMembers();
+        const cartEl = document.getElementById('fnb-cart-section');
+        if (!cartEl) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            setIsCartVisible(entry.isIntersecting);
+        }, { threshold: 0.15 });
+        observer.observe(cartEl);
+        return () => observer.disconnect();
     }, []);
 
     const fetchMembers = async () => {
@@ -152,9 +160,18 @@ export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: a
 
             if (isDirectPay) {
                 if (onOpenCheckout) {
-                    const billRes = await api.get(`/sessions/${newSessionId}`);
+                    let billData: any = null;
+                    try {
+                        const billRes = await api.get(`/sessions/${newSessionId}`);
+                        billData = billRes.data?.data || billRes.data;
+                    } catch (e) {
+                        const pendingRes = await api.get('/sessions/pending');
+                        const sessionsList = Array.isArray(pendingRes.data) ? pendingRes.data : (pendingRes.data?.data || []);
+                        billData = sessionsList.find((s: any) => s.id === newSessionId) || sessionRes.data;
+                    }
                     resetForm();
-                    onOpenCheckout(billRes.data.data || billRes.data || sessionRes.data);
+                    onRefresh?.();
+                    onOpenCheckout(billData);
                 } else {
                     setTempSessionId(newSessionId);
                     setShowPaymentModal(true);
@@ -163,6 +180,7 @@ export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: a
             } else {
                 vamosAlert('Tagihan F&B berhasil di-HOLD & disimpan ke Pending Bills!');
                 resetForm();
+                onRefresh?.();
             }
         } catch (err: any) {
             console.error('Order Error:', err);
@@ -417,7 +435,7 @@ export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: a
                 </div>
 
                 {/* Footer Checkout */}
-                <div className="p-6 pb-28 lg:pb-6 border-t border-[#271d17] bg-[#0c0908] space-y-4">
+                <div className="p-4 sm:p-6 pb-36 lg:pb-6 border-t border-[#271d17] bg-[#0c0908] space-y-4">
                     <div className="flex justify-between items-center mb-1">
                         <span className="text-gray-500 font-black uppercase tracking-widest text-[9px]">Grand Total Order</span>
                         <span className="text-xl font-mono font-black text-[#e3a87c] tracking-tighter">
@@ -425,30 +443,38 @@ export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: a
                         </span>
                     </div>
 
-                    <button
-                        onClick={() => handlePlaceOrder(true)}
-                        disabled={loading || cart.length === 0}
-                        className={`w-full py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-3 transition-all ${(loading || cart.length === 0)
-                            ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
-                            : 'bg-[#d48c5c] text-[#0c0908] hover:bg-[#e39c6c] shadow-[0_6px_20px_rgba(212,140,92,0.2)] active:scale-[0.98]'
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                        <button
+                            type="button"
+                            onClick={() => handlePlaceOrder(false)}
+                            disabled={loading || cart.length === 0}
+                            className={`py-3.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 uppercase tracking-wider transition-all ${(loading || cart.length === 0)
+                                ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                                : 'bg-amber-500/15 border-2 border-amber-500/50 text-amber-400 hover:text-white hover:bg-amber-500/25 active:scale-95 shadow-md shadow-amber-950/30'
                             }`}
-                    >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
-                        BAYAR SEKARANG
-                    </button>
+                        >
+                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span>HOLD BILL</span>
+                        </button>
 
-                    <button
-                        onClick={() => handlePlaceOrder(false)}
-                        disabled={loading || cart.length === 0}
-                        className="w-full py-3 rounded-xl font-black text-xs bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:text-white hover:bg-amber-500/20 active:scale-95 transition-all uppercase tracking-wider shadow-sm"
-                    >
-                        HOLD / PENDING BILL
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => handlePlaceOrder(true)}
+                            disabled={loading || cart.length === 0}
+                            className={`py-3.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 uppercase tracking-wider transition-all ${(loading || cart.length === 0)
+                                ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                                : 'bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0c0908] hover:brightness-110 active:scale-95 shadow-[0_6px_20px_rgba(212,140,92,0.3)]'
+                            }`}
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <DollarSign className="w-4 h-4 shrink-0" />}
+                            <span>BAYAR SEKARANG</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Floating Mobile Cart Indicator */}
-            {cart.length > 0 && (
+            {cart.length > 0 && !isCartVisible && (
                 <div className="lg:hidden fixed bottom-[76px] left-3 right-3 z-40 bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0d0a08] p-3.5 rounded-2xl flex items-center justify-between shadow-[0_8px_30px_rgba(212,140,92,0.4)] border border-amber-300/30 animate-in slide-in-from-bottom-4 duration-200">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center font-black text-xs">

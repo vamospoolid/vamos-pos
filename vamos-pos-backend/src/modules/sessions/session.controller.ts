@@ -105,6 +105,13 @@ export const getPending = catchAsync(async (req: Request, res: Response) => {
     res.json(sessions);
 });
 
+export const getSessionById = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const session = await SessionService.getSessionById(id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    res.json(session);
+});
+
 export const createFnbOnly = catchAsync(async (req: AuthRequest, res: Response) => {
     const { memberId, customerName } = req.body;
     const session = await SessionService.createFnbSession(req.user!.id, memberId, customerName);

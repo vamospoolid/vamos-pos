@@ -4,6 +4,7 @@ import { RelayService } from '../relay/relay.service';
 import { PricingService } from '../pricing/pricing.service';
 import { AuditService } from '../audit/audit.service';
 import { MemberService } from '../members/member.service';
+import { ProductService } from '../products/product.service';
 import { getIO } from '../../socket';
 import { logger } from '../../utils/logger';
 
@@ -45,8 +46,22 @@ export class SessionService {
                 select: { id: true, status: true, relayChannel: true, type: true }
             });
 
-            if (!table || table.status !== 'AVAILABLE') {
+            if (!table) {
+                throw new AppError('Meja tidak ditemukan!', 404);
+            }
+
+            if (table.status !== 'AVAILABLE') {
                 throw new AppError('Meja sudah terisi atau tidak tersedia!', 400);
+            }
+
+            // 1b. Cek apakah ada sesi aktif yang sudah berjalan di meja ini (misalnya order F&B dari Waiter sebelum biliar dimulai)
+            const existingActiveSession = await tx.session.findFirst({
+                where: { tableId, status: 'ACTIVE' },
+                include: { table: true }
+            });
+
+            if (existingActiveSession && existingActiveSession.billingType !== 'FNB_ONLY') {
+                throw new AppError('Meja sudah memiliki sesi biliar aktif!', 400);
             }
 
             // 2. Hitung durasi & harga
@@ -74,28 +89,48 @@ export class SessionService {
                 tableAmount = overrideAmount;
             }
 
-            // 3. Buat Sesi & Update Meja serentak
-            const newSession = await tx.session.create({
-                data: {
-                    tableId,
-                    packageId,
-                    memberId,
-                    durationOpts: Number(durationOpts),
-                    tableAmount,
-                    fnbIncluded,
-                    status: 'ACTIVE',
-                    cashierId: userId,
-                    billingType: billingType || null,
-                },
-                include: { table: true }
-            });
+            // 3. Buat Sesi Baru atau Auto-Merge jika sebelumnya sudah ada sesi FNB_ONLY dari waiter
+            let sessionResult;
+            if (existingActiveSession && existingActiveSession.billingType === 'FNB_ONLY') {
+                // Auto-upgrade: Gabungkan billing biliar ke sesi yang sudah menampung order F&B waiter
+                sessionResult = await tx.session.update({
+                    where: { id: existingActiveSession.id },
+                    data: {
+                        packageId: packageId || null,
+                        memberId: memberId || existingActiveSession.memberId,
+                        durationOpts: durationOpts ? Number(durationOpts) : null,
+                        tableAmount,
+                        fnbIncluded,
+                        cashierId: userId,
+                        billingType: billingType || null,
+                        startTime: new Date(),
+                        totalAmount: (existingActiveSession.fnbAmount || 0) + tableAmount,
+                    },
+                    include: { table: true }
+                });
+            } else {
+                sessionResult = await tx.session.create({
+                    data: {
+                        tableId,
+                        packageId,
+                        memberId,
+                        durationOpts: durationOpts ? Number(durationOpts) : null,
+                        tableAmount,
+                        fnbIncluded,
+                        status: 'ACTIVE',
+                        cashierId: userId,
+                        billingType: billingType || null,
+                    },
+                    include: { table: true }
+                });
+            }
 
             await tx.table.update({
                 where: { id: tableId },
                 data: { status: 'PLAYING' }
             });
 
-            return newSession;
+            return sessionResult;
         });
 
         // 4. FIRE-AND-FORGET (Diluar transaksi agar tidak membebani DB)
@@ -109,7 +144,93 @@ export class SessionService {
         emitSocket('session:start', { sessionId: session.id, tableId, status: 'ACTIVE' });
         emitSocket('table:update', { tableId, status: 'PLAYING' });
 
+        // Auto-Deduct & KDS Order for Package Combo F&B items
+        if (session.fnbIncluded) {
+            SessionService.processPackageComboFnb(session.id, session.fnbIncluded, session.table?.name || 'Walk-In').catch(err => {
+                logger.error(`[PACKAGE_FNB_ERROR] Gagal memproses FnB paket sesi ${session.id}: ${err.message}`);
+            });
+        }
+
         return session;
+    }
+
+    /**
+     * Memproses F&B include dari paket meja biliar (Combo Table).
+     * Otomatis membuatkan Order tiket ke dapur/KDS dan memotong stok bahan baku resep via ProductService.
+     */
+    static async processPackageComboFnb(sessionId: string, fnbIncluded: string, tableName: string) {
+        if (!fnbIncluded || typeof fnbIncluded !== 'string') return;
+
+        let comboList: Array<{ productId?: string; productName?: string; quantity: number }> = [];
+
+        // 1. Try parsing JSON format
+        if (fnbIncluded.trim().startsWith('[') && fnbIncluded.trim().endsWith(']')) {
+            try {
+                comboList = JSON.parse(fnbIncluded);
+            } catch (e) {
+                comboList = [];
+            }
+        }
+
+        // 2. If not JSON, parse text pattern e.g. "2x Kopi Susu, 1x Snack" or "Kopi Susu"
+        if (comboList.length === 0) {
+            const rawParts = fnbIncluded.split(',').map(s => s.trim()).filter(Boolean);
+            for (const part of rawParts) {
+                const match = part.match(/^(\d+)\s*[xX]?\s*(.+)$/);
+                let qty = 1;
+                let name = part;
+                if (match) {
+                    qty = parseInt(match[1]) || 1;
+                    name = match[2].trim();
+                }
+
+                const matchedProduct = await prisma.product.findFirst({
+                    where: {
+                        name: { contains: name, mode: 'insensitive' },
+                        deletedAt: null
+                    }
+                });
+
+                if (matchedProduct) {
+                    comboList.push({
+                        productId: matchedProduct.id,
+                        productName: matchedProduct.name,
+                        quantity: qty
+                    });
+                }
+            }
+        }
+
+        for (const item of comboList) {
+            if (!item.productId || !item.quantity || item.quantity <= 0) continue;
+
+            const product = await prisma.product.findUnique({
+                where: { id: item.productId }
+            });
+            if (!product) continue;
+
+            // 1. Create order record with price 0 (included in table rental package)
+            await prisma.order.create({
+                data: {
+                    sessionId,
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    price: 0,
+                    total: 0,
+                    kdsStatus: 'PENDING'
+                }
+            });
+
+            // 2. Deduct product stock & recipe ingredients
+            await ProductService.updateStock(
+                item.productId,
+                -item.quantity,
+                'SALE',
+                `Include Paket Meja: ${tableName}`
+            );
+        }
+
+        emitSocket('order:new', { sessionId, tableName });
     }
 
 
@@ -171,6 +292,12 @@ export class SessionService {
             }
         });
 
+        if (extraFnb) {
+            SessionService.processPackageComboFnb(sessionId, extraFnb, session.table?.name || 'Walk-In').catch(err => {
+                logger.error(`[PACKAGE_FNB_ERROR] Gagal memproses FnB perpanjangan paket sesi ${sessionId}: ${err.message}`);
+            });
+        }
+
         await AuditService.log(userId, 'SESSION_ADD_DURATION', 'Session', { sessionId, extraDuration, extraAmount });
         emitSocket('session:update', { sessionId, type: 'ADD_DURATION', extraDuration });
         return updatedSession;
@@ -185,10 +312,12 @@ export class SessionService {
         const isMember = !!session.memberId;
         let tableAmount = session.tableAmount;
 
-        // Calculate Open Time billing ONLY if no package and no custom duration was pre-selected
-        if (!session.packageId && !session.durationOpts && session.table) {
+        // Calculate Open Time billing ONLY if no package, no custom duration, and NOT FNB_ONLY or CAFE
+        if (!session.packageId && !session.durationOpts && session.table && session.billingType !== 'FNB_ONLY' && session.table.type !== 'CAFE') {
             const calculationType = session.billingType || session.table.type;
             tableAmount = await PricingService.calculateTableAmount(calculationType, session.startTime, endTime, isMember);
+        } else if (session.billingType === 'FNB_ONLY' || session.table?.type === 'CAFE') {
+            tableAmount = 0;
         }
 
         const updatedSession = await prisma.session.update({
@@ -323,8 +452,8 @@ export class SessionService {
         // WA NOTIFICATION RECEIPT
         if (memberId) {
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const member = await prisma.member.findUnique({ where: { id: memberId } });
                 if (member && member.phone) {
                     const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
@@ -537,8 +666,8 @@ export class SessionService {
         // WA receipt for member
         if (memberId) {
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const member = await prisma.member.findUnique({ where: { id: memberId } });
                 if (member && member.phone) {
                     const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
@@ -633,6 +762,17 @@ export class SessionService {
                 } : null,
                 orders: ordersBySession.get(s.id) || []
             };
+        });
+    }
+
+    static async getSessionById(id: string) {
+        return prisma.session.findUnique({
+            where: { id },
+            include: {
+                table: { include: { venue: true } },
+                member: true,
+                orders: { include: { product: true } }
+            }
         });
     }
 
