@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { ProductService } from '../products/product.service';
 
 export class OrderService {
-    static async addOrder(sessionId: string, productId: string, quantity: number, userId: string) {
+    static async addOrder(sessionId: string, productId: string, quantity: number, userId: string, notes?: string) {
         const session = await prisma.session.findUnique({ where: { id: sessionId }, include: { table: true } });
         if (!session || !['ACTIVE', 'PENDING', 'FINISHED'].includes(session.status)) {
             throw new AppError('Cannot add orders to this session', 400);
@@ -15,7 +15,7 @@ export class OrderService {
         await ProductService.validateStock(productId, quantity);
 
         const checkExisting = await prisma.order.findFirst({
-            where: { sessionId, productId }
+            where: { sessionId, productId, notes: notes ? notes.trim() : null }
         });
 
         let order;
@@ -35,12 +35,14 @@ export class OrderService {
                     quantity,
                     price: product.price,
                     total: product.price * quantity,
+                    notes: notes ? notes.trim() : null,
                 }
             });
         }
 
         const sessionDesc = session.customerName ? session.customerName : (session.table ? `Meja ${session.table.name}` : `Walk-In (${session.id.substring(0,6)})`);
-        await ProductService.updateStock(productId, -quantity, 'SALE', `Penjualan - ${sessionDesc}`);
+        const notesSuffix = notes ? ` [${notes.trim()}]` : '';
+        await ProductService.updateStock(productId, -quantity, 'SALE', `Penjualan - ${sessionDesc}${notesSuffix}`);
 
         const fnbTotal = await prisma.order.aggregate({
             where: { sessionId },
@@ -77,11 +79,19 @@ export class OrderService {
         });
 
         const currentSession = await prisma.session.findUnique({ where: { id: order.sessionId } });
+        const remainingFnb = fnbTotal._sum.total || 0;
+        const remainingTable = currentSession?.tableAmount || 0;
+        const newTotal = remainingFnb + remainingTable;
+
+        // Jika sesi FNB_ONLY semua pesanannya dibatalkan (total Rp 0), tandai CANCELLED agar tidak jadi tagihan hantu di kasir
+        const isFnbOnlyEmpty = (!currentSession?.tableId || currentSession?.billingType === 'FNB_ONLY') && remainingFnb === 0 && remainingTable === 0;
+
         await prisma.session.update({
             where: { id: order.sessionId },
             data: {
-                fnbAmount: fnbTotal._sum.total || 0,
-                totalAmount: (fnbTotal._sum.total || 0) + (currentSession?.tableAmount || 0)
+                status: isFnbOnlyEmpty ? 'CANCELLED' : currentSession?.status,
+                fnbAmount: remainingFnb,
+                totalAmount: newTotal
             }
         });
 
@@ -89,7 +99,31 @@ export class OrderService {
         return { success: true };
     }
 
-    static async getKDSOrders() {
+    static async getKDSOrders(status: string = 'active') {
+        if (status === 'history') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            return await prisma.order.findMany({
+                where: {
+                    kdsStatus: 'SERVED',
+                    updatedAt: { gte: today }
+                },
+                include: {
+                    product: true,
+                    session: {
+                        include: {
+                            table: true
+                        }
+                    }
+                },
+                orderBy: {
+                    updatedAt: 'desc'
+                },
+                take: 100
+            });
+        }
+
         return await prisma.order.findMany({
             where: {
                 kdsStatus: {
@@ -106,6 +140,30 @@ export class OrderService {
             },
             orderBy: {
                 createdAt: 'asc'
+            }
+        });
+    }
+
+    static async serveSessionKDS(sessionId: string) {
+        return await prisma.order.updateMany({
+            where: {
+                sessionId,
+                kdsStatus: { not: 'SERVED' }
+            },
+            data: {
+                kdsStatus: 'SERVED'
+            }
+        });
+    }
+
+    static async revertSessionKDS(sessionId: string) {
+        return await prisma.order.updateMany({
+            where: {
+                sessionId,
+                kdsStatus: 'SERVED'
+            },
+            data: {
+                kdsStatus: 'PENDING'
             }
         });
     }
