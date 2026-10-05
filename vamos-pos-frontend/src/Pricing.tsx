@@ -20,19 +20,35 @@ export default function Pricing() {
     });
 
     const [editingPackage, setEditingPackage] = useState<any>(null);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
     const [packageForm, setPackageForm] = useState({
         name: '', tableType: 'REGULAR', duration: 120, price: 0, memberPrice: 0,
         fnbItems: '', startTime: '00:00', endTime: '23:59', dayOfWeek: [0, 1, 2, 3, 4, 5, 6], isActive: true
     });
 
+    const formatFnbItems = (fnbStr?: string) => {
+        if (!fnbStr) return null;
+        if (fnbStr.trim().startsWith('[') && fnbStr.trim().endsWith(']')) {
+            try {
+                const parsed = JSON.parse(fnbStr);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((item: any) => `${item.quantity || 1}x ${item.productName || 'Item'}`).join(', ');
+                }
+            } catch (e) { }
+        }
+        return fnbStr;
+    };
+
     const fetchData = async () => {
         try {
-            const [rRes, pRes] = await Promise.all([
+            const [rRes, pRes, prodRes] = await Promise.all([
                 api.get('/pricing/rules'),
-                api.get('/pricing/packages')
+                api.get('/pricing/packages'),
+                api.get('/products')
             ]);
             setRules(rRes.data.data);
             setPackages(pRes.data.data);
+            setAvailableProducts(prodRes.data.data || []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -215,7 +231,7 @@ export default function Pricing() {
                                                     </div>
                                                     <div>
                                                         <div className="font-bold text-white">{p.name}</div>
-                                                        {p.fnbItems && <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-0.5">+ {p.fnbItems}</div>}
+                                                        {p.fnbItems && <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-0.5">+ {formatFnbItems(p.fnbItems)}</div>}
                                                     </div>
                                                 </div>
                                             </td>
@@ -409,8 +425,37 @@ export default function Pricing() {
 
                             <div className="p-5 bg-black/40 rounded-2xl border border-white/[0.03] space-y-5">
                                 <div>
-                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 pl-1">F&B Inclusions</label>
-                                    <input type="text" value={packageForm.fnbItems || ''} onChange={e => setPackageForm({ ...packageForm, fnbItems: e.target.value })} className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00aaff] font-bold text-emerald-400 text-sm" placeholder="e.g. Free Teh Pucuk" />
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 pl-1">F&B Inclusions (Include Menu FnB Combo)</label>
+                                    <input 
+                                        type="text" 
+                                        value={packageForm.fnbItems || ''} 
+                                        onChange={e => setPackageForm({ ...packageForm, fnbItems: e.target.value })} 
+                                        className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-[#00aaff] font-bold text-emerald-400 text-sm" 
+                                        placeholder="Contoh: 2x Kopi Susu Gula Aren, 1x French Fries" 
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1 italic">
+                                        * Saat sesi biliar paket ini dimulai, stok & bahan baku resep dari menu yang cocok akan terpotong otomatis dan order langsung masuk ke KDS dapur barista.
+                                    </p>
+                                    {availableProducts.length > 0 && (
+                                        <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Pilih Cepat Menu:</span>
+                                            {availableProducts.slice(0, 6).map((prod) => (
+                                                <button
+                                                    key={prod.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = packageForm.fnbItems ? packageForm.fnbItems.trim() : '';
+                                                        const addition = `1x ${prod.name}`;
+                                                        const nextVal = current ? `${current}, ${addition}` : addition;
+                                                        setPackageForm({ ...packageForm, fnbItems: nextVal });
+                                                    }}
+                                                    className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-bold transition-all"
+                                                >
+                                                    + {prod.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

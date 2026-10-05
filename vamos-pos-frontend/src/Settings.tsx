@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw, Trophy, QrCode, Utensils } from 'lucide-react';
+import { Loader2, Save, MapPin, Activity, Plus, Edit2, Trash2, UserCog, Key, Shield, Table, Database, RefreshCw, Download, MessageSquare, Lightbulb, RotateCcw, Trophy, QrCode, Utensils, Bluetooth, BluetoothConnected, BluetoothOff } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
-import { QRCodeSVG } from 'qrcode.react';
+import { useBluetooth } from './utils/useBluetooth';
 
 export default function Settings() {
     const [tables, setTables] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // Bluetooth Printer
+    const btPrinter = useBluetooth();
 
     // Form Venue 
     const [venueForm, setVenueForm] = useState({
@@ -81,30 +83,29 @@ export default function Settings() {
             if (lRes.data.success) setLoyaltyConfig(lRes.data.data);
 
             if (vRes.data.data.length > 0) {
-                // Prioritize "Serpong" or use the first one if not found
-                const serpongVenue = vRes.data.data.find((v: any) => v.name.toLowerCase().includes('serpong')) || vRes.data.data[0];
+                const activeVenue = vRes.data.data.find((v: any) => v.tables?.length > 0) || vRes.data.data.find((v: any) => v.name.toLowerCase().includes('wonomulyo')) || vRes.data.data[0];
                 setVenueForm({
-                    id: serpongVenue.id,
-                    name: serpongVenue.name,
-                    address: serpongVenue.address || '',
-                    openTime: serpongVenue.openTime,
-                    closeTime: serpongVenue.closeTime,
-                    relayComPort: serpongVenue.relayComPort || 'COM3',
-                    printerPath: serpongVenue.printerPath || 'RP58 Printer',
-                    printerWidth: serpongVenue.printerWidth ?? 32,
-                    taxPercent: serpongVenue.taxPercent ?? 11,
-                    servicePercent: serpongVenue.servicePercent ?? 5,
-                    blinkWarningMinutes: serpongVenue.blinkWarningMinutes ?? 5,
-                    isSyncEnabled: serpongVenue.isSyncEnabled ?? true,
-                    syncIntervalSeconds: serpongVenue.syncIntervalSeconds ?? 30,
-                    splashImageUrl: serpongVenue.splashImageUrl || '',
-                    qrisImageUrl: serpongVenue.qrisImageUrl || '',
-                    logoUrl: serpongVenue.logoUrl || '',
-                    phone: serpongVenue.phone || '',
-                    waVerificationText: serpongVenue.waVerificationText || '',
-                    isRelayEnabled: serpongVenue.isRelayEnabled ?? true,
-                    timezoneOffset: serpongVenue.timezoneOffset ?? 8,
-                    isRecipeSystemEnabled: serpongVenue.isRecipeSystemEnabled ?? false
+                    id: activeVenue.id,
+                    name: activeVenue.name,
+                    address: activeVenue.address || '',
+                    openTime: activeVenue.openTime,
+                    closeTime: activeVenue.closeTime,
+                    relayComPort: activeVenue.relayComPort || 'COM3',
+                    printerPath: activeVenue.printerPath || 'RP58 Printer',
+                    printerWidth: activeVenue.printerWidth ?? 32,
+                    taxPercent: activeVenue.taxPercent ?? 11,
+                    servicePercent: activeVenue.servicePercent ?? 5,
+                    blinkWarningMinutes: activeVenue.blinkWarningMinutes ?? 5,
+                    isSyncEnabled: activeVenue.isSyncEnabled ?? true,
+                    syncIntervalSeconds: activeVenue.syncIntervalSeconds ?? 30,
+                    splashImageUrl: activeVenue.splashImageUrl || '',
+                    qrisImageUrl: activeVenue.qrisImageUrl || '',
+                    logoUrl: activeVenue.logoUrl || '',
+                    phone: activeVenue.phone || '',
+                    waVerificationText: activeVenue.waVerificationText || '',
+                    isRelayEnabled: activeVenue.isRelayEnabled ?? true,
+                    timezoneOffset: activeVenue.timezoneOffset ?? 8,
+                    isRecipeSystemEnabled: activeVenue.isRecipeSystemEnabled ?? true
                 });
             }
         } catch (err) {
@@ -700,6 +701,81 @@ export default function Settings() {
                                         <Save className="w-4 h-4 mr-2" /> Save Hardware Config
                                     </button>
                                 </div>
+                                {/* Bluetooth Printer Section */}
+                                {btPrinter.isSupported && (
+                                    <div className="mt-4 p-4 rounded-xl" style={{ background: '#0a0a1a', border: '1px solid #1e3a5f' }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                {btPrinter.isConnected
+                                                    ? <BluetoothConnected className="w-4 h-4" style={{ color: '#60a5fa' }} />
+                                                    : <Bluetooth className="w-4 h-4 text-gray-500" />}
+                                                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: btPrinter.isConnected ? '#60a5fa' : '#6b7280' }}>
+                                                    Bluetooth Printer
+                                                </span>
+                                                {btPrinter.isConnected && (
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#1e3a5f', color: '#60a5fa' }}>
+                                                        {btPrinter.deviceName || 'Terhubung'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {btPrinter.isConnected ? (
+                                                <button onClick={btPrinter.disconnect} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
+                                                    <BluetoothOff className="w-4 h-4" />
+                                                </button>
+                                            ) : null}
+                                        </div>
+                                        {btPrinter.errorMsg && (
+                                            <div className="mb-3 p-3 rounded-lg bg-red-950/40 border border-red-500/30 text-left">
+                                                <p className="text-xs text-red-400 font-semibold mb-1 flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block"></span>
+                                                    Status:
+                                                </p>
+                                                <p className="text-xs text-red-300 leading-relaxed">{btPrinter.errorMsg}</p>
+                                            </div>
+                                        )}
+                                        <p className="text-[10px] text-gray-500 mb-3">
+                                            Cetak struk langsung ke printer thermal Bluetooth (RPP, POS-58, Xprinter, dll) tanpa driver.
+                                            {btPrinter.lastKnownPrinterName && !btPrinter.isConnected && (
+                                                <span className="text-gray-600"> Terakhir: <em>{btPrinter.lastKnownPrinterName}</em></span>
+                                            )}
+                                        </p>
+                                        <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg mb-3" style={{ background: '#111827', border: '1px solid #1f2937' }}>
+                                            <span className="text-gray-400">Lebar Kertas Aktif:</span>
+                                            <span className="font-bold text-[#00ff66]">
+                                                {venueForm.printerWidth >= 40 ? `80mm (${venueForm.printerWidth} Karakter)` : `58mm (${venueForm.printerWidth} Karakter)`}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={btPrinter.scanAndConnect}
+                                                disabled={btPrinter.status === 'scanning'}
+                                                className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                                                style={{ background: btPrinter.isConnected ? '#1e3a5f' : '#1e3a5f', border: '1px solid #2563eb', color: '#60a5fa' }}
+                                            >
+                                                {btPrinter.status === 'scanning'
+                                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                    : <Bluetooth className="w-4 h-4" />}
+                                                {btPrinter.status === 'scanning' ? 'Menghubungkan...' : btPrinter.isConnected ? 'Reconnect' : 'Scan & Connect'}
+                                            </button>
+                                            {btPrinter.isConnected && (
+                                                <button
+                                                    onClick={async () => {
+                                                        const ok = await btPrinter.testPrint(venueForm.printerWidth || 32);
+                                                        if (ok) vamosAlert('Test print berhasil dikirim ke ' + btPrinter.deviceName + ` (${venueForm.printerWidth >= 40 ? '80mm' : '58mm'})`);
+                                                    }}
+                                                    disabled={btPrinter.isPrinting}
+                                                    className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                                                    style={{ background: '#14532d', border: '1px solid #16a34a', color: '#4ade80' }}
+                                                >
+                                                    {btPrinter.isPrinting
+                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                        : <BluetoothConnected className="w-4 h-4" />}
+                                                    Test BT Print
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {/* Inventory Configuration */}
@@ -799,19 +875,68 @@ export default function Settings() {
                             </div>
                             <div className="flex flex-col items-center justify-center bg-[#111] border border-[#222] rounded-xl p-6 min-h-[200px]">
                                 {waStatus.isReady ? (
-                                    <div className="text-center">
+                                    <div className="text-center w-full">
                                         <div className="w-16 h-16 bg-[#00ff66]/10 rounded-full flex items-center justify-center border border-[#00ff66]/30 mx-auto mb-4 relative">
                                             <div className="absolute inset-0 border border-[#00ff66] rounded-full animate-ping opacity-20"></div>
                                             <MessageSquare className="w-8 h-8 text-[#00ff66]" />
                                         </div>
-                                        <h3 className="font-bold text-white text-lg mb-1">WhatsApp Web Connect Data</h3>
-                                        <p className="text-xs text-gray-500 font-medium">Session is ready for sending automated transactional info.</p>
+                                        <h3 className="font-bold text-white text-lg mb-1">WhatsApp Web Terhubung</h3>
+                                        <p className="text-xs text-gray-500 font-medium mb-4">Sesi Baileys aktif & siap mengirim notifikasi transaksi otomatis.</p>
+                                        
+                                        {/* Test Message Box */}
+                                        <div className="bg-[#181818] border border-white/5 rounded-xl p-3 mb-4 max-w-sm mx-auto">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-left">Tes Kirim Pesan</p>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="08123456789"
+                                                    id="testWaPhoneInput"
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-green-500/50"
+                                                />
+                                                <button
+                                                    onClick={async () => {
+                                                        const el = document.getElementById('testWaPhoneInput') as HTMLInputElement;
+                                                        const phone = el?.value?.trim();
+                                                        if (!phone) {
+                                                            vamosAlert('Masukkan nomor WhatsApp tujuan (contoh: 08123456789)');
+                                                            return;
+                                                        }
+                                                        try {
+                                                            const res = await api.post('/whatsapp/send-test', { phone, message: 'Halo! Ini pesan tes dari Vamos POS WhatsApp Gateway (Baileys Engine).' });
+                                                            vamosAlert(res.data.message || 'Pesan tes berhasil dikirim!');
+                                                        } catch (e: any) {
+                                                            vamosAlert(e.response?.data?.message || 'Gagal mengirim pesan tes');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 bg-green-500/20 text-[#00ff66] border border-green-500/30 rounded-lg text-xs font-bold hover:bg-green-500 hover:text-black transition-all"
+                                                >
+                                                    Kirim
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={async () => {
+                                                if (await vamosConfirm("Putuskan koneksi WhatsApp? Anda perlu scan QR ulang untuk menghubungkan kembali.")) {
+                                                    try {
+                                                        await api.post('/whatsapp/reset');
+                                                        setWaStatus({ isReady: false, qr: null, isInitializing: true });
+                                                    } catch (e) {
+                                                        vamosAlert("Gagal mereset sesi WhatsApp");
+                                                    }
+                                                }
+                                            }}
+                                            className="text-[10px] font-black text-red-500/60 hover:text-red-500 uppercase tracking-widest border border-red-500/20 hover:border-red-500/50 px-3 py-1.5 rounded-lg transition-all"
+                                        >
+                                            Putuskan / Disconnect
+                                        </button>
                                     </div>
                                 ) : waStatus.qr ? (
                                     <div className="text-center w-full">
                                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Scan QR untuk Login Admin</p>
                                         <div className="bg-white p-3 rounded-xl inline-block mx-auto">
-                                            <QRCodeSVG value={waStatus.qr} size={150} />
+                                            {/* QR sekarang base64 PNG dari Baileys — cukup tampilkan sebagai <img> */}
+                                            <img src={waStatus.qr} alt="WhatsApp QR Code" width={150} height={150} style={{ display: 'block' }} />
                                         </div>
                                         <p className="text-[10px] text-gray-500 mt-4 leading-relaxed max-w-[200px] mx-auto">
                                             Buka WhatsApp di HP Anda, buka menu "Perangkat Tertaut" dan scan kode ini.
@@ -840,7 +965,7 @@ export default function Settings() {
                                         </p>
                                         <p className="text-[10px] text-gray-600 max-w-[200px] leading-relaxed">
                                             {waStatus.isInitializing
-                                                ? 'Puppeteer sedang menyiapkan browser. Harap tunggu 10-30 detik.'
+                                                ? 'Baileys sedang menginisialisasi sesi. Harap tunggu 5-15 detik.'
                                                 : 'QR Code belum muncul. Klik tombol di bawah untuk reinisialisasi.'}
                                         </p>
                                         <button

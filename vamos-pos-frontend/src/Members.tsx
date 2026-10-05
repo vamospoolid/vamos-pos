@@ -178,7 +178,7 @@ export default function Members() {
     });
 
     return (
-        <div className="fade-in">
+        <div className="fade-in pb-28 md:pb-8">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center">
                     {selectedIds.length > 0 && (
@@ -192,15 +192,15 @@ export default function Members() {
                 </div>
                 <button
                     onClick={() => { setEditingMember(null); setFormData({ name: '', phone: '', photo: '', handicap: '3', handicapLabel: 'PROVISIONAL' }); setIsModalOpen(true); }}
-                    className="bg-[#00ff66] text-[#0a0a0a] px-5 py-3 rounded-xl font-bold flex items-center hover:bg-[#00e65c] shadow-[0_0_15px_rgba(0,255,102,0.2)] transition-all"
+                    className="w-full sm:w-auto justify-center bg-[#00ff66] text-[#0a0a0a] px-5 py-3.5 rounded-xl font-black text-sm flex items-center hover:bg-[#00e65c] shadow-[0_0_20px_rgba(0,255,102,0.3)] active:scale-95 transition-all"
                 >
                     <Plus className="w-5 h-5 mr-2" /> Register Member
                 </button>
             </div>
 
-            <div className="bg-[#141414] border border-[#222222] rounded-2xl p-6">
+            <div className="bg-[#141414] border border-[#222222] rounded-2xl p-4 sm:p-6">
                 <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
                         <div className="relative w-full max-w-sm">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
@@ -213,7 +213,7 @@ export default function Members() {
                         </div>
                         <button
                             onClick={() => setShowOnlyDebt(!showOnlyDebt)}
-                            className={`px-4 py-3 rounded-xl border font-bold text-xs transition-all flex items-center ${showOnlyDebt ? 'bg-[#ff3333]/10 border-[#ff3333] text-[#ff3333] shadow-[0_0_10px_rgba(255,51,51,0.1)]' : 'bg-[#0a0a0a] border-[#222222] text-gray-400 hover:border-gray-600'}`}
+                            className={`px-4 py-3 rounded-xl border font-bold text-xs transition-all flex items-center justify-center shrink-0 ${showOnlyDebt ? 'bg-[#ff3333]/10 border-[#ff3333] text-[#ff3333] shadow-[0_0_10px_rgba(255,51,51,0.1)]' : 'bg-[#0a0a0a] border-[#222222] text-gray-400 hover:border-gray-600'}`}
                         >
                             <TrendingUp className="w-4 h-4 mr-2" />
                             {showOnlyDebt ? 'MENAMPILKAN PIUTANG Saja' : 'FILTER PIUTANG'}
@@ -227,7 +227,8 @@ export default function Members() {
                         Loading members data...
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-b border-[#222222] text-xs uppercase tracking-wider text-gray-500">
@@ -458,6 +459,164 @@ export default function Members() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile View (Touch-Friendly Member Cards) */}
+                    <div className="md:hidden space-y-3.5">
+                        {filteredMembers.map(m => (
+                            <div key={m.id} className="bg-[#111] border border-[#222] rounded-2xl p-4 shadow-xl space-y-3 relative overflow-hidden">
+                                {/* Top Row: Avatar + Info */}
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {m.photo ? (
+                                            <img 
+                                                src={m.photo.startsWith('http') ? m.photo : `${api.defaults.baseURL}/player/avatar-view/${m.photo.split('/').pop()}`} 
+                                                alt={m.name} 
+                                                className="w-12 h-12 rounded-xl object-cover border border-[#333] shrink-0" 
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-xl bg-[#1a1a1a] border border-[#333] flex items-center justify-center text-gray-400 shrink-0">
+                                                <Users className="w-6 h-6" />
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <div 
+                                                className="inline-flex items-center gap-1.5 cursor-pointer"
+                                                onClick={() => fetchMemberDetail(m.id)}
+                                            >
+                                                <h4 className="font-bold text-base text-[#00ff66] underline decoration-[#00ff66]/30 truncate">
+                                                    {m.name}
+                                                </h4>
+                                                <Trophy className="w-3.5 h-3.5 text-[#00ff66] shrink-0" />
+                                                {m.identityStatus === 'VERIFIED' && <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-xs text-gray-400 font-mono">{m.phone}</p>
+                                                {m.isWaVerified ? (
+                                                    <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> WA
+                                                    </span>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => verifyWaStatus(m.id)}
+                                                        className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-1.5 py-0.5 rounded font-bold"
+                                                    >
+                                                        Verify WA
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {m.handicapLabel === 'PROVISIONAL' && (
+                                                <div className="mt-1">
+                                                    <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest italic animate-pulse">
+                                                        NEED HC VERIFICATION
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        type="checkbox"
+                                        className="w-5 h-5 rounded border-[#333] bg-[#0a0a0a] text-[#00ff66] focus:ring-[#00ff66]/20 transition-all cursor-pointer mt-1"
+                                        checked={selectedIds.includes(m.id)}
+                                        onChange={() => toggleSelect(m.id)}
+                                    />
+                                </div>
+
+                                {/* 4-Stat Grid for Mobile */}
+                                <div className="grid grid-cols-2 gap-2 bg-[#161616] p-3 rounded-xl border border-[#222]">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> Poin Loyalty
+                                        </span>
+                                        <span className="text-sm font-black font-mono text-yellow-400 mt-0.5">
+                                            {m.loyaltyPoints.toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-blue-400" /> Jam Main
+                                        </span>
+                                        <span className="text-sm font-black font-mono text-gray-300 mt-0.5">
+                                            {Math.round(m.totalPlayHours || 0)} Jam
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col pt-1.5 border-t border-[#222]">
+                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                            <Gift className="w-3 h-3 text-[#00ff66]" /> Turnamen
+                                        </span>
+                                        <span className="text-xs font-black font-mono text-[#00ff66] mt-0.5 truncate">
+                                            {m.totalWins || 0} Menang (Rp {(m.totalPrizeWon || 0).toLocaleString('id-ID')})
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col pt-1.5 border-t border-[#222]">
+                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                            <TrendingUp className="w-3 h-3 text-rose-400" /> Piutang Bon
+                                        </span>
+                                        {(m.totalDebt || 0) > 0 ? (
+                                            <div className="flex items-center justify-between gap-1 mt-0.5">
+                                                <span className="text-xs font-black font-mono text-[#ff3333]">
+                                                    Rp {(m.totalDebt || 0).toLocaleString('id-ID')}
+                                                </span>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const res = await api.get(`/expenses?memberId=${m.id}&status=PENDING&isDebt=true`);
+                                                            setDebtMemberDetail({ name: m.name, debts: res.data.data });
+                                                        } catch (err) {
+                                                            vamosAlert('Gagal memuat detail piutang');
+                                                        }
+                                                    }}
+                                                    className="text-[9px] bg-[#ff3333]/15 border border-[#ff3333]/30 text-[#ff3333] px-1.5 py-0.5 rounded font-black"
+                                                >
+                                                    Detail
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-black font-mono text-gray-500 mt-0.5">
+                                                Rp 0 (Lunas)
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons for Mobile */}
+                                <div className="flex items-center gap-2 pt-1 border-t border-[#1e1e1e]">
+                                    <button 
+                                        onClick={() => setPointsModal({ id: m.id, name: m.name, points: 0 })} 
+                                        className="flex-1 py-2 text-xs bg-[#1a1a1a] border border-[#2a2a2a] hover:border-yellow-400 text-yellow-500 rounded-xl font-bold flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                                    >
+                                        <Gift className="w-3.5 h-3.5" /> + Poin
+                                    </button>
+                                    <button 
+                                        onClick={() => downloadMemberCard(m)} 
+                                        className="p-2.5 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-gray-300 hover:text-[#00ff66] active:scale-95 transition-all"
+                                        title="Print Kartu"
+                                    >
+                                        {isPrinting === m.id ? <Loader2 className="w-4 h-4 animate-spin text-[#00ff66]" /> : <Printer className="w-4 h-4" />}
+                                    </button>
+                                    <button 
+                                        onClick={() => { 
+                                            setEditingMember(m); 
+                                            setFormData({ name: m.name, phone: m.phone, photo: m.photo || '', handicap: m.handicap || '3', handicapLabel: m.handicapLabel || 'PROVISIONAL' }); 
+                                            setIsModalOpen(true); 
+                                        }} 
+                                        className="p-2.5 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-gray-300 hover:text-white active:scale-95 transition-all"
+                                        title="Edit Profil"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(m.id)} 
+                                        className="p-2.5 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-gray-400 hover:text-[#ff3333] hover:border-red-500/30 active:scale-95 transition-all"
+                                        title="Hapus"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
             </div>
 

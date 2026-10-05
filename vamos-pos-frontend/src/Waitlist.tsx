@@ -171,7 +171,8 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                 </div>
             </div>
 
-            <div className="bg-[#141414] border border-[#222] rounded-3xl overflow-hidden shadow-2xl">
+            {/* Desktop View (Table) - 100% UNCHANGED */}
+            <div className="hidden lg:block bg-[#141414] border border-[#222] rounded-3xl overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
@@ -181,7 +182,7 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                                 <th className="px-6 py-5 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Party Size</th>
                                 <th className="px-6 py-5 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Target Meja</th>
                                 <th className="px-6 py-5 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Status</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] text-right">Actions</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#1e1e1e]">
@@ -213,19 +214,31 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                                                     <div>
                                                         <div className="flex items-center gap-2">
                                                             <Clock className={`w-3.5 h-3.5 ${entry.reservedTime ? (isPassed ? 'text-red-500' : 'text-[#ff9900]') : 'text-[#00ff66]'}`} />
-                                                            <span className={`text-sm font-black ${entry.reservedTime ? (isPassed ? 'text-red-500 line-through opacity-70' : 'text-[#ff9900]') : 'text-[#00ff66]'}`}>
-                                                                {formatTime(entry.reservedTime)}
+                                                            <span className="text-xs font-bold text-gray-300">
+                                                                {entry.reservedTime ? (
+                                                                    <span className={`font-mono ${isPassed ? 'text-red-400 font-black animate-pulse' : 'text-[#ff9900]'}`}>
+                                                                        Booking: {formatTime(entry.reservedTime)}
+                                                                        {isPassed && ' (Terlewat)'}
+                                                                    </span>
+                                                                ) : 'Walk-in'}
                                                             </span>
                                                         </div>
-                                                        <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">
-                                                            Entry {new Date(entry.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                        <p className="text-[10px] text-gray-500 font-mono mt-1">
+                                                            Entry: {formatTime(entry.createdAt)}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-6 font-bold text-white">
                                                 <div className="flex flex-col">
-                                                    <span className="text-lg tracking-tight uppercase">{entry.customerName}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-lg tracking-tight uppercase">{entry.customerName}</span>
+                                                        {entry.member && (
+                                                            <span className="text-[9px] bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/30 px-1.5 py-0.5 rounded font-black tracking-wider flex items-center gap-1">
+                                                                <Star className="w-2.5 h-2.5 fill-[#00ff66]" /> MEMBER
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     {entry.phone && (
                                                         <a href={`tel:${entry.phone}`} className="text-xs text-[#00aaff] font-mono mt-1 hover:underline flex items-center gap-1.5">
                                                             <Phone className="w-3 h-3" /> {entry.phone}
@@ -235,8 +248,8 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                                             </td>
                                             <td className="px-6 py-6">
                                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#222] rounded-lg border border-white/5 text-gray-300">
-                                                    <Users className="w-3.5 h-3.5" />
-                                                    <span className="text-xs font-bold font-mono">{entry.partySize} PPL</span>
+                                                    <Users className="w-3.5 h-3.5 text-[#00ff66]" />
+                                                    <span className="text-xs font-bold font-mono">{entry.partySize} Org</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-6">
@@ -309,6 +322,141 @@ export default function Waitlist({ tables = [], members = [] }: WaitlistProps) {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Mobile View (Cards) - Optimized for touch & mobile screens */}
+            <div className="lg:hidden space-y-3">
+                {loading ? (
+                    <div className="bg-[#141414] border border-[#222] rounded-2xl p-10 text-center shadow-lg">
+                        <Loader2 className="w-8 h-8 animate-spin text-[#00ff66] mx-auto mb-3" />
+                        <p className="text-gray-400 font-mono text-xs uppercase tracking-widest">Memuat Antrian...</p>
+                    </div>
+                ) : entries.length === 0 ? (
+                    <div className="bg-[#141414] border border-[#222] rounded-2xl p-10 text-center shadow-lg">
+                        <Users className="w-12 h-12 text-[#00ff66]/20 mx-auto mb-3" />
+                        <p className="text-white font-bold text-sm">Belum Ada Antrian / Reservasi</p>
+                        <p className="text-gray-500 text-xs mt-1">Tekan tombol "+ Booking Baru" di atas untuk menambahkan tamu antrian.</p>
+                    </div>
+                ) : (
+                    entries.map((entry, idx) => {
+                        const isPassed = isReservedTimePassed(entry.reservedTime);
+                        return (
+                            <div key={entry.id} className="bg-[#141414] border border-[#222] rounded-2xl p-4 shadow-xl space-y-3 hover:border-gray-700 transition-all">
+                                {/* Header: Queue Number + Time + Status + Delete */}
+                                <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black font-mono text-xs border shrink-0 ${
+                                            entry.reservedTime ? 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/30' : 'bg-white/5 text-[#00ff66] border-white/10'
+                                        }`}>
+                                            {entry.reservedTime ? 'RSV' : `#${idx + 1}`}
+                                        </div>
+                                        {entry.reservedTime ? (
+                                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-bold font-mono ${
+                                                isPassed ? 'bg-red-500/10 text-red-400 border-red-500/30 animate-pulse' : 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/20'
+                                            }`}>
+                                                <Clock className="w-3 h-3" />
+                                                <span>{formatTime(entry.reservedTime)} {isPassed && '(Terlewat)'}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-[11px] font-mono">
+                                                <Clock className="w-3 h-3 text-gray-400" />
+                                                <span>{formatTime(entry.createdAt)}</span>
+                                            </div>
+                                        )}
+                                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase border shrink-0 ${
+                                            entry.status === 'WAITING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                            entry.status === 'CALLED' ? 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/20 animate-pulse' :
+                                            'bg-[#00ff66]/10 text-[#00ff66] border-[#00ff66]/20'
+                                        }`}>
+                                            {entry.status}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleDelete(entry.id)}
+                                        className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg active:scale-95 shrink-0"
+                                        title="Hapus Antrian"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+
+                                {/* Customer Info */}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <h4 className="text-base font-bold text-white uppercase tracking-tight truncate">{entry.customerName}</h4>
+                                            {entry.member && (
+                                                <span className="text-[9px] bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/30 px-1.5 py-0.2 rounded font-black tracking-wider flex items-center gap-1 shrink-0">
+                                                    <Star className="w-2.5 h-2.5 fill-[#00ff66]" /> MEMBER
+                                                </span>
+                                            )}
+                                        </div>
+                                        {entry.phone && (
+                                            <a href={`tel:${entry.phone}`} className="text-xs text-[#00aaff] font-mono mt-0.5 hover:underline flex items-center gap-1.5">
+                                                <Phone className="w-3 h-3" /> {entry.phone}
+                                            </a>
+                                        )}
+                                        {entry.notes && (
+                                            <p className="text-[11px] text-gray-400 italic mt-1 line-clamp-2">{entry.notes}</p>
+                                        )}
+                                    </div>
+                                    <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#1a1a1a] rounded-lg border border-white/5 text-gray-300 shrink-0">
+                                        <Users className="w-3.5 h-3.5 text-[#00ff66]" />
+                                        <span className="text-xs font-bold font-mono">{entry.partySize} Org</span>
+                                    </div>
+                                </div>
+
+                                {/* Target Table or Table Selector */}
+                                <div className="bg-[#181818] border border-white/5 rounded-xl p-2.5">
+                                    {entry.table ? (
+                                        <div className="flex items-center gap-2 text-[#00ff66]">
+                                            <Hash className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-bold uppercase tracking-wider">Meja Dituju: {entry.table.name}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between text-xs text-gray-400">
+                                                <span className="flex items-center gap-1.5">
+                                                    <LayoutGrid className="w-3.5 h-3.5" />
+                                                    <span>Tipe Meja: {entry.tableType}</span>
+                                                </span>
+                                                <span className="text-[10px] text-gray-500">Pilih meja untuk duduk</span>
+                                            </div>
+                                            <select
+                                                value={selectedTables[entry.id] || ''}
+                                                onChange={(e) => setSelectedTables({ ...selectedTables, [entry.id]: e.target.value })}
+                                                className="w-full bg-[#0a0a0a] border border-[#333] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00ff66] outline-none"
+                                            >
+                                                <option value="">-- Pilih Meja Kosong --</option>
+                                                {tables.filter(t => t.type === entry.tableType && t.status === 'AVAILABLE').map(t => (
+                                                    <option key={t.id} value={t.id}>{t.name} (Tersedia)</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                {entry.status === 'WAITING' ? (
+                                    <button
+                                        onClick={() => updateStatus(entry.id, 'CALLED')}
+                                        className="w-full py-2.5 bg-[#ff9900] text-[#0a0a0a] font-black rounded-xl text-xs hover:bg-[#ffaa22] transition-all shadow-lg shadow-[#ff9900]/20 active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2"
+                                    >
+                                        Panggil Tamu
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => updateStatus(entry.id, 'SEATED')}
+                                        className="w-full py-2.5 bg-[#00ff66] text-[#0a0a0a] font-black rounded-xl text-xs hover:bg-[#00e65c] transition-all shadow-lg shadow-[#00ff66]/20 active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2"
+                                    >
+                                        Masuk Meja Sekarang
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
             </div>
 
             {/* Premium Add Guest / Booking Modal */}

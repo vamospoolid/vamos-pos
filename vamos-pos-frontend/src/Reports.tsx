@@ -4,7 +4,8 @@ import { api, getSocketURL } from './api';
 import {
     TrendingUp, Activity, Loader2, Utensils,
     Download, DollarSign, FileText, Calendar, ArrowUpRight, ArrowDownRight,
-    Clock, Receipt, BarChart3, ChevronDown, ChevronUp, Package, User
+    Clock, Receipt, BarChart3, ChevronDown, ChevronUp, Package, User,
+    Award, AlertTriangle
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -47,6 +48,35 @@ export default function Reports({
     const [fnbStartDate, setFnbStartDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [fnbEndDate, setFnbEndDate] = useState(new Date().toLocaleDateString('en-CA'));
 
+    const [fnbCogsData, setFnbCogsData] = useState<{
+        summary: {
+            totalFnbRevenue: number;
+            totalCogs: number;
+            grossProfit: number;
+            grossMarginPercent: number;
+            totalWasteCost: number;
+            netFnbProfit: number;
+            totalOrdersCount: number;
+            totalItemsSold: number;
+        };
+        menuEngineering: Array<{
+            id: string;
+            name: string;
+            category: string;
+            quantitySold: number;
+            revenue: number;
+            cogs: number;
+            grossProfit: number;
+            marginPercent: number;
+            classification: 'STAR' | 'PLOWHORSE' | 'PUZZLE' | 'DOG';
+        }>;
+        benchmark: {
+            avgQty: number;
+            avgMargin: number;
+        };
+    } | null>(null);
+    const [menuEngFilter, setMenuEngFilter] = useState<'ALL' | 'STAR' | 'PLOWHORSE' | 'PUZZLE' | 'DOG'>('ALL');
+
     const [transactions, setTransactions] = useState<any[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [txFilter, setTxFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
@@ -79,11 +109,12 @@ export default function Reports({
             // Always use startDate/endDate for consistent operational-day boundaries
             const query = `?startDate=${sd}&endDate=${ed}`;
 
-            const [revRes, utilRes, topRes, prodRes] = await Promise.all([
+            const [revRes, utilRes, topRes, prodRes, cogsRes] = await Promise.all([
                 api.get(`/reports/daily-revenue${query}`),
                 api.get(`/reports/table-utilization${query}`),
                 api.get(`/reports/top-players${query}`),
-                api.get(`/reports/top-products${query}`)
+                api.get(`/reports/top-products${query}`),
+                api.get(`/reports/fnb-cogs-analytics${query}`).catch(() => ({ data: { data: null } }))
             ]);
 
             const revData = revRes.data.data || [];
@@ -93,6 +124,7 @@ export default function Reports({
             setUtilization(utilRes.data.data || []);
             setTopPlayers(topRes.data.data || []);
             setTopProducts(prodRes.data.data || []);
+            setFnbCogsData(cogsRes.data.data || null);
         } catch (err) {
             console.error('Failed to load reports', err);
         } finally {
@@ -551,6 +583,66 @@ export default function Reports({
                 headStyles: { fillColor: [80, 20, 20], textColor: [255, 100, 100] },
                 alternateRowStyles: { fillColor: [255, 245, 245] },
             });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // F&B COGS & Profitability Analysis
+        if (fnbCogsData?.summary) {
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setTextColor(0, 200, 80);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('F&B Profitability & COGS (Bahan Baku)', 15, y);
+            y += 6;
+
+            autoTable(doc, {
+                startY: y,
+                head: [['Financial Metric', 'Value']],
+                body: [
+                    ['Total F&B Revenue (Omzet)', `Rp ${Math.round(fnbCogsData.summary.totalFnbRevenue).toLocaleString('id-ID')}`],
+                    ['Total HPP / COGS (Bahan Baku)', `Rp ${Math.round(fnbCogsData.summary.totalCogs).toLocaleString('id-ID')}`],
+                    ['Laba Kotor F&B (Gross Profit)', `Rp ${Math.round(fnbCogsData.summary.grossProfit).toLocaleString('id-ID')} (${fnbCogsData.summary.grossMarginPercent}% Margin)`],
+                    ['Beban Waste / Kerusakan Bahan', `- Rp ${Math.round(fnbCogsData.summary.totalWasteCost).toLocaleString('id-ID')}`],
+                    ['Laba Bersih Kafe', `Rp ${Math.round(fnbCogsData.summary.netFnbProfit).toLocaleString('id-ID')}`],
+                    ['Total Porsi Terjual', `${fnbCogsData.summary.totalItemsSold} items (${fnbCogsData.summary.totalOrdersCount} pesanan)`],
+                ],
+                styles: { fontSize: 9, cellPadding: 3 },
+                headStyles: { fillColor: [15, 35, 20], textColor: [0, 255, 102] },
+                alternateRowStyles: { fillColor: [240, 255, 240] },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // Menu Engineering Matrix
+        if (fnbCogsData?.menuEngineering && fnbCogsData.menuEngineering.length > 0) {
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setTextColor(255, 153, 0);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Menu Engineering Matrix (BCG Classification)', 15, y);
+            y += 6;
+
+            autoTable(doc, {
+                startY: y,
+                head: [['#', 'Menu', 'Kategori', 'Qty', 'Omzet', 'HPP (COGS)', 'Laba Kotor', 'Margin', 'Status']],
+                body: fnbCogsData.menuEngineering.map((item, idx) => [
+                    `#${idx + 1}`,
+                    item.name,
+                    item.category,
+                    `${item.quantitySold}`,
+                    `Rp ${Math.round(item.revenue).toLocaleString('id-ID')}`,
+                    `Rp ${Math.round(item.cogs).toLocaleString('id-ID')}`,
+                    `Rp ${Math.round(item.grossProfit).toLocaleString('id-ID')}`,
+                    `${item.marginPercent}%`,
+                    item.classification === 'STAR' ? 'STAR (*)' :
+                    item.classification === 'PLOWHORSE' ? 'PLOWHORSE' :
+                    item.classification === 'PUZZLE' ? 'PUZZLE' : 'DOG'
+                ]),
+                styles: { fontSize: 8, cellPadding: 2.5 },
+                headStyles: { fillColor: [40, 25, 0], textColor: [255, 190, 40] },
+                alternateRowStyles: { fillColor: [255, 250, 240] },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
         }
 
         // Table Utilization
@@ -642,7 +734,7 @@ export default function Reports({
     };
 
     return (
-        <div ref={reportRef} className="fade-in">
+        <div ref={reportRef} className="fade-in pb-28 md:pb-8">
 
             {/* ─── Private Live Stats (moved from dashboard for privacy) ──── */}
             <div className="mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest pl-4 border-l-2 border-[#00ff66]/30">
@@ -717,42 +809,42 @@ export default function Reports({
             </div>
 
             {/* ─── Header ──────────────────────────────────── */}
-            <div className="flex justify-between items-center mb-8 gap-4 flex-wrap">
-                <div className="flex items-center gap-4 bg-[#141414] border border-[#2a2a2a] p-2 rounded-2xl">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-black text-gray-500 ml-2">From</span>
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 gap-3 sm:gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 bg-[#141414] border border-[#2a2a2a] p-2.5 rounded-2xl w-full md:w-auto">
+                    <div className="flex items-center gap-2 justify-between sm:justify-start">
+                        <span className="text-[10px] uppercase font-black text-gray-500 ml-1">From</span>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-[#0a0a0a] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff66]"
+                            className="bg-[#0a0a0a] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff66]"
                         />
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-between sm:justify-start">
                         <span className="text-[10px] uppercase font-black text-gray-500">To</span>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="bg-[#0a0a0a] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff66]"
+                            className="bg-[#0a0a0a] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff66]"
                         />
                     </div>
                     <button
                         onClick={handleApplyCustomFilter}
-                        className="bg-[#00ff66]/10 hover:bg-[#00ff66]/20 text-[#00ff66] px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-[#00ff66]/20"
+                        className="bg-[#00ff66]/10 hover:bg-[#00ff66]/20 text-[#00ff66] px-4 py-2 sm:py-1.5 rounded-lg text-xs font-bold transition-all border border-[#00ff66]/20 active:scale-95 text-center"
                     >
                         Apply Filter
                     </button>
                 </div>
 
-                <div className="flex items-center gap-3 flex-wrap">
-                    {/* Time Filter */}
-                    <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-1 flex items-center">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    {/* Time Filter with mobile horizontal scroll */}
+                    <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-1 flex items-center overflow-x-auto no-scrollbar max-w-full">
                         {(['daily', 'yesterday', 'weekly', 'monthly', 'custom'] as const).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setTimeFilter(f)}
-                                className="px-4 py-1.5 rounded-lg text-sm font-bold capitalize transition-all"
+                                className="px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold capitalize transition-all shrink-0"
                                 style={{
                                     background: timeFilter === f ? '#00ff66' : 'transparent',
                                     color: timeFilter === f ? '#0a0a0a' : '#6b7280'
@@ -766,11 +858,11 @@ export default function Reports({
                     {/* Export PDF */}
                     <button
                         onClick={exportPDF}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all hover:scale-105 active:scale-95 shadow-md"
                         style={{ background: '#00ff66', color: '#0a0a0a', boxShadow: '0 0 18px rgba(0,255,102,0.3)' }}
                     >
                         <Download className="w-4 h-4" />
-                        Export PDF
+                        <span>Export PDF</span>
                     </button>
                 </div>
             </div>
@@ -1152,6 +1244,311 @@ export default function Reports({
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* ─── F&B COGS & Menu Engineering Section ─────────────── */}
+            <div id="fnb-cogs-analytics-section" className="bg-[#141414] border border-[#222] rounded-3xl overflow-hidden mb-6 p-6">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-[#222] gap-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="p-2 rounded-xl bg-[#00ff66]/10 border border-[#00ff66]/20 text-[#00ff66]">
+                                <Utensils className="w-5 h-5" />
+                            </span>
+                            <h2 className="text-xl font-black text-white tracking-wide">
+                                Analisis Laba Rugi F&amp;B &amp; Menu Engineering
+                            </h2>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/30">
+                                Real COGS
+                            </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1.5 max-w-2xl leading-relaxed">
+                            Kalkulasi HPP otomatis berbasis resep bahan baku terserap, audit kerugian waste, dan klasifikasi BCG 4-Kuadran untuk memaksimalkan profitabilitas menu kafe.
+                        </p>
+                    </div>
+
+                    {fnbCogsData?.benchmark && (
+                        <div className="flex items-center gap-3 bg-[#0a0a0a] border border-[#262626] rounded-2xl px-4 py-2.5 text-xs">
+                            <div className="text-right">
+                                <p className="text-[10px] text-gray-500 uppercase font-black">Benchmark Rata-Rata</p>
+                                <p className="font-mono text-gray-200 font-bold">
+                                    Min Qty: <span className="text-[#00aaff]">{fnbCogsData.benchmark.avgQty} pcs</span> | Margin: <span className="text-[#00ff66]">{fnbCogsData.benchmark.avgMargin}%</span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 5 Financial Metric Cards */}
+                {fnbCogsData?.summary ? (
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 my-6">
+                            {/* Card 1: Total Omzet */}
+                            <div className="bg-[#0f0f0f] border border-[#222] rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-gray-400 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Omzet F&amp;B</span>
+                                    <Receipt className="w-4 h-4 text-[#ff9900]" />
+                                </div>
+                                <h3 className="text-xl font-black font-mono text-white">
+                                    Rp {Math.round(fnbCogsData.summary.totalFnbRevenue).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1 font-mono">
+                                    {fnbCogsData.summary.totalItemsSold} porsi ({fnbCogsData.summary.totalOrdersCount} order)
+                                </p>
+                            </div>
+
+                            {/* Card 2: COGS / HPP */}
+                            <div className="bg-[#0f0f0f] border border-[#222] rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-gray-400 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">HPP (COGS)</span>
+                                    <Package className="w-4 h-4 text-[#00aaff]" />
+                                </div>
+                                <h3 className="text-xl font-black font-mono text-[#00aaff]">
+                                    Rp {Math.round(fnbCogsData.summary.totalCogs).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Bahan baku riil via resep
+                                </p>
+                            </div>
+
+                            {/* Card 3: Gross Profit */}
+                            <div className="bg-[#0f0f0f] border border-[#222] rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-gray-400 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Laba Kotor</span>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                                        fnbCogsData.summary.grossMarginPercent >= 60 ? 'bg-[#00ff66]/15 text-[#00ff66]' :
+                                        fnbCogsData.summary.grossMarginPercent >= 40 ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
+                                    }`}>
+                                        {fnbCogsData.summary.grossMarginPercent}%
+                                    </span>
+                                </div>
+                                <h3 className="text-xl font-black font-mono text-white">
+                                    Rp {Math.round(fnbCogsData.summary.grossProfit).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Omzet dikurangi HPP
+                                </p>
+                            </div>
+
+                            {/* Card 4: Waste Cost */}
+                            <div className="bg-[#0f0f0f] border border-[#222] rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-gray-400 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Beban Waste</span>
+                                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                                </div>
+                                <h3 className="text-xl font-black font-mono text-red-400">
+                                    - Rp {Math.round(fnbCogsData.summary.totalWasteCost).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Bahan rusak / basi terbuang
+                                </p>
+                            </div>
+
+                            {/* Card 5: Net Profit Kafe */}
+                            <div className="bg-gradient-to-br from-[#00ff66]/10 to-transparent border border-[#00ff66]/30 rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-gray-300 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#00ff66]">Laba Bersih Kafe</span>
+                                    <Award className="w-4 h-4 text-[#00ff66]" />
+                                </div>
+                                <h3 className="text-xl font-black font-mono text-[#00ff66]">
+                                    Rp {Math.round(fnbCogsData.summary.netFnbProfit).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-[#00ff66]/70 mt-1">
+                                    Gross profit - Beban waste
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* BCG Quadrant Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
+                            {/* STAR */}
+                            <div 
+                                onClick={() => setMenuEngFilter(menuEngFilter === 'STAR' ? 'ALL' : 'STAR')}
+                                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                                    menuEngFilter === 'STAR' ? 'bg-[#00ff66]/10 border-[#00ff66] ring-1 ring-[#00ff66]' : 'bg-[#0d0d0d] border-[#222] hover:border-[#00ff66]/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-xs font-black text-[#00ff66]">
+                                        ⭐ STARS
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#00ff66]/15 text-[#00ff66]">
+                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'STAR').length} menu
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 leading-snug">
+                                    Penjualan Tinggi &amp; Margin Tinggi. Pertahankan kualitas rasa dan konsistensi porsi.
+                                </p>
+                            </div>
+
+                            {/* PLOWHORSE */}
+                            <div 
+                                onClick={() => setMenuEngFilter(menuEngFilter === 'PLOWHORSE' ? 'ALL' : 'PLOWHORSE')}
+                                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                                    menuEngFilter === 'PLOWHORSE' ? 'bg-[#00aaff]/10 border-[#00aaff] ring-1 ring-[#00aaff]' : 'bg-[#0d0d0d] border-[#222] hover:border-[#00aaff]/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-xs font-black text-[#00aaff]">
+                                        🐎 PLOWHORSES
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#00aaff]/15 text-[#00aaff]">
+                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'PLOWHORSE').length} menu
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 leading-snug">
+                                    Laris tapi Margin Rendah. Negosiasi harga bahan mentah atau naikkan harga jual bertahap.
+                                </p>
+                            </div>
+
+                            {/* PUZZLE */}
+                            <div 
+                                onClick={() => setMenuEngFilter(menuEngFilter === 'PUZZLE' ? 'ALL' : 'PUZZLE')}
+                                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                                    menuEngFilter === 'PUZZLE' ? 'bg-[#ff9900]/10 border-[#ff9900] ring-1 ring-[#ff9900]' : 'bg-[#0d0d0d] border-[#222] hover:border-[#ff9900]/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-xs font-black text-[#ff9900]">
+                                        🧩 PUZZLES
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#ff9900]/15 text-[#ff9900]">
+                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'PUZZLE').length} menu
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 leading-snug">
+                                    Margin Tinggi tapi Jarang Dipesan. Buatkan bundling dengan paket billiard atau promo barista.
+                                </p>
+                            </div>
+
+                            {/* DOG */}
+                            <div 
+                                onClick={() => setMenuEngFilter(menuEngFilter === 'DOG' ? 'ALL' : 'DOG')}
+                                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                                    menuEngFilter === 'DOG' ? 'bg-red-500/10 border-red-500 ring-1 ring-red-500' : 'bg-[#0d0d0d] border-[#222] hover:border-red-500/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-xs font-black text-red-400">
+                                        🐶 DOGS
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
+                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'DOG').length} menu
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 leading-snug">
+                                    Kurang Laris &amp; Margin Rendah. Evaluasi apakah menu ini perlu dieliminasi atau dirombak.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Filter Tabs & Menu Engineering Table */}
+                        <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-[#222] flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-1.5">
+                                    {(['ALL', 'STAR', 'PLOWHORSE', 'PUZZLE', 'DOG'] as const).map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setMenuEngFilter(tab)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                menuEngFilter === tab
+                                                    ? 'bg-white text-black shadow-md'
+                                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {tab === 'ALL' ? 'Semua Menu' :
+                                             tab === 'STAR' ? '⭐ Stars' :
+                                             tab === 'PLOWHORSE' ? '🐎 Plowhorses' :
+                                             tab === 'PUZZLE' ? '🧩 Puzzles' : '🐶 Dogs'}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <span className="text-[11px] text-gray-500 font-mono">
+                                    Menampilkan {fnbCogsData.menuEngineering.filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length} item
+                                </span>
+                            </div>
+
+                            <div className="overflow-x-auto max-h-[420px] custom-scrollbar">
+                                <table className="w-full text-sm">
+                                    <thead className="sticky top-0 z-10" style={{ background: '#0a0a0a' }}>
+                                        <tr className="border-b border-[#222]">
+                                            {['Menu & Kategori', 'Terjual (Qty)', 'Omzet', 'HPP (COGS)', 'Laba Kotor', 'Margin %', 'Klasifikasi BCG'].map((col, idx) => (
+                                                <th 
+                                                    key={col} 
+                                                    className={`px-5 py-3 text-[10px] font-black uppercase tracking-wider text-gray-500 ${
+                                                        idx === 0 ? 'text-left' : idx === 6 ? 'text-center' : 'text-right'
+                                                    }`}
+                                                >
+                                                    {col}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {fnbCogsData.menuEngineering
+                                            .filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter)
+                                            .map((item, idx) => {
+                                                const badgeColor =
+                                                    item.classification === 'STAR' ? 'bg-[#00ff66]/10 text-[#00ff66] border-[#00ff66]/30' :
+                                                    item.classification === 'PLOWHORSE' ? 'bg-[#00aaff]/10 text-[#00aaff] border-[#00aaff]/30' :
+                                                    item.classification === 'PUZZLE' ? 'bg-[#ff9900]/10 text-[#ff9900] border-[#ff9900]/30' :
+                                                    'bg-red-500/10 text-red-400 border-red-500/30';
+
+                                                return (
+                                                    <tr key={item.id || idx} className="border-b border-[#171717] hover:bg-white/[0.02] transition-colors">
+                                                        <td className="px-5 py-3.5">
+                                                            <div className="font-bold text-white text-xs">{item.name}</div>
+                                                            <span className="text-[10px] text-gray-500 font-medium">{item.category}</span>
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-mono font-bold text-gray-300">
+                                                            {item.quantitySold} <span className="text-[10px] text-gray-500">pcs</span>
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-mono font-bold text-white">
+                                                            Rp {Math.round(item.revenue).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-mono font-bold text-[#00aaff]">
+                                                            Rp {Math.round(item.cogs).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-mono font-bold text-[#00ff66]">
+                                                            Rp {Math.round(item.grossProfit).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right">
+                                                            <span className={`font-mono text-xs font-black px-2 py-0.5 rounded ${
+                                                                item.marginPercent >= 60 ? 'bg-[#00ff66]/15 text-[#00ff66]' :
+                                                                item.marginPercent >= 40 ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
+                                                            }`}>
+                                                                {item.marginPercent}%
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-center">
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-wider ${badgeColor}`}>
+                                                                {item.classification === 'STAR' ? '⭐ Star' :
+                                                                 item.classification === 'PLOWHORSE' ? '🐎 Plowhorse' :
+                                                                 item.classification === 'PUZZLE' ? '🧩 Puzzle' : '🐶 Dog'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                        {fnbCogsData.menuEngineering.filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length === 0 && (
+                                            <tr>
+                                                <td colSpan={7} className="px-5 py-10 text-center text-gray-500 text-xs">
+                                                    Tidak ada menu dalam kategori kuadran ini.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="py-12 text-center text-gray-500 text-xs">
+                        Belum ada data kalkulasi HPP atau penjualan F&amp;B pada rentang tanggal ini.
+                    </div>
+                )}
             </div>
 
             {/* ─── F&B Transaction History ──────────────────── */}

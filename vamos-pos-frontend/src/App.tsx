@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy, Share2 } from 'lucide-react';
+import { LayoutDashboard, ArrowRight, Users, Clock, Receipt, Utensils, Activity, LogOut, Search, AlertCircle, Loader2, Plus, Minus, ShoppingBag, ArrowRightLeft, TimerReset, Package2, BarChart3, Settings as SettingsIcon, Printer, X, Trophy, Wallet, Trash2, Gift, RefreshCw, Check, Swords, Tag, ShieldCheck, ShieldAlert, Key, Copy, Share2, Bluetooth, BluetoothConnected } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { api, getSocketURL } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
+import { useBluetooth } from './utils/useBluetooth';
 import Inventory from './Inventory';
 import Pricing from './Pricing';
 import Members from './Members';
@@ -22,6 +23,9 @@ import { getProductEmojiAndStyle } from './FnBOrder';
 import ActivationPage from './ActivationPage';
 import KDS from './KDS';
 import QROrder from './QROrder';
+import ShiftHandoverModal from './components/ShiftHandoverModal';
+import MobileBottomNav from './components/MobileBottomNav';
+import MobileMenuDrawer from './components/MobileMenuDrawer';
 
 // --- LICENSE MANAGEMENT COMPONENT (OWNER ONLY) ---
 function LicenseManagement() {
@@ -165,6 +169,8 @@ interface Session {
   endTime?: string;
   pausedAt?: string | null;
   table?: Table;
+  billingType?: string;
+  orders?: any[];
   member?: {
     id: string;
     name: string;
@@ -245,6 +251,12 @@ function App() {
     return () => api.interceptors.response.eject(interceptor);
   }, []);
 
+  const isQrRoute = window.location.pathname.startsWith('/qr/');
+  if (isQrRoute) {
+    const tableId = window.location.pathname.split('/')[2];
+    return <QROrder tableId={tableId} />;
+  }
+
   if (isLicensed === null) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -255,12 +267,6 @@ function App() {
 
   if (isLicensed === false) {
     return <ActivationPage />;
-  }
-
-  const isQrRoute = window.location.pathname.startsWith('/qr/');
-  if (isQrRoute) {
-    const tableId = window.location.pathname.split('/')[2];
-    return <QROrder tableId={tableId} />;
   }
 
   if (!token) {
@@ -333,9 +339,49 @@ function Login({ onLogin }: { onLogin: (token: string, user: AuthUser) => void }
   );
 }
 
+// --- CASHIER CHIME SOUND SYNTHESIS ---
+const playCashierChime = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.12);
+    gain2.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.17);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc2.start(ctx.currentTime + 0.12);
+    osc2.stop(ctx.currentTime + 0.5);
+  } catch (e) {
+    console.warn('Audio chime failed', e);
+  }
+};
+
 // --- DASHBOARD COMPONENT ---
 function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [orderToast, setOrderToast] = useState<{ title: string; message: string; sessionId?: string } | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [tableSearchQuery, setTableSearchQuery] = useState('');
+  // Bluetooth Thermal Printer hook
+  const btPrinter = useBluetooth();
   const [tables, setTables] = useState<Table[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [pendingBills, setPendingBills] = useState<Session[]>([]);
@@ -368,8 +414,6 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [startShiftNotes, setStartShiftNotes] = useState('');
 
   const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
-  const [closeShiftCash, setCloseShiftCash] = useState<number>(0);
-  const [closeShiftNotes, setCloseShiftNotes] = useState('');
 
   // Modal States
   const [checkoutBill, setCheckoutBill] = useState<any>(null);
@@ -421,6 +465,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [confirmEndSessionId, setConfirmEndSessionId] = useState<string | null>(null);
   const [fnbSearchTerm, setFnbSearchTerm] = useState('');
   const [fnbActiveCategory, setFnbActiveCategory] = useState<'FNB' | 'EQUIPMENT'>('FNB');
+  const [isTableCartOpen, setIsTableCartOpen] = useState(false);
+  const [tableRecentlyAddedId, setTableRecentlyAddedId] = useState<string | null>(null);
 
   // Active Session Detail State
   const [detailSession, setDetailSession] = useState<any>(null);
@@ -593,6 +639,17 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     socket.on('notification:new', (notif: any) => {
       if (notif.type === 'REDEMPTION') {
         vamosAlert(`🆕 ${notif.title}\n${notif.message}`);
+      } else if (notif.type === 'ORDER') {
+        playCashierChime();
+        setOrderToast({
+          title: notif.title || 'Pesanan Baru Masuk!',
+          message: notif.message || 'Cek Pending Bills / KDS',
+          sessionId: notif.sessionId
+        });
+        fetchData();
+        setTimeout(() => {
+          setOrderToast(prev => (prev?.message === notif.message ? null : prev));
+        }, 8000);
       }
     });
     socket.on('admin:notification', (notif: any) => {
@@ -856,12 +913,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         });
       }
       // Show Receipt before fully closing session
+      // Build discount label dari selected category (jika ada)
+      const selectedCatForReceipt = selectedDiscountCategoryId
+        ? discountCategories.find((c: any) => c.id === selectedDiscountCategoryId)
+        : null;
+      const discountLabelForReceipt = selectedCatForReceipt
+        ? `${selectedCatForReceipt.name}${selectedCatForReceipt.type === 'PERCENTAGE' ? ` ${selectedCatForReceipt.value}%` : ''}`
+        : (checkoutDiscount > 0 ? 'Manual' : '');
       setReceiptData({
         ...checkoutBill,
         method: checkoutMethod,
         venue: venueConfig,
         paidAt: new Date(),
         discount: checkoutDiscount || 0,
+        discountLabel: discountLabelForReceipt,
         receivedAmount: checkoutReceived || 0,
         taxAmount: taxValue,
         serviceAmount: serviceCharge,
@@ -898,6 +963,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   };
 
   const handleAddToCart = (product: any) => {
+    setTableRecentlyAddedId(product.id);
+    setTimeout(() => {
+      setTableRecentlyAddedId(prev => prev === product.id ? null : prev);
+    }, 650);
+
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -966,28 +1036,6 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     }
   };
 
-  const handleCloseShift = async () => {
-    try {
-      setLoading(true);
-      const res = await api.post('/shifts/close', { endingCashActual: closeShiftCash, notes: closeShiftNotes });
-      setActiveShift(null);
-      setShowCloseShiftModal(false);
-
-      const { expectedCash, endingCashActual } = res.data.data;
-      const diff = endingCashActual - expectedCash;
-
-      vamosAlert(`Shift Ditutup.\n\nSistem: Rp ${expectedCash.toLocaleString()}\nAktual: Rp ${endingCashActual.toLocaleString()}\nSelisih: Rp ${diff.toLocaleString()}`);
-
-      // Minta kasir login lagi / shift baru
-      setShowStartShiftModal(true);
-      setStartShiftCash(0);
-      setStartShiftNotes('');
-    } catch (err: any) {
-      vamosAlert(err.response?.data?.message || 'Gagal menutup shift');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const mergedTables = tables.map(t => {
     const activeSession = sessions.find(s => s.tableId === t.id && s.status === 'ACTIVE');
@@ -1138,10 +1186,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       {/* ─── Main Content ─────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col h-full bg-[#0a0a0a] overflow-hidden relative">
         {/* Header */}
-        <header className="h-16 border-b border-[#1e1e1e] flex items-center justify-between px-6 shrink-0" style={{ background: '#0d0d0d' }}>
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-base font-black tracking-wide text-white">
+        {/* Header */}
+        <header className="h-16 border-b border-[#1e1e1e] flex items-center justify-between px-3 sm:px-6 shrink-0" style={{ background: '#0d0d0d' }}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile Brand Logo */}
+            <div className="md:hidden flex items-center gap-2 shrink-0">
+              {venueConfig?.logoUrl ? (
+                <img src={venueConfig.logoUrl} alt="Logo" className="w-7 h-7 object-contain" />
+              ) : (
+                <VamosLogo className="w-7 h-7" glowing />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-black tracking-wide text-white truncate">
                 {activeTab === 'dashboard' ? 'Live Dashboard'
                   : activeTab === 'bills' ? 'Pending Bills'
                     : activeTab === 'challenges' ? 'Arena Challenges'
@@ -1159,12 +1217,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                           : activeTab === 'settings' ? 'System Settings'
                                             : 'Vamos POS'}
               </h1>
-              <p className="text-[10px] text-gray-600 font-mono">
+              <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono truncate">
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
             {/* Hardware Status Indicator (Mini) */}
             {!showHwProgress && (
@@ -1222,40 +1280,98 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 </span>
               </div>
             )}
-            <div className="relative">
+
+            {/* Desktop Search Bar (md and up) */}
+            <div className="relative hidden md:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
               <input
                 type="text"
+                value={tableSearchQuery}
+                onChange={e => setTableSearchQuery(e.target.value)}
                 placeholder="Cari meja..."
-                className="text-sm py-2 pl-9 pr-4 w-52 rounded-xl focus:outline-none focus:border-[#00ff66] transition-colors"
+                className="text-sm py-2 pl-9 pr-7 w-48 lg:w-56 rounded-xl focus:outline-none focus:border-[#00ff66] transition-colors"
                 style={{ background: '#141414', border: '1px solid #1e1e1e', color: '#fff' }}
               />
+              {tableSearchQuery && (
+                <button
+                  onClick={() => setTableSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-            <div className="w-px h-6 bg-[#1e1e1e]" />
+
+            {/* Mobile Search Toggle Button (md:hidden) */}
+            <button
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              className={`md:hidden p-2 rounded-xl border transition-colors ${
+                showMobileSearch || tableSearchQuery
+                  ? 'bg-[#00ff66]/15 border-[#00ff66]/40 text-[#00ff66]'
+                  : 'bg-[#161616] border-[#222] text-gray-400'
+              }`}
+              title="Cari Meja"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            <div className="w-px h-6 bg-[#1e1e1e] hidden sm:block" />
+
             <div className="flex items-center gap-2">
-              <div className="text-right flex items-center gap-3">
+              <div className="text-right flex items-center gap-2 sm:gap-3">
                 {activeShift && (
                   <button
                     onClick={() => setShowCloseShiftModal(true)}
-                    className="text-[10px] font-bold bg-[#ff3333]/10 text-[#ff3333] border border-[#ff3333]/30 px-2 py-1 rounded hover:bg-[#ff3333]/20 transition-colors"
+                    className="text-[10px] font-bold bg-[#ff3333]/10 text-[#ff3333] border border-[#ff3333]/30 px-2 sm:px-2.5 py-1 rounded-lg hover:bg-[#ff3333]/20 transition-colors shadow-sm"
                   >
                     Tutup Shift
                   </button>
                 )}
-                <div>
-                  <p className="text-xs font-bold text-white">{user?.name || 'Admin'}</p>
+                <div className="hidden sm:block">
+                  <p className="text-xs font-bold text-white leading-tight">{user?.name || 'Admin'}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: (user?.role?.toUpperCase() === 'ADMIN' || user?.role?.toUpperCase() === 'OWNER') ? '#00ff66' : '#9ca3af' }}>{user?.role || 'ADMIN'}</p>
                 </div>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00ff66] to-blue-500 flex items-center justify-center font-black text-sm text-[#0a0a0a]">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00ff66] to-blue-500 flex items-center justify-center font-black text-sm text-[#0a0a0a] shrink-0 shadow-sm">
                 {user?.name?.charAt(0) || 'A'}
               </div>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6">
+        {/* Mobile Search Bar Expandable Drawer */}
+        {showMobileSearch && (
+          <div className="md:hidden px-3 py-2 bg-[#121212] border-b border-[#222] flex items-center gap-2 animate-fade-in-fast shrink-0">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                autoFocus
+                value={tableSearchQuery}
+                onChange={e => setTableSearchQuery(e.target.value)}
+                placeholder="Cari meja, tipe, atau tamu..."
+                className="w-full text-xs py-2 pl-8 pr-7 rounded-xl bg-[#0a0a0a] border border-[#2a2a2a] text-white focus:outline-none focus:border-[#00ff66]"
+              />
+              {tableSearchQuery && (
+                <button
+                  onClick={() => setTableSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowMobileSearch(false)}
+              className="text-xs text-gray-400 px-2 py-1 font-bold"
+            >
+              Batal
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-6">
+          <div className="p-3 sm:p-6">
 
             {fetchError && (
               <div className="bg-[#ff3333]/10 border border-[#ff3333]/40 text-[#ff3333] px-4 py-3 rounded-xl mb-5 text-sm font-bold flex items-center gap-2">
@@ -1265,26 +1381,28 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
             {activeTab === 'dashboard' && (
               <>
-                <div className="mb-6 flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-white flex items-center">
-                    <LayoutDashboard className="w-5 h-5 mr-2 text-[#00ff66]" />
+                <div className="mb-4 sm:mb-6 flex justify-between items-center">
+                  <h2 className="text-lg sm:text-xl font-bold text-white flex items-center">
+                    <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#00ff66]" />
                     Live Table View
                   </h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setShowBroadcastModal(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[#00ff66]/10 border border-[#00ff66]/20 text-[#00ff66] hover:bg-[#00ff66] hover:text-[#0a0a0a] transition-all shadow-lg shadow-[#00ff66]/5"
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-[#00ff66]/10 border border-[#00ff66]/20 text-[#00ff66] hover:bg-[#00ff66] hover:text-[#0a0a0a] transition-all shadow-lg shadow-[#00ff66]/5"
                     >
                       <Share2 className="w-3.5 h-3.5" />
-                      Inform Meja
+                      <span className="hidden sm:inline">Inform Meja</span>
+                      <span className="sm:hidden">Share</span>
                     </button>
                     <button
                       onClick={fixTablesStatus}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all transition-all"
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                       title="Fix tables stuck in PLAYING status with no active session"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      Fix Stuck Tables
+                      <span className="hidden sm:inline">Fix Stuck Tables</span>
+                      <span className="sm:hidden">Fix</span>
                     </button>
                   </div>
                 </div>
@@ -1294,11 +1412,21 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     <Loader2 className="w-8 h-8 animate-spin" />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-10">
                     {[...mergedTables].sort((a, b) => {
                       if (a.type === 'CAFE' && b.type !== 'CAFE') return 1;
                       if (a.type !== 'CAFE' && b.type === 'CAFE') return -1;
                       return 0;
+                    }).filter((table) => {
+                      if (!tableSearchQuery.trim()) return true;
+                      const q = tableSearchQuery.toLowerCase();
+                      return (
+                        table.name.toLowerCase().includes(q) ||
+                        table.type.toLowerCase().includes(q) ||
+                        (table.activeSession?.customerName && table.activeSession.customerName.toLowerCase().includes(q)) ||
+                        (table.activeSession?.member?.name && table.activeSession.member.name.toLowerCase().includes(q)) ||
+                        (Boolean((table.activeSession as any)?.memberName) && (table.activeSession as any).memberName.toLowerCase().includes(q))
+                      );
                     }).map((table, index, sorted) => (
                       <React.Fragment key={table.id}>
                         {table.type === 'CAFE' && (index === 0 || sorted[index - 1].type !== 'CAFE') && (
@@ -1387,42 +1515,63 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     <p className="text-sm">All cleared or no tables have finished yet.</p>
                   </div>
                 ) : (
-                  <div className="bg-[#111] border border-[#1e1e1e] rounded-2xl overflow-hidden">
+                  <>
+                    {/* Desktop View (Table) */}
+                  <div className="hidden md:block bg-[#111] border border-[#1e1e1e] rounded-2xl overflow-hidden shadow-xl">
                     <table className="w-full text-left">
                       <thead style={{ background: '#0d0d0d', borderBottom: '1px solid #1e1e1e' }}>
                         <tr>
-                          {['Session', 'Tagihan', 'Biaya Meja', 'F&B', 'Total', 'Aksi'].map((col, i) => (
-                            <th key={col} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-500 ${i > 2 ? 'text-right' : ''}`}>{col}</th>
+                          {['Tipe / Pelanggan', 'Status', 'Biaya Meja', 'F&B', 'Total', 'Aksi'].map((col, i) => (
+                            <th key={col} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-500 ${i > 1 ? 'text-right' : ''}`}>{col}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {pendingBills.map(bill => (
+                        {pendingBills.map(bill => {
+                          const isDirectFnb = (!bill.table && !bill.tableId) || bill.billingType === 'FNB_ONLY';
+                          return (
                           <tr key={bill.id} 
                             onClick={() => openCheckout(bill)}
-                            className="group border-t border-[#1a1a1a] hover:bg-white/[0.05] cursor-pointer transition-colors"
+                            className={`group border-t border-[#1a1a1a] cursor-pointer transition-colors ${
+                              isDirectFnb 
+                                ? 'hover:bg-amber-500/[0.06] bg-[#16120e]/60' 
+                                : 'hover:bg-emerald-500/[0.04]'
+                            }`}
                           >
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center font-black text-sm"
-                                  style={{ background: 'rgba(0,255,102,0.08)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.15)' }}>
-                                  {(bill.member?.name || bill.table?.name || bill.customerName || 'F').charAt(0).toUpperCase()}
+                                  style={isDirectFnb 
+                                    ? { background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' } 
+                                    : { background: 'rgba(0,255,102,0.1)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.25)' }}>
+                                  {isDirectFnb ? '☕' : (bill.table?.name?.replace(/[^0-9]/g, '') || (bill.table?.name || 'M').charAt(0))}
                                 </div>
                                 <div>
-                                  <p className="font-bold text-sm text-white">
-                                    {bill.table?.name || bill.customerName || 'Direct F&B'}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-sm text-white">
+                                      {isDirectFnb ? (bill.customerName || 'Direct F&B') : (bill.table?.name || 'Meja')}
+                                    </p>
+                                    {isDirectFnb ? (
+                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                                        ☕ Kafe / F&B
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                        🎱 Meja
+                                      </span>
+                                    )}
+                                  </div>
                                   {bill.member ? (
-                                    <p className="text-[10px] font-bold mt-0.5 flex items-center gap-1" style={{ color: '#00ff66' }}>
-                                      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#00ff66' }} />
-                                      {bill.member.name}
+                                    <p className="text-[10px] font-bold mt-0.5 flex items-center gap-1" style={{ color: isDirectFnb ? '#f59e0b' : '#00ff66' }}>
+                                      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: isDirectFnb ? '#f59e0b' : '#00ff66' }} />
+                                      {bill.member.name} {bill.table ? `• ${bill.table.name}` : ''}
                                     </p>
-                                  ) : bill.customerName ? (
-                                    <p className="text-[10px] text-gray-600 font-mono mt-0.5">
-                                      {bill.customerName}
+                                  ) : bill.customerName && bill.table ? (
+                                    <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                      {bill.table.name}
                                     </p>
-                                  ) : (
-                                    <p className="text-[10px] text-gray-700 font-bold uppercase tracking-widest mt-0.5">
+                                  ) : !bill.customerName && (
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-0.5">
                                       Walk-in
                                     </p>
                                   )}
@@ -1433,24 +1582,26 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                               </div>
                             </td>
                             <td className="px-5 py-4">
-                              <span className="text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest"
-                                style={{ background: 'rgba(255,51,51,0.1)', color: '#ff5555', border: '1px solid rgba(255,51,51,0.2)' }}>
+                              <span className="text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider"
+                                style={isDirectFnb
+                                  ? { background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }
+                                  : { background: 'rgba(255,51,51,0.1)', color: '#ff5555', border: '1px solid rgba(255,51,51,0.2)' }}>
                                 PENDING
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-sm font-mono text-gray-400 text-right">
+                            <td className="px-5 py-4 font-mono text-sm text-gray-300 text-right">
                               Rp {(bill.tableAmount || 0).toLocaleString('id-ID')}
                             </td>
-                            <td className="px-5 py-4 text-sm font-mono text-gray-400 text-right">
+                            <td className="px-5 py-4 font-mono text-sm text-gray-300 text-right">
                               Rp {(bill.fnbAmount || 0).toLocaleString('id-ID')}
                             </td>
                             <td className="px-5 py-4 text-right">
-                              <span className="font-black font-mono text-base" style={{ color: '#00ff66' }}>
+                              <span className={`font-mono font-black text-sm ${isDirectFnb ? 'text-amber-400' : 'text-[#00ff66]'}`}>
                                 Rp {(bill.totalAmount || 0).toLocaleString('id-ID')}
                               </span>
                             </td>
-                            <td className="px-5 py-4">
-                              <div className="flex gap-2 justify-end">
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
                                 {bill.id && (
                                   <button
                                     onClick={(e) => {
@@ -1475,25 +1626,155 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                     e.stopPropagation();
                                     openCheckout(bill);
                                   }}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105"
-                                  style={{ background: '#ff3333', color: '#fff', boxShadow: '0 0 12px rgba(255,51,51,0.25)' }}
+                                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all hover:scale-105 ${
+                                    isDirectFnb
+                                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-black shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                                      : 'bg-[#ff3333] text-white shadow-[0_0_12px_rgba(255,51,51,0.25)]'
+                                  }`}
                                 >
-                                  Bayar
+                                  {isDirectFnb ? 'Bayar F&B' : 'Bayar Meja'}
                                 </button>
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        );
+                        })}
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile View (Cards) */}
+                  <div className="md:hidden space-y-3.5">
+                    {pendingBills.map(bill => {
+                      const isDirectFnb = (!bill.table && !bill.tableId) || bill.billingType === 'FNB_ONLY';
+                      return (
+                      <div 
+                        key={bill.id} 
+                        onClick={() => openCheckout(bill)}
+                        className={`rounded-2xl p-4 transition-all cursor-pointer active:scale-[0.99] relative overflow-hidden ${
+                          isDirectFnb
+                            ? 'bg-gradient-to-br from-[#16120e] to-[#0c0908] border-2 border-amber-500/35 shadow-[0_4px_24px_rgba(245,158,11,0.12)]'
+                            : 'bg-gradient-to-br from-[#131713] to-[#0d0f0d] border-2 border-emerald-500/30 shadow-[0_4px_24px_rgba(0,255,102,0.08)]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center font-black text-base shadow-inner"
+                              style={isDirectFnb 
+                                ? { background: 'rgba(245,158,11,0.18)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.4)' } 
+                                : { background: 'rgba(0,255,102,0.12)', color: '#00ff66', border: '1px solid rgba(0,255,102,0.3)' }}>
+                              {isDirectFnb ? '☕' : '🎱'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-extrabold text-base text-white truncate">
+                                  {isDirectFnb ? (bill.customerName || 'Direct F&B') : (bill.table?.name || 'Meja')}
+                                </h4>
+                                {isDirectFnb ? (
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0">
+                                    ☕ KAFE / F&B
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0">
+                                    🎱 MEJA
+                                  </span>
+                                )}
+                              </div>
+                              {bill.member ? (
+                                <p className={`text-[11px] font-bold mt-0.5 flex items-center gap-1.5 truncate ${isDirectFnb ? 'text-amber-400' : 'text-[#00ff66]'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${isDirectFnb ? 'bg-amber-400' : 'bg-[#00ff66]'}`} />
+                                  {bill.member.name} {bill.table ? `• ${bill.table.name}` : ''}
+                                </p>
+                              ) : bill.customerName && bill.table ? (
+                                <p className="text-[11px] text-gray-400 font-mono mt-0.5 truncate">
+                                  {bill.table.name}
+                                </p>
+                              ) : !bill.customerName && (
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
+                                  Walk-in
+                                </p>
+                              )}
+                              <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                {new Date(bill.endTime || bill.createdAt || 0).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shrink-0"
+                            style={isDirectFnb 
+                              ? { background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' } 
+                              : { background: 'rgba(255,51,51,0.12)', color: '#ff5555', border: '1px solid rgba(255,51,51,0.25)' }}>
+                            PENDING
+                          </span>
+                        </div>
+
+                        {/* Bill Amount Breakdown */}
+                        <div className={`border rounded-xl p-3 mb-3.5 flex items-center justify-between ${
+                          isDirectFnb ? 'bg-[#0f0b08] border-amber-500/20' : 'bg-[#0f120f] border-emerald-500/20'
+                        }`}>
+                          <div className="space-y-0.5">
+                            <div className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Rincian</div>
+                            <div className="text-xs text-gray-300 font-mono">
+                              Meja: Rp {(bill.tableAmount || 0).toLocaleString('id-ID')} • F&B: Rp {(bill.fnbAmount || 0).toLocaleString('id-ID')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Total Tagihan</div>
+                            <div className={`text-lg font-black font-mono ${isDirectFnb ? 'text-amber-400' : 'text-[#00ff66]'}`}>
+                              Rp {(bill.totalAmount || 0).toLocaleString('id-ID')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          {bill.id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCheckout(bill, 'BON');
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 text-center"
+                              style={{ background: 'rgba(255, 153, 0, 0.1)', color: '#ff9900', border: '1px solid rgba(255, 153, 0, 0.25)' }}
+                            >
+                              BON
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOrderSessionId(bill.id); }}
+                            className="px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 text-center flex items-center justify-center gap-1"
+                            style={{ background: 'rgba(255,153,0,0.1)', color: '#ff9900', border: '1px solid rgba(255,153,0,0.25)' }}
+                          >
+                            <Utensils className="w-3.5 h-3.5" />
+                            <span>+ F&B</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCheckout(bill);
+                            }}
+                            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                              isDirectFnb
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-black shadow-[0_0_18px_rgba(245,158,11,0.35)]'
+                                : 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-[0_0_15px_rgba(255,51,51,0.3)]'
+                            }`}
+                          >
+                            <Receipt className="w-4 h-4" />
+                            <span>{isDirectFnb ? 'BAYAR F&B' : 'BAYAR MEJA'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                    })}
+                  </div>
+                  </>
                 )}
               </div>
             )}
 
             {activeTab === 'inventory' && <Inventory />}
             {activeTab === 'kds' && <KDS />}
-            {activeTab === 'fnb-order' && <FnBOrder />}
+            {activeTab === 'fnb-order' && <FnBOrder onOpenCheckout={openCheckout} />}
             {activeTab === 'waitlist' && <Waitlist tables={tables} members={members} />}
             {activeTab === 'pricing' && <Pricing />}
             {activeTab === 'discounts' && <Discounts />}
@@ -1525,8 +1806,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
       {/* Checkout Modal */}
       {checkoutBill && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-[#141414] border border-[#222222] sm:rounded-2xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col h-full sm:h-auto sm:max-h-[93vh] animate-in zoom-in-95 duration-200">
             <div className="p-4 md:p-5 border-b border-[#222222] bg-gradient-to-r from-[#1a1a1a] to-[#0a0a0a] flex justify-between items-center shrink-0">
               <h2 className="text-xl font-black flex items-center text-white italic tracking-tight">
                 <Receipt className="w-5 h-5 mr-3 text-[#00ff66]" />
@@ -1537,9 +1818,9 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               </button>
             </div>
 
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
+            <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0">
               {/* Left Column: Details */}
-              <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto custom-scrollbar md:border-r border-[#222222]">
+              <div className="flex-1 p-3.5 sm:p-5 md:p-6 space-y-4 md:overflow-y-auto custom-scrollbar md:border-r border-[#222222]">
                 <div className="bg-[#0a0a0a] rounded-2xl border border-[#222222] overflow-hidden">
                   {/* Table & Play Time Info */}
                   <div className="p-4 md:p-5 border-b border-[#222222] bg-[#111]">
@@ -1763,7 +2044,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               </div>
 
               {/* Right Column: Payment & Checkout */}
-              <div className="w-full md:w-[360px] lg:w-[400px] flex flex-col bg-[#0d0d0d] shrink-0 overflow-y-auto custom-scrollbar shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
+              <div className="w-full md:w-[360px] lg:w-[400px] flex flex-col bg-[#0d0d0d] shrink-0 md:overflow-y-auto custom-scrollbar shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
                 <div className="p-5 md:p-6 flex-1 space-y-6 flex flex-col justify-center">
 
                   {/* Grand Total Highlight Box */}
@@ -1984,7 +2265,7 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 </div>
 
                 {/* Actions */}
-                <div className="p-6 border-t border-[#222222] bg-[#0d0d0d] flex space-x-4 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20">
+                <div className="p-3.5 sm:p-5 pb-5 sm:pb-6 border-t border-[#222222] bg-[#0d0d0d] flex space-x-3 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20">
                   <button
                     onClick={saveToPending}
                     className="flex-[0.5] py-4 rounded-xl bg-transparent border-2 border-[#333] text-gray-400 font-bold hover:bg-[#1a1a1a] hover:text-white hover:border-gray-500 transition-all text-[10px] tracking-wider"
@@ -2440,8 +2721,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
       {/* F&B Order Modal */}
       {orderSessionId && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-5xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex h-[80vh] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-[100] p-2 sm:p-4">
+          <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-5xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col lg:flex-row h-[92vh] sm:h-[85vh] lg:h-[80vh] animate-in zoom-in-95 duration-200 relative">
 
             {/* Products Menu */}
             {(() => {
@@ -2452,16 +2733,37 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
               const categorizedProducts = products.filter(p => fnbActiveCategory === 'EQUIPMENT' ? isEquipment(p.category) : !isEquipment(p.category));
               const filteredProducts = categorizedProducts.filter(p => p.name.toLowerCase().includes(fnbSearchTerm.toLowerCase()) || p.category?.toLowerCase().includes(fnbSearchTerm.toLowerCase()));
+              const currentTable = tables.find(t => t.activeSession?.id === orderSessionId) || mergedTables.find(t => t.activeSession?.id === orderSessionId);
 
               return (
-                <div className="flex-[2] flex flex-col border-r border-[#2d221b] bg-[#0d0a08]">
-                  <div className="p-6 pb-4 border-b border-[#2d221b] bg-[#0c0908]">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-lg font-black flex items-center text-white tracking-wide">
-                        <Utensils className="w-5 h-5 mr-3 text-[#d48c5c]" />
-                        Food & Beverage Menu
-                      </h2>
-                      <div className="relative w-72">
+                <div className="flex-[2] flex flex-col border-r border-[#2d221b] bg-[#0d0a08] h-full overflow-hidden">
+                  <div className="p-3.5 sm:p-6 pb-3 sm:pb-4 border-b border-[#2d221b] bg-[#0c0908] shrink-0">
+                    <div className="flex justify-between items-center mb-3 sm:mb-4 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-[#d48c5c] shrink-0" />
+                        <div className="min-w-0">
+                          <h2 className="text-sm sm:text-lg font-black text-white tracking-wide truncate">
+                            Food & Beverage Menu
+                          </h2>
+                          {currentTable && (
+                            <p className="text-[10px] text-[#00ff66] font-bold truncate">
+                              Meja: {currentTable.name} ({currentTable.type || 'Billiard'})
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Mobile Close Button */}
+                      <button
+                        onClick={() => { setOrderSessionId(null); setCart([]); setIsTableCartOpen(false); }}
+                        className="w-8 h-8 rounded-full bg-[#1c140e] border border-[#2d221b] flex items-center justify-center text-gray-400 hover:text-white shrink-0 lg:hidden"
+                        title="Tutup Menu"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+
+                      {/* Desktop Search */}
+                      <div className="relative w-48 sm:w-72 hidden sm:block">
                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#d48c5c]/60" />
                         <input
                           type="text"
@@ -2472,48 +2774,91 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         />
                       </div>
                     </div>
+
+                    {/* Mobile Search */}
+                    <div className="relative mb-3 sm:hidden">
+                      <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[#d48c5c]/60" />
+                      <input
+                        type="text"
+                        placeholder="Cari menu, minuman, snack..."
+                        value={fnbSearchTerm}
+                        onChange={(e) => setFnbSearchTerm(e.target.value)}
+                        className="w-full bg-[#181310] border border-[#2d221b] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-[#d48c5c]"
+                      />
+                    </div>
+
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setFnbActiveCategory('FNB')}
-                        className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-2 ${fnbActiveCategory === 'FNB' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                        className={`flex-1 py-2 sm:py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-1.5 sm:gap-2 ${fnbActiveCategory === 'FNB' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
                       >
                         <Utensils className="w-3.5 h-3.5" />
-                        Food & Beverage Menu
+                        <span>F&B Menu</span>
                       </button>
                       <button
                         onClick={() => setFnbActiveCategory('EQUIPMENT')}
-                        className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-2 ${fnbActiveCategory === 'EQUIPMENT' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                        className={`flex-1 py-2 sm:py-2.5 rounded-xl font-bold text-xs transition-all text-center border flex items-center justify-center gap-1.5 sm:gap-2 ${fnbActiveCategory === 'EQUIPMENT' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
                       >
                         <ShoppingBag className="w-3.5 h-3.5" />
-                        Store & Equipment
+                        <span>Equipment</span>
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 pb-28 lg:pb-6 custom-scrollbar">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                       {filteredProducts.map(p => {
                         const style = getProductEmojiAndStyle(p.name, p.category);
+                        const cartItem = cart.find(item => item.product.id === p.id);
+                        const isRecentlyAdded = tableRecentlyAddedId === p.id;
+
                         return (
                           <button
                             key={p.id}
                             disabled={p.stock <= 0}
                             onClick={() => handleAddToCart(p)}
-                            className={`bg-gradient-to-br ${style.gradient} border ${style.border} p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[145px] ${p.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                            className={`bg-gradient-to-br ${style.gradient} border ${
+                              cartItem
+                                ? 'border-[#00ff66]/80 shadow-[0_0_20px_rgba(0,255,102,0.25)] ring-1 ring-[#00ff66]/60'
+                                : style.border
+                            } p-3.5 sm:p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 active:scale-95 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[145px] cursor-pointer ${p.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
                           >
+                            {/* Floating "+1" animation upon click */}
+                            {isRecentlyAdded && (
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                                <span className="animate-float-plus text-xs font-black text-[#00ff66] bg-black/85 px-3 py-1 rounded-full border border-[#00ff66] shadow-[0_0_15px_#00ff66]">
+                                  +1
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Glowing Corner Badge for Item Quantity */}
+                            {cartItem && (
+                              <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-[#00ff66] text-[#0a0a0a] px-2 py-0.5 rounded-full text-[10px] font-black shadow-[0_0_12px_rgba(0,255,102,0.85)] animate-pop-badge">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                                <span>{cartItem.qty}x</span>
+                              </div>
+                            )}
+
                             <div className="flex justify-between items-start">
                               <span className={`text-[10px] font-bold ${style.badgeBg} px-2 py-0.5 rounded-md uppercase tracking-wider`}>
                                 {p.category || 'F&B'}
                               </span>
-                              <span className="text-2xl group-hover:scale-110 transition-transform duration-200">{style.emoji}</span>
+                              {!cartItem && (
+                                <span className="text-2xl group-hover:scale-110 transition-transform duration-200">{style.emoji}</span>
+                              )}
                             </div>
                             
-                            <div className="mt-4">
-                              <h3 className="font-bold text-sm leading-snug text-gray-200 group-hover:text-white transition-colors line-clamp-2 min-h-[40px]">{p.name}</h3>
+                            <div className="mt-3">
+                              <h3 className={`font-bold text-sm leading-snug transition-colors line-clamp-2 min-h-[38px] ${
+                                cartItem ? 'text-white' : 'text-gray-200 group-hover:text-white'
+                              }`}>
+                                {p.name}
+                              </h3>
                             </div>
                             
                             <div className="mt-2 flex justify-between items-end pt-2 border-t border-white/[0.03]">
-                              <p className="font-mono font-bold text-[#d48c5c] text-sm">
+                              <p className={`font-mono font-bold text-sm ${cartItem ? 'text-[#00ff66]' : 'text-[#d48c5c]'}`}>
                                 Rp {p.price.toLocaleString('id-ID')}
                               </p>
                               {p.stock <= 0 ? (
@@ -2537,13 +2882,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               );
             })()}
 
-            {/* Cart */}
-            <div className="flex-1 flex flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
-              <div className="p-6 border-b border-[#271d17] bg-[#0c0908]">
+            {/* Desktop Cart Sidebar (hidden lg:flex) */}
+            <div className="hidden lg:flex flex-1 flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
+              <div className="p-6 border-b border-[#271d17] bg-[#0c0908] flex items-center justify-between">
                 <h2 className="text-lg font-black flex items-center text-white tracking-wide">
                   <ShoppingBag className="w-5 h-5 mr-3 text-[#d48c5c]" />
                   Current Order
                 </h2>
+                <button
+                  onClick={() => { setOrderSessionId(null); setCart([]); }}
+                  className="w-8 h-8 rounded-full bg-[#1c140e] border border-[#2d221b] flex items-center justify-center text-gray-400 hover:text-white"
+                  title="Close Modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Cart Items */}
@@ -2610,6 +2962,137 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                 </div>
               </div>
             </div>
+
+            {/* Mobile Floating Cart Summary Bar ("Lihat Pesanan") */}
+            {cart.length > 0 && !isTableCartOpen && (
+              <div 
+                onClick={() => setIsTableCartOpen(true)}
+                className="lg:hidden absolute bottom-3 left-3 right-3 bg-gradient-to-r from-[#1c140e] via-[#261b13] to-[#1c140e] border border-[#d48c5c]/60 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.95)] p-3 flex items-center justify-between z-30 cursor-pointer active:scale-[0.98] transition-all animate-fade-in-fast"
+                style={{ backdropFilter: 'blur(12px)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#d48c5c]/20 border border-[#d48c5c]/40 flex items-center justify-center text-[#d48c5c] shrink-0 relative">
+                    <ShoppingBag className="w-5 h-5" />
+                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-[#00ff66] text-black text-[9px] font-black shadow-md min-w-[18px] text-center">
+                      {cart.reduce((sum, item) => sum + item.qty, 0)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-gray-200">
+                      {cart.reduce((sum, item) => sum + item.qty, 0)} Menu Dipilih
+                    </div>
+                    <div className="text-sm font-mono font-black text-[#d48c5c]">
+                      Rp {cart.reduce((sum, item) => sum + (item.product.price * item.qty), 0).toLocaleString('id-ID')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0d0a08] font-black text-xs px-3.5 py-2.5 rounded-xl shadow-md active:scale-95 transition-all">
+                  <span>Lihat Pesanan</span>
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            )}
+
+            {/* Mobile Cart Drawer (Slide-up inside Modal) */}
+            {isTableCartOpen && (
+              <div 
+                className="lg:hidden absolute inset-0 z-40 flex flex-col justify-end bg-black/85 backdrop-blur-sm animate-fade-in-fast"
+                onClick={() => setIsTableCartOpen(false)}
+              >
+                <div 
+                  className="bg-[#120e0c] border-t-2 border-[#d48c5c]/50 rounded-t-3xl shadow-2xl max-h-[85%] flex flex-col animate-slide-up overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="p-4 border-b border-[#271d17] bg-[#0c0908] flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5 text-[#d48c5c]" />
+                      <h2 className="text-sm font-black text-white uppercase tracking-wide">
+                        Pesanan Meja ({cart.reduce((sum, item) => sum + item.qty, 0)} Menu)
+                      </h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setCart([]); setIsTableCartOpen(false); }}
+                        className="text-[11px] font-bold text-red-400 hover:text-red-300 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 active:scale-95"
+                      >
+                        Kosongkan
+                      </button>
+                      <button
+                        onClick={() => setIsTableCartOpen(false)}
+                        className="w-8 h-8 rounded-full bg-[#1c140e] border border-[#2d221b] flex items-center justify-center text-gray-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar">
+                    {cart.map(item => {
+                      const style = getProductEmojiAndStyle(item.product.name, item.product.category);
+                      return (
+                        <div key={item.product.id} className="flex items-center justify-between border border-[#2d221b] bg-[#0c0908] p-3 rounded-xl">
+                          <div className="flex-1 pr-2 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{style.emoji}</span>
+                              <p className="font-bold text-xs text-gray-200 leading-tight truncate">{item.product.name}</p>
+                            </div>
+                            <p className="text-[#d48c5c] text-xs font-mono font-bold mt-1">
+                              Rp {(item.product.price * item.qty).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="flex items-center bg-[#181310] rounded-lg border border-[#2d221b] shrink-0">
+                            <button onClick={() => updateCartQty(item.product.id, -1)} className="p-1.5 text-gray-400 hover:text-red-400 active:scale-90">
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="font-mono font-bold text-xs w-6 text-center text-white">{item.qty}</span>
+                            <button onClick={() => updateCartQty(item.product.id, 1)} className="p-1.5 text-gray-400 hover:text-[#d48c5c] active:scale-90">
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-4 border-t border-[#271d17] bg-[#0c0908] space-y-2.5 shrink-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Grand Total</span>
+                      <span className="text-xl font-mono font-black text-[#e3a87c]">
+                        Rp {cart.reduce((sum, item) => sum + (item.product.price * item.qty), 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={submitOrder}
+                      disabled={loading || cart.length === 0}
+                      className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider flex justify-center items-center gap-2 transition-all ${(loading || cart.length === 0)
+                        ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                        : 'bg-[#d48c5c] text-[#0c0908] hover:bg-[#e39c6c] shadow-[0_4px_12px_rgba(212,140,92,0.2)] active:scale-[0.98]'
+                      }`}
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Utensils className="w-4 h-4" />}
+                      SEND TO KITCHEN
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setOrderSessionId(null); setCart([]); setIsTableCartOpen(false); }}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-[10px] bg-white/[0.03] border border-white/10 text-gray-400 hover:text-white uppercase tracking-wider active:scale-95"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        onClick={() => setIsTableCartOpen(false)}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-[10px] bg-[#1a120b] border border-[#d48c5c]/30 text-[#e3a87c] hover:text-white uppercase tracking-wider active:scale-95"
+                      >
+                        + Tambah Menu
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
@@ -2749,6 +3232,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     <span className="text-gray-500">Table</span>
                     <span className="font-bold">{receiptData.table?.name || '-'}</span>
                   </div>
+                  {receiptData.customerName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Pelanggan</span>
+                      <span className="font-bold">{receiptData.customerName}</span>
+                    </div>
+                  )}
                   {receiptData.memberId && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Member</span>
@@ -2789,8 +3278,11 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                   <div className="my-1">
                     <p className="font-black text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">Food & Beverage Orders</p>
                     {receiptData.orders.map((o: any, i: number) => (
-                      <div key={i} className="flex justify-between mb-0">
-                        <span className="flex-1">{o.product?.name || 'Item'} <span className="text-gray-500">x{o.quantity}</span></span>
+                      <div key={i} className="flex justify-between mb-0.5">
+                        <span className="flex-1 leading-tight">
+                          {o.product?.name || 'Item'} <span className="text-gray-500">x{o.quantity}</span>
+                          {o.notes && <span className="text-gray-500 block text-[9px] italic leading-tight">* {o.notes}</span>}
+                        </span>
                         <span className="font-bold ml-2">Rp {Math.round(o.total || 0).toLocaleString('id-ID')}</span>
                       </div>
                     ))}
@@ -2829,10 +3321,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                       <span>Rp {(receiptData.taxAmount || 0).toLocaleString()}</span>
                     </div>
                   )}
-                  {receiptData.discount > 0 && (
-                    <div className="flex justify-between text-gray-400">
-                      <span>Discount</span>
-                      <span>-Rp {receiptData.discount.toLocaleString()}</span>
+                  {(receiptData.discount || 0) > 0 && (
+                    <div className="flex justify-between" style={{ color: '#22c55e' }}>
+                      <span className="font-medium">
+                        Diskon{receiptData.discountLabel ? ` (${receiptData.discountLabel})` : ''}
+                      </span>
+                      <span className="font-bold">-Rp {(receiptData.discount || 0).toLocaleString('id-ID')}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-black text-[13px] pt-0.5 mt-0.5 border-t border-dashed border-gray-200">
@@ -2877,33 +3371,90 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               </div>
             </div>
 
-            <div className="p-4 border-t border-[#222222] flex gap-3 no-print">
-              <button
-                onClick={() => setReceiptData(null)}
-                className="flex-1 py-3 rounded-xl bg-[#0a0a0a] border border-[#222] text-gray-400 font-semibold hover:bg-white/5 transition-all text-sm"
-              >
-                Tutup
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    // Try silent print first if inside Electron
-                    if ((window as any).vamosElectron) {
-                      (window as any).vamosElectron.silentPrint();
-                      // We don't close receipt modal automatically so cashier can verify, or they can close it.
-                    } else {
-                      // Fallback to traditional browser print
-                      window.print();
-                    }
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }}
-                className="flex-1 py-3 rounded-xl font-bold text-sm flex justify-center items-center gap-2 transition-all"
-                style={{ background: '#00ff66', color: '#0a0a0a', boxShadow: '0 0 15px rgba(0,255,102,0.2)' }}
-              >
-                <Printer className="w-4 h-4" /> Print Receipt
-              </button>
+            <div className="p-4 border-t border-[#222222] no-print">
+              {/* Bluetooth printer status bar */}
+              {btPrinter.isSupported && (
+                <div className="mb-3 flex items-center justify-between px-3 py-2 rounded-xl" style={{ background: '#0a0a0a', border: '1px solid #222' }}>
+                  <div className="flex items-center gap-2">
+                    {btPrinter.isConnected ? (
+                      <BluetoothConnected className="w-4 h-4" style={{ color: '#00ff66' }} />
+                    ) : (
+                      <Bluetooth className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {btPrinter.isConnected
+                        ? btPrinter.deviceName || 'Printer Terhubung'
+                        : btPrinter.lastKnownPrinterName
+                          ? `Terakhir: ${btPrinter.lastKnownPrinterName}`
+                          : 'Printer Bluetooth'}
+                    </span>
+                    {btPrinter.errorMsg && (
+                      <span className="text-xs text-red-400 truncate max-w-[120px]">{btPrinter.errorMsg}</span>
+                    )}
+                  </div>
+                  {btPrinter.isConnected ? (
+                    <button onClick={btPrinter.disconnect} className="text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-1 rounded">
+                      Putus
+                    </button>
+                  ) : (
+                    <button
+                      onClick={btPrinter.scanAndConnect}
+                      disabled={btPrinter.status === 'scanning'}
+                      className="text-xs transition-colors px-2 py-1 rounded hover:bg-white/5"
+                      style={{ color: '#00ff66' }}
+                    >
+                      {btPrinter.status === 'scanning' ? 'Mencari...' : 'Hubungkan'}
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setReceiptData(null)}
+                  className="flex-1 py-3 rounded-xl bg-[#0a0a0a] border border-[#222] text-gray-400 font-semibold hover:bg-white/5 transition-all text-sm"
+                >
+                  Tutup
+                </button>
+                {/* Bluetooth Print Button */}
+                {btPrinter.isSupported && (
+                  <button
+                    onClick={async () => {
+                      const ok = await btPrinter.printReceipt(
+                        receiptData,
+                        venueConfig?.printerWidth || 32
+                      );
+                      if (ok) { vamosAlert('Struk berhasil dicetak ke printer Bluetooth!'); setReceiptData(null); }
+                    }}
+                    disabled={btPrinter.isPrinting}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm flex justify-center items-center gap-2 transition-all border border-[#333] hover:border-[#555]"
+                    style={{ background: '#0a0a1a', color: btPrinter.isConnected ? '#60a5fa' : '#6b7280' }}
+                    title={btPrinter.isConnected ? 'Cetak ke printer Bluetooth' : 'Hubungkan printer Bluetooth dulu'}
+                  >
+                    {btPrinter.isPrinting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <BluetoothConnected className="w-4 h-4" />
+                    )}
+                    BT Print
+                  </button>
+                )}
+                {/* Browser / Electron Print Button */}
+                <button
+                  onClick={async () => {
+                    try {
+                      if ((window as any).vamosElectron) {
+                        (window as any).vamosElectron.silentPrint();
+                      } else {
+                        window.print();
+                      }
+                    } catch (err) { console.error(err); }
+                  }}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm flex justify-center items-center gap-2 transition-all"
+                  style={{ background: '#00ff66', color: '#0a0a0a', boxShadow: '0 0 15px rgba(0,255,102,0.2)' }}
+                >
+                  <Printer className="w-4 h-4" /> Print
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3045,65 +3596,18 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
         </div>
       )}
 
-      {/* Close Shift Modal */}
-      {showCloseShiftModal && activeShift && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-          <div className="bg-[#141414] border border-[#ff3333]/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-[0_0_50px_rgba(255,51,51,0.15)] animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-[#222222] bg-[#0a0a0a]">
-              <h2 className="text-xl font-bold flex items-center text-white">
-                <LogOut className="w-5 h-5 mr-3 text-[#ff3333]" />
-                Tutup Shift
-              </h2>
-              <p className="text-xs text-gray-400 mt-2">Menutup shift Anda saat ini. Hitung uang fisik di laci kasir.</p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-[#111] border border-[#222222] p-3 rounded-xl">
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Shift Dimulai</p>
-                <p className="text-sm font-bold text-gray-300">
-                  {new Date(activeShift.startTime).toLocaleString('id-ID')}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#ff3333] uppercase tracking-wider mb-2">Total Cash Fisik di Laci</label>
-                <input
-                  type="number"
-                  value={closeShiftCash || ''}
-                  onChange={e => setCloseShiftCash(Number(e.target.value))}
-                  placeholder="0"
-                  className="w-full bg-[#0a0a0a] border border-[#441111] rounded-lg px-4 py-3 focus:outline-none focus:border-[#ff3333] transition-colors font-mono text-xl font-bold text-white shadow-[inset_0_0_10px_rgba(255,51,51,0.1)]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Catatan Tambahan</label>
-                <input
-                  type="text"
-                  value={closeShiftNotes}
-                  onChange={e => setCloseShiftNotes(e.target.value)}
-                  placeholder="Keterangan nominal selisih..."
-                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-[#ff3333] transition-colors text-sm"
-                />
-              </div>
-            </div>
-            <div className="p-6 flex space-x-3 bg-[#0a0a0a] border-t border-[#222222]">
-              <button
-                onClick={() => setShowCloseShiftModal(false)}
-                className="flex-[1] py-3 rounded-xl bg-transparent border border-[#2a2a2a] text-gray-400 font-semibold hover:bg-white/5 hover:text-white transition-all text-sm"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleCloseShift}
-                disabled={loading}
-                className="flex-[2] py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40"
-                style={{ background: '#ff3333', color: 'white', boxShadow: '0 0 20px rgba(255,51,51,0.2)' }}
-              >
-                Selesaikan Shift
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Shift Handover & Rekonsiliasi Kas Modal */}
+      <ShiftHandoverModal
+        isOpen={showCloseShiftModal && !!activeShift}
+        onClose={() => setShowCloseShiftModal(false)}
+        onShiftClosed={() => {
+          setActiveShift(null);
+          setShowCloseShiftModal(false);
+          setShowStartShiftModal(true);
+          setStartShiftCash(0);
+          setStartShiftNotes('');
+        }}
+      />
 
       {/* Broadcast Status Modal */}
       {showBroadcastModal && (
@@ -3185,6 +3689,77 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
           </div>
         </div>
       )}
+
+      {/* Floating Cashier New Order Banner */}
+      {orderToast && (
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm bg-[#141414] border-2 border-[#00ff66]/70 shadow-[0_0_35px_rgba(0,255,102,0.3)] rounded-2xl p-4 flex items-start gap-3.5 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="w-10 h-10 rounded-xl bg-[#00ff66]/15 text-[#00ff66] flex items-center justify-center shrink-0 border border-[#00ff66]/30">
+            <Utensils className="w-5 h-5 animate-bounce" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-[#00ff66] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-ping" />
+                {orderToast.title}
+              </h4>
+              <button onClick={() => setOrderToast(null)} className="text-gray-500 hover:text-white text-xs px-1">✕</button>
+            </div>
+            <p className="text-sm font-bold text-white truncate">{orderToast.message}</p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setActiveTab('bills');
+                  setOrderToast(null);
+                }}
+                className="text-[11px] font-black uppercase tracking-wider text-black bg-[#00ff66] px-3 py-1.5 rounded-lg hover:bg-[#00e65c] transition-colors shadow-[0_0_10px_rgba(0,255,102,0.3)]"
+              >
+                Cek Pending Bills →
+              </button>
+              <button 
+                onClick={() => setOrderToast(null)}
+                className="text-[11px] font-semibold text-gray-400 hover:text-white px-2 py-1.5"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Navigation Bar (Android Style) */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          setIsMobileMenuOpen(false);
+        }}
+        activeTableCount={activeCount}
+        pendingBillsCount={pendingBills.length}
+        waitlistCount={waitlistCount}
+        isMenuDrawerOpen={isMobileMenuOpen}
+        onToggleMenuDrawer={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        hasNotification={redemptionPendingCount > 0 || arenaPendingCount > 0}
+      />
+
+      {/* Mobile Slide-up Menu Drawer ("Menu Lainnya") */}
+      <MobileMenuDrawer
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        user={user}
+        activeShift={activeShift}
+        onOpenCloseShiftModal={() => setShowCloseShiftModal(true)}
+        onLogout={onLogout}
+        pendingKdsCount={pendingKdsCount}
+        arenaPendingCount={arenaPendingCount}
+        redemptionPendingCount={redemptionPendingCount}
+        unpaidDebtCount={unpaidDebtCount}
+        syncCount={syncCount}
+        hwStatus={hwStatus}
+        waStatus={waStatus}
+        onSyncHardware={checkHardware}
+      />
     </div>
   );
 }
@@ -3218,6 +3793,7 @@ function formatDuration(session: any, _tick: number) {
 function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onAddDuration, onViewDetail, onToggleRelay }: any) {
   const isPlaying = table.status === 'PLAYING' && table.activeSession;
   const isAvailable = table.status === 'AVAILABLE';
+  const hasFnbOnlySession = isAvailable && table.activeSession && table.activeSession.billingType === 'FNB_ONLY';
 
   const isTimeUp = (() => {
     if (!isPlaying || !table.activeSession?.durationOpts) return false;
@@ -3272,13 +3848,17 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
       }
 
       return (
-        <div className={`bg-[#141414] border rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 min-h-[260px] relative group
+        <div className={`bg-[#141414] border rounded-2xl p-4 sm:p-6 flex flex-col justify-between transition-all duration-300 ${isAvailable && !hasFnbOnlySession ? "min-h-[160px] sm:min-h-[260px]" : "min-h-[220px] sm:min-h-[260px]"} relative group
           ${isActive ? borderColor : 'border-[#222222] opacity-80'}`}
         >
-          <div className="flex justify-between items-start mb-6 z-10">
+          <div className="flex justify-between items-start mb-4 sm:mb-6 z-10">
             <div>
-              <h3 className="text-xl font-bold mb-1">{table.name}</h3>
-              <p className="text-xs text-gray-400 tracking-wider uppercase">CAFE TABLE</p>
+              <h3 className="text-lg sm:text-xl font-bold mb-1 truncate max-w-[170px]">
+                {table.activeSession?.customerName || table.name}
+              </h3>
+              <p className="text-xs text-gray-400 tracking-wider uppercase">
+                {table.activeSession?.customerName ? `${table.name} • ${table.activeSession.member ? '⭐ Member' : 'Tamu'}` : 'CAFE TABLE'}
+              </p>
             </div>
             <div className="flex flex-col items-end space-y-2">
               <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider
@@ -3310,15 +3890,15 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
           <div className="mt-4 flex space-x-2">
              {isActive ? (
                 <>
-                   <button onClick={onViewDetail} className="flex-[0.5] py-3 bg-[#141414] border border-[#ff9900]/50 text-[#ff9900] rounded-xl text-xs font-black uppercase hover:bg-[#ff9900] hover:text-[#0a0a0a] transition-all flex items-center justify-center p-0 shadow-[0_0_10px_rgba(255,153,0,0.1)]">
+                   <button onClick={onViewDetail} className="flex-[0.5] py-3 bg-[#141414] border border-[#ff9900]/50 text-[#ff9900] rounded-xl text-xs font-black uppercase hover:bg-[#ff9900] hover:text-[#0a0a0a] transition-all flex items-center justify-center p-0 shadow-[0_0_10px_rgba(255,153,0,0.1)] active:scale-95" title="Detail Pesanan">
                      <Receipt className="w-4 h-4" />
                    </button>
-                   <button onClick={onEnd} className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all shadow-[0_0_10px_rgba(255,51,51,0.2)] bg-[#ff3333]/10 border border-[#ff3333]/30 text-[#ff3333] hover:bg-[#ff3333] hover:text-white">
+                   <button onClick={onEnd} className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all shadow-[0_0_10px_rgba(255,51,51,0.2)] bg-[#ff3333]/10 border border-[#ff3333]/30 text-[#ff3333] hover:bg-[#ff3333] hover:text-white active:scale-95">
                      Pay Bill
                    </button>
                 </>
              ) : (
-                <button disabled className="w-full py-3 rounded-xl text-[11px] font-black bg-[#111] border border-gray-600/30 text-gray-500 cursor-default uppercase tracking-widest">
+                <button disabled className="w-full py-2.5 sm:py-3 rounded-xl text-[11px] font-black bg-[#111] border border-gray-600/30 text-gray-500 cursor-default uppercase tracking-widest">
                   Scan QR To Order
                 </button>
              )}
@@ -3328,17 +3908,18 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
   }
 
   return (
-    <div className={`bg-[#141414] border rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 min-h-[260px] relative group
+    <div className={`bg-[#141414] border rounded-2xl p-4 sm:p-6 flex flex-col justify-between transition-all duration-300 ${isAvailable && !hasFnbOnlySession ? "min-h-[160px] sm:min-h-[260px]" : "min-h-[220px] sm:min-h-[260px]"} relative group
       ${isPlaying ?
         (isTimeUp ? 'border-yellow-500/80 shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-yellow-500/5' :
           isTimeBlinking ? 'border-[#00aaff]/80 shadow-[0_0_30px_rgba(0,170,255,0.4)] bg-[#00aaff]/5 animate-pulse' :
             'border-[#ff3333]/30 shadow-[0_0_30px_rgba(255,51,51,0.05)]') :
+        hasFnbOnlySession ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)] bg-orange-500/5' :
         isAvailable ? 'border-[#00ff66]/30 hover:shadow-[0_0_20px_rgba(0,255,102,0.05)]' :
           'border-[#222222] opacity-80'}`}
     >
-      <div className="flex justify-between items-start mb-6 z-10">
+      <div className="flex justify-between items-start mb-4 sm:mb-6 z-10">
         <div>
-          <h3 className="text-xl font-bold mb-1">{table.name}</h3>
+          <h3 className="text-lg sm:text-xl font-bold mb-1">{table.name}</h3>
           <p className="text-xs text-gray-400 tracking-wider uppercase">{table.type}</p>
           {isPlaying && (() => {
             const session = table.activeSession;
@@ -3351,17 +3932,39 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
             ) : null;
           })()}
         </div>
-        <div className="flex flex-col items-end space-y-2">
-          <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider
+        <div className="flex items-center gap-1.5 z-10">
+          {/* Quick Actions on Mobile: displayed cleanly side-by-side with badge */}
+          {isPlaying && (
+            <div className="flex items-center space-x-1.5 md:hidden">
+              <button 
+                onClick={onMove} 
+                className="w-8 h-8 bg-[#00aaff]/15 border border-[#00aaff]/40 rounded-lg flex items-center justify-center text-[#00aaff] hover:bg-[#00aaff] hover:text-white transition-colors active:scale-90 shadow-sm" 
+                title="Pindah Meja"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={onAddDuration} 
+                className="w-8 h-8 bg-[#bb00ff]/15 border border-[#bb00ff]/40 rounded-lg flex items-center justify-center text-[#bb00ff] hover:bg-[#bb00ff] hover:text-white transition-colors active:scale-90 shadow-sm" 
+                title="Tambah Waktu"
+              >
+                <TimerReset className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider shrink-0
              ${isPlaying ? 'bg-[#ff3333]/10 border-[#ff3333]/50 text-[#ff3333]' :
+              hasFnbOnlySession ? 'bg-orange-500/10 border-orange-500/50 text-orange-400 animate-pulse' :
               isAvailable ? 'bg-[#00ff66]/10 border-[#00ff66]/50 text-[#00ff66]' :
                 'bg-orange-500/10 border-orange-500/50 text-orange-500'}`}
           >
-            {table.status}
+            {hasFnbOnlySession ? 'F&B ORDER' : table.status}
           </span>
-          {/* Quick Actions (Hover) */}
+
+          {/* Quick Actions on Desktop: 100% UNCHANGED, hovers to the left of the badge */}
           {isPlaying && (
-            <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-6 right-[85px]">
+            <div className="hidden md:flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-6 right-[85px]">
               <button onClick={onMove} className="w-7 h-7 bg-[#00aaff]/10 border border-[#00aaff]/30 rounded flex items-center justify-center text-[#00aaff] hover:bg-[#00aaff] hover:text-white transition-colors" title="Move Table">
                 <ArrowRightLeft className="w-3.5 h-3.5" />
               </button>
@@ -3410,8 +4013,20 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
               )}
             </div>
           </>
+        ) : hasFnbOnlySession ? (
+          <div className="flex flex-col items-center justify-center py-2">
+            <div className="w-14 h-14 rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 mb-2">
+              <Utensils className="w-6 h-6" />
+            </div>
+            <div className="text-xl font-black text-white">
+              Rp {(table.activeSession.fnbAmount || 0).toLocaleString()}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[150px]">
+              {table.activeSession.customerName || 'Pesanan Waiter'}
+            </p>
+          </div>
         ) : (
-          <div className="w-16 h-16 rounded-full bg-[#0a0a0a] border border-[#222222] flex items-center justify-center opacity-50 relative group/icon">
+          <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-[#0a0a0a] border border-[#222222] flex items-center justify-center opacity-50 relative group/icon my-1 sm:my-2">
             <Activity className="w-6 h-6 text-gray-600" />
 
             {/* Manual Hardware Test Buttons */}
@@ -3443,6 +4058,30 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
               {isTimeUp ? 'Pay Now' : 'End Session'}
             </button>
           </>
+        ) : hasFnbOnlySession ? (
+          <div className="flex space-x-2 w-full">
+            <button
+              onClick={onStart}
+              className="flex-1 py-3 rounded-xl text-xs font-bold bg-[#00ff66] text-[#0a0a0a] hover:bg-[#00e65c] shadow-[0_0_15px_rgba(0,255,102,0.2)] transition-all uppercase tracking-wider"
+              title="Mulai Sesi Biliar (Otomatis gabung tagihan F&B)"
+            >
+              Main Biliar
+            </button>
+            <button
+              onClick={onOrderFnB}
+              className="px-3 py-3 rounded-xl text-xs font-bold bg-[#141414] border border-[#ff9900]/50 text-[#ff9900] hover:bg-[#ff9900] hover:text-[#0a0a0a] transition-all"
+              title="Tambah Pesanan Menu"
+            >
+              <Utensils className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onEnd}
+              className="flex-1 py-3 rounded-xl text-xs font-bold bg-[#ff3333]/10 border border-[#ff3333]/30 text-[#ff3333] hover:bg-[#ff3333] hover:text-white transition-all uppercase tracking-wider"
+              title="Bayar tagihan F&B saja tanpa main biliar"
+            >
+              Bayar F&B
+            </button>
+          </div>
         ) : (
           <button
             disabled={!isAvailable}

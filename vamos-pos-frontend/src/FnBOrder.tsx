@@ -63,7 +63,7 @@ export const getProductEmojiAndStyle = (name: string, category: string) => {
     return { emoji, gradient, border, badgeBg };
 };
 
-export default function FnBOrder() {
+export default function FnBOrder({ onOpenCheckout }: { onOpenCheckout?: (bill: any) => void } = {}) {
     const [products, setProducts] = useState<any[]>([]);
     const [cart, setCart] = useState<{ product: any, qty: number }[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -151,11 +151,17 @@ export default function FnBOrder() {
             ));
 
             if (isDirectPay) {
-                setTempSessionId(newSessionId);
-                setShowPaymentModal(true);
-                setReceivedAmount(totalAmount);
+                if (onOpenCheckout) {
+                    const billRes = await api.get(`/sessions/${newSessionId}`);
+                    resetForm();
+                    onOpenCheckout(billRes.data.data || billRes.data || sessionRes.data);
+                } else {
+                    setTempSessionId(newSessionId);
+                    setShowPaymentModal(true);
+                    setReceivedAmount(totalAmount);
+                }
             } else {
-                vamosAlert('Order saved to Pending Bills!');
+                vamosAlert('Tagihan F&B berhasil di-HOLD & disimpan ke Pending Bills!');
                 resetForm();
             }
         } catch (err: any) {
@@ -292,7 +298,7 @@ export default function FnBOrder() {
             </div>
 
             {/* Right Cart Area */}
-            <div className="flex-1 flex flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
+            <div id="fnb-cart-section" className="flex-1 flex flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
                 <div className="p-6 border-b border-[#271d17] bg-[#0c0908]">
                     <h2 className="text-lg font-black flex items-center text-white tracking-wide">
                         <ShoppingBag className="w-5 h-5 mr-3 text-[#d48c5c]" />
@@ -411,7 +417,7 @@ export default function FnBOrder() {
                 </div>
 
                 {/* Footer Checkout */}
-                <div className="p-6 border-t border-[#271d17] bg-[#0c0908] space-y-4">
+                <div className="p-6 pb-28 lg:pb-6 border-t border-[#271d17] bg-[#0c0908] space-y-4">
                     <div className="flex justify-between items-center mb-1">
                         <span className="text-gray-500 font-black uppercase tracking-widest text-[9px]">Grand Total Order</span>
                         <span className="text-xl font-mono font-black text-[#e3a87c] tracking-tighter">
@@ -434,12 +440,36 @@ export default function FnBOrder() {
                     <button
                         onClick={() => handlePlaceOrder(false)}
                         disabled={loading || cart.length === 0}
-                        className="w-full py-2.5 rounded-xl font-bold text-[10px] bg-white/[0.02] border border-white/5 text-[#a08474] hover:text-white hover:bg-white/[0.05] transition-all uppercase tracking-widest"
+                        className="w-full py-3 rounded-xl font-black text-xs bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:text-white hover:bg-amber-500/20 active:scale-95 transition-all uppercase tracking-wider shadow-sm"
                     >
-                        Save to Pending Bill
+                        HOLD / PENDING BILL
                     </button>
                 </div>
             </div>
+
+            {/* Floating Mobile Cart Indicator */}
+            {cart.length > 0 && (
+                <div className="lg:hidden fixed bottom-[76px] left-3 right-3 z-40 bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0d0a08] p-3.5 rounded-2xl flex items-center justify-between shadow-[0_8px_30px_rgba(212,140,92,0.4)] border border-amber-300/30 animate-in slide-in-from-bottom-4 duration-200">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center font-black text-xs">
+                            {cart.reduce((a, c) => a + c.qty, 0)}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-black/70">Order Berlangsung</p>
+                            <p className="text-sm font-black font-mono">Rp {totalAmount.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                            const cartEl = document.getElementById('fnb-cart-section');
+                            if (cartEl) cartEl.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="bg-[#0d0a08] text-[#d48c5c] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow hover:bg-black transition-all active:scale-95"
+                    >
+                        Lihat Order ➔
+                    </button>
+                </div>
+            )}
 
             {/* --- Payment Modal --- */}
             {showPaymentModal && (

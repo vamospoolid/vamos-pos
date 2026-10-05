@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, getSocketURL } from './api';
 import { io } from 'socket.io-client';
-import { Loader2, CheckCircle, Clock, ChefHat, Check } from 'lucide-react';
+import { Loader2, CheckCircle, Clock, ChefHat, Check, MessageSquare } from 'lucide-react';
 import { vamosAlert } from './utils/dialog';
 
 const playNotificationSound = () => {
@@ -95,29 +95,48 @@ export default function KDS() {
 
     const activeOrders = orders.filter(o => ['PENDING', 'PROCESSING', 'READY'].includes(o.kdsStatus));
 
-    const OrderCard = ({ order }: any) => (
-        <div className="bg-[#1a1a1a] border border-[#333] rounded-xl p-4 flex flex-col justify-between h-full">
-            <div>
-                <div className="flex justify-between items-start mb-2">
-                    <span className="text-gray-100 font-semibold text-lg leading-tight">{order.product?.name}</span>
-                    <span className="bg-[#333] text-gray-200 px-3 py-1 rounded-md text-sm font-bold ml-2">x{order.quantity}</span>
+    const OrderCard = ({ order }: any) => {
+        const waiterDisplay = order.waiterName || (order.session?.customerName?.startsWith('Pelanggan (Waiter:') ? order.session.customerName.replace('Pelanggan (Waiter: ', '').replace(')', '') : null);
+
+        return (
+            <div className="bg-[#1a1a1a] border border-[#333] rounded-xl p-4 flex flex-col justify-between h-full">
+                <div>
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-gray-100 font-semibold text-lg leading-tight">{order.product?.name}</span>
+                        <span className="bg-[#333] text-gray-200 px-3 py-1 rounded-md text-sm font-bold ml-2">x{order.quantity}</span>
+                    </div>
+                    <div className="text-gray-400 text-sm mb-2 flex items-center justify-between">
+                        <span className="truncate pr-2">
+                            Area/Meja: <strong className="text-gray-200 font-bold">
+                                {order.session?.table?.name ? `Meja ${order.session.table.name}` : (order.session?.customerName || 'Non-Meja / Takeaway')}
+                            </strong>
+                        </span>
+                        {waiterDisplay && (
+                            <span className="text-[11px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-amber-400 font-medium shrink-0">
+                                Waiter: {waiterDisplay}
+                            </span>
+                        )}
+                    </div>
+                    {order.notes && (
+                        <div className="mb-3 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1.5">
+                            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                            <span>{order.notes}</span>
+                        </div>
+                    )}
+                    <div className="text-xs text-gray-500 mb-4 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                 </div>
-                <div className="text-gray-400 text-sm mb-4">
-                    Meja: <span className="text-gray-200 font-medium">{order.session?.table?.name || 'Direct'}</span>
-                </div>
-                <div className="text-xs text-gray-500 mb-4 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
+                <button 
+                    onClick={() => updateStatus(order.id, 'SERVED')}
+                    className="w-full py-3 mt-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all bg-[#2c2c2c] hover:bg-green-600 hover:text-white text-gray-300 border border-[#444] hover:border-green-500"
+                >
+                    <Check className="w-4 h-4" /> Selesai
+                </button>
             </div>
-            <button 
-                onClick={() => updateStatus(order.id, 'SERVED')}
-                className="w-full py-3 mt-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all bg-[#2c2c2c] hover:bg-green-600 hover:text-white text-gray-300 border border-[#444] hover:border-green-500"
-            >
-                <Check className="w-4 h-4" /> Selesai
-            </button>
-        </div>
-    );
+        );
+    };
 
     const clearAll = async () => {
         if (!window.confirm('Yakin ingin menyelesaikan semua pesanan aktif?')) return;
