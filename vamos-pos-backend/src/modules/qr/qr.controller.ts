@@ -10,7 +10,7 @@ export const getMenu = catchAsync(async (req: Request, res: Response) => {
 
 export const createOrder = catchAsync(async (req: Request, res: Response) => {
     const { tableId } = req.params;
-    const { cart } = req.body; // Array of { productId, quantity }
-    const result = await QRService.createOrderForTable(tableId, cart);
+    const { cart, waiterName, areaNote, customerName, memberId } = req.body; // Array of { productId, quantity, notes }, waiterName, areaNote, customerName, memberId
+    const result = await QRService.createOrderForTable(tableId, cart, waiterName, areaNote, customerName, memberId);
     res.json({ success: true, data: result });
 });

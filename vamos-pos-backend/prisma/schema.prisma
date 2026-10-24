@@ -48,6 +48,9 @@ model Venue {
   /// UTC offset in hours: 7=WIB, 8=WITA, 9=WIT. Used by VPS for timezone-aware reports.
   timezoneOffset      Int       @default(8)
   isRecipeSystemEnabled Boolean @default(false)
+  latitude            Float?    @default(-8.6500)
+  longitude           Float?    @default(115.2166)
+  attendanceRadiusMeters Int    @default(100)
   tables              Table[]
 }
 
@@ -195,6 +198,9 @@ model Session {
   pausedAt        DateTime?
   totalPausedMs   Int              @default(0)
   billingType     String?
+  isVoucher       Boolean          @default(false)
+  redemptionId    String?
+  voucherDiscount Float            @default(0)
   syncStatus      SyncState        @default(PENDING)
   expenses        Expense[]
   matches         Match[]
@@ -221,6 +227,7 @@ model Product {
   price        Float
   stock        Int            @default(0)
   category     String?
+  imageUrl     String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   deletedAt    DateTime?
@@ -248,6 +255,8 @@ model Order {
   quantity   Int
   price      Float
   total      Float
+  notes      String?
+  waiterName String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
@@ -404,32 +413,80 @@ model Expense {
   @@index([syncStatus])
 }
 
+model WorkShift {
+  id               String       @id @default(uuid())
+  name             String       // "Shift Pagi", "Shift Siang", "Shift Malam", "Full Day"
+  startTime        String       @default("09:00")
+  endTime          String       @default("17:00")
+  graceLateMinutes Int          @default(15)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  employees        Employee[]
+  attendances      Attendance[]
+}
+
 model Employee {
-  id          String       @id @default(uuid())
-  name        String
-  position    String
-  phone       String?
-  email       String?
-  salary      Float        @default(0)
-  joinDate    DateTime     @default(now())
-  status      String       @default("ACTIVE")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  attendances Attendance[]
+  id             String          @id @default(uuid())
+  name           String
+  position       String
+  phone          String?         @unique
+  email          String?
+  pinCode        String?         @default("1234")
+  avatarUrl      String?
+  salary         Float           @default(0)
+  joinDate       DateTime        @default(now())
+  status         String          @default("ACTIVE")
+  approvalStatus String          @default("APPROVED") // PENDING, APPROVED, REJECTED
+  jobdesk        String?         // Rincian SOP & Jobdesk harian
+  shiftId        String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  shift          WorkShift?      @relation(fields: [shiftId], references: [id])
+  attendances    Attendance[]
+  bonuses        EmployeeBonus[]
 }
 
 model Attendance {
-  id         String    @id @default(uuid())
-  employeeId String
-  date       DateTime  @default(now())
-  checkIn    DateTime?
-  checkOut   DateTime?
-  status     String    @default("PRESENT")
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  employee   Employee  @relation(fields: [employeeId], references: [id])
+  id            String     @id @default(uuid())
+  employeeId    String
+  shiftId       String?
+  date          DateTime   @default(now())
+  checkIn       DateTime?
+  checkOut      DateTime?
+  checkInPhoto  String?    // Compressed WebP base64 / URL
+  checkOutPhoto String?    // Compressed WebP base64 / URL
+  checkInLat    Float?
+  checkInLng    Float?
+  lateMinutes   Int        @default(0)
+  status        String     @default("PRESENT") // PRESENT, LATE, SICK, LEAVE, OVERTIME
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  employee      Employee   @relation(fields: [employeeId], references: [id])
+  shift         WorkShift? @relation(fields: [shiftId], references: [id])
+
+  @@index([employeeId, date])
+}
+
+model EmployeeBonus {
+  id                  String   @id @default(uuid())
+  employeeId          String
+  periodMonth         String   // e.g. "2026-09"
+  attendanceScore     Float    @default(100)
+  salesAmount         Float    @default(0)
+  salesTargetScore    Float    @default(0)
+  customerRatingScore Float    @default(5.0)
+  totalBonus          Float    @default(0)
+  isPaid              Boolean  @default(false)
+  badgeAwarded        String?  // "STAFF_OF_THE_MONTH", "PERFECT_ATTENDANCE", "TOP_SELLER"
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  employee            Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, periodMonth])
+  @@index([periodMonth])
 }
 
 model Reward {
@@ -439,6 +496,8 @@ model Reward {
   pointsRequired Int
   rewardType     RewardType   @default(DISCOUNT)
   value          Float        @default(0)
+  nominalValue   Float        @default(0)
+  costPrice      Float        @default(0)
   stock          Int          @default(999)
   imageUrl       String?
   isActive       Boolean      @default(true)
@@ -455,10 +514,13 @@ model Redemption {
   memberId   String
   rewardId   String
   pointsUsed Int      @default(0)
-  claimedAt  DateTime @default(now())
-  status     String   @default("PENDING")
-  notes      String?
-  member     Member   @relation(fields: [memberId], references: [id])
+  claimedAt   DateTime  @default(now())
+  deliveredAt DateTime?
+  status      String    @default("PENDING")
+  notes       String?
+  cashierId   String?
+  sessionId   String?
+  member      Member    @relation(fields: [memberId], references: [id])
   reward     Reward   @relation(fields: [rewardId], references: [id])
 }
 
@@ -595,6 +657,9 @@ model CashierShift {
   status           String    @default("OPEN")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  cashBreakdown    String?
+  cashDifference   Float?
+  differenceReason String?
   syncStatus       SyncState @default(PENDING)
   user             User      @relation(fields: [userId], references: [id])
   expenses         Expense[]
@@ -737,17 +802,22 @@ enum UnitType {
 }
 
 model RawMaterial {
-  id            String               @id @default(uuid())
-  name          String
-  unit          UnitType
-  currentStock  Float                @default(0)
-  costPerUnit   Float                @default(0)
-  minStockAlert Float                @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id                String               @id @default(uuid())
+  name              String
+  unit              UnitType
+  currentStock      Float                @default(0)
+  costPerUnit       Float                @default(0)
+  minStockAlert     Float                @default(0)
+  purchaseUnit      String?
+  conversionRatio   Float                @default(1)
+  lastPurchasePrice Float                @default(0)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   
-  recipes       RecipeIngredient[]
-  stockHistory  RawMaterialHistory[]
+  recipes           RecipeIngredient[]
+  stockHistory      RawMaterialHistory[]
+  wasteLogs         WasteLog[]
+  stockOpnameItems  StockOpnameItem[]
 }
 
 model RecipeIngredient {
@@ -766,11 +836,62 @@ model RawMaterialHistory {
   id            String       @id @default(uuid())
   rawMaterialId String
   quantity      Float
-  type          String       // IN, OUT, ADJUSTMENT, SPOILAGE
+  type          String       // IN, OUT, ADJUSTMENT, SPOILAGE, OPNAME
   previousStock Float
   newStock      Float
   notes         String?
   createdAt     DateTime     @default(now())
   
   rawMaterial   RawMaterial  @relation(fields: [rawMaterialId], references: [id])
+}
+
+model WasteLog {
+  id            String      @id @default(uuid())
+  rawMaterialId String
+  quantity      Float
+  costLoss      Float       @default(0)
+  reason        String      // EXPIRED, SPOILED, DAMAGED, SPILL, OTHER
+  notes         String?
+  recordedBy    String?
+  createdAt     DateTime    @default(now())
+  
+  rawMaterial   RawMaterial @relation(fields: [rawMaterialId], references: [id], onDelete: Cascade)
+
+  @@index([rawMaterialId])
+  @@index([createdAt])
+}
+
+model StockOpname {
+  id                String            @id @default(uuid())
+  opnameNumber      String            @unique
+  date              DateTime          @default(now())
+  conductedBy       String?
+  status            String            @default("COMPLETED")
+  notes             String?
+  totalVarianceCost Float             @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  items             StockOpnameItem[]
+
+  @@index([date])
+}
+
+model StockOpnameItem {
+  id             String       @id @default(uuid())
+  stockOpnameId  String
+  rawMaterialId  String
+  systemStock    Float
+  physicalStock  Float
+  difference     Float
+  costPerUnit    Float        @default(0)
+  costDifference Float        @default(0)
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  stockOpname    StockOpname  @relation(fields: [stockOpnameId], references: [id], onDelete: Cascade)
+  rawMaterial    RawMaterial  @relation(fields: [rawMaterialId], references: [id])
+
+  @@index([stockOpnameId])
+  @@index([rawMaterialId])
 }

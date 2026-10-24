@@ -22,7 +22,8 @@ export const getQr = (req: Request, res: Response) => {
         if (waService.isReady) {
             return res.status(200).json({ success: true, data: { qr: null, message: 'WhatsApp already connected' } });
         }
-        res.status(200).json({ success: true, data: { qr: waService.latestQr || null } });
+        // latestQr sekarang sudah berupa base64 PNG data URL (dari Baileys + qrcode library)
+        res.status(200).json({ success: true, data: { qr: waService.latestQr || null, isDataUrl: true } });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -32,6 +33,27 @@ export const reset = async (req: Request, res: Response) => {
     try {
         await waService.resetSession();
         res.status(200).json({ success: true, message: 'WhatsApp session reset initiated' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const sendTest = async (req: Request, res: Response) => {
+    try {
+        const { phone, message } = req.body;
+        if (!phone) {
+            return res.status(400).json({ success: false, message: 'Nomor telepon wajib diisi' });
+        }
+        if (!waService.isReady) {
+            return res.status(400).json({ success: false, message: 'WhatsApp gateway belum terhubung. Silakan scan QR terlebih dahulu.' });
+        }
+        const text = message || 'Halo! Ini pesan tes dari Vamos POS WhatsApp Gateway.';
+        const sent = await waService.sendMessage(phone, text);
+        if (sent) {
+            res.json({ success: true, message: `Pesan tes berhasil dikirim ke ${phone}` });
+        } else {
+            res.status(500).json({ success: false, message: 'Gagal mengirim pesan. Pastikan nomor valid.' });
+        }
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }

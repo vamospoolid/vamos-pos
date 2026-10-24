@@ -29,6 +29,7 @@ import inventoryRoutes from './modules/inventory/inventory.route';
 
 import paymentRoutes from './modules/payments/payment.route';
 import qrRoutes from './modules/qr/qr.route';
+import staffRoutes from './modules/staff/staff.route';
 
 const router = Router();
 
@@ -61,5 +62,6 @@ router.use('/shifts', shiftRoutes);
 router.use('/license', licenseRoutes);
 router.use('/qr', qrRoutes);
 router.use('/inventory', inventoryRoutes);
+router.use('/staff', staffRoutes);
 
 export default router;

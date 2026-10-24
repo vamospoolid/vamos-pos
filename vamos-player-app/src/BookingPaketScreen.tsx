@@ -310,8 +310,8 @@ export function BookingPaketScreen() {
                         {/* Divider */}
                         <div className="flex items-center gap-3">
                             <div className="flex-1 h-px bg-cyan-500/15" />
-                            <span className="text-[9px] font-black text-cyan-400/60 uppercase tracking-widest italic flex items-center gap-1.5">
-                                <Calendar className="w-3 h-3" /> Pilih Jam Main
+                            <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest italic flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3" /> Pilih Waktu Kosong (Jam Main)
                             </span>
                             <div className="flex-1 h-px bg-cyan-500/15" />
                         </div>
@@ -340,23 +340,28 @@ export function BookingPaketScreen() {
                         {/* Time Slots */}
                         {filteredSlots.length === 0 ? (
                             <p className="text-center text-[9px] font-black text-slate-600 uppercase italic tracking-widest py-4">
-                                Tidak ada jadwal tersedia untuk paket ini
+                                Tidak ada jadwal waktu kosong untuk paket ini
                             </p>
                         ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {filteredSlots.map(slot => (
-                                    <button
-                                        key={slot}
-                                        onClick={() => setSelectedSlot(slot)}
-                                        className={`px-4 py-2.5 rounded-xl border font-black text-[10px] italic tracking-widest transition-all active:scale-95 ${
-                                            selectedSlot === slot
-                                                ? 'border-cyan-400 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-                                                : 'bg-[#0d1628]/60 border-white/8 text-slate-500 hover:border-cyan-500/20'
-                                        }`}
-                                        style={selectedSlot === slot ? { background: 'rgba(6,182,212,0.12)' } : {}}>
-                                        {slot}
-                                    </button>
-                                ))}
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {filteredSlots.map(slot => (
+                                        <button
+                                            key={slot}
+                                            onClick={() => setSelectedSlot(slot)}
+                                            className={`px-4 py-2.5 rounded-xl border font-black text-[10px] italic tracking-widest transition-all active:scale-95 ${
+                                                selectedSlot === slot
+                                                    ? 'border-cyan-400 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                                                    : 'bg-[#0d1628]/60 border-white/8 text-slate-300 hover:border-cyan-500/40 hover:text-white'
+                                            }`}
+                                            style={selectedSlot === slot ? { background: 'rgba(6,182,212,0.12)' } : {}}>
+                                            {slot}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[9px] text-slate-500 italic px-1">
+                                    🔒 Meja fisik akan ditentukan dan disiapkan oleh kasir saat Anda tiba.
+                                </p>
                             </div>
                         )}
 

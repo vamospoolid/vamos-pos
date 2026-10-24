@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Outfit', sans-serif;
+    background-color: #F5F7FC;
+    color: #0F172A;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #F5F7FC;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+.shadow-card-subtle {
+  box-shadow: 0 4px 20px -2px rgba(30, 40, 117, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.shadow-card-elevated {
+  box-shadow: 0 10px 30px -4px rgba(30, 40, 117, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-royal-button {
+  box-shadow: 0 8px 24px -2px rgba(30, 40, 117, 0.35);
+}
+
+.shadow-gold-button {
+  box-shadow: 0 8px 24px -2px rgba(255, 94, 20, 0.35);
+}
+
+/* Table Order Floating +1 & Badge Pop Animations */
+@keyframes popBadge {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pop-badge {
+  animation: popBadge 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes floatPlusOne {
+  0% { transform: translateY(0) scale(0.7); opacity: 1; }
+  50% { transform: translateY(-16px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-32px) scale(1); opacity: 0; }
+}
+
+.animate-float-plus {
+  animation: floatPlusOne 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

@@ -20,8 +20,8 @@ export class WaitlistService {
 
         if (data.phone) {
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
                 const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WAITLIST_CONFIRM, {
                     name: data.customerName,
@@ -66,8 +66,8 @@ export class WaitlistService {
 
         if (status === 'CALLED' && waitlist.phone) {
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
                 const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WAITLIST_READY, {
                     name: waitlist.customerName,

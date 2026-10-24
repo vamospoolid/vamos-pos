@@ -599,9 +599,9 @@ export function PlayScreen({ member }: { member: any }) {
               <TableCard 
                 key={king.tableId}
                 tableId={king.tableId}
-                name={king.table.name}
-                type={king.table.type}
-                status={king.table.status}
+                name="King Table Arena"
+                type={king.table?.type || 'REGULAR'}
+                status="PLAYING"
                 isKingTable={true}
                 kingInfo={{
                   name: king.king.name,

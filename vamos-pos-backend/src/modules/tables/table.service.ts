@@ -126,21 +126,49 @@ export class TableService {
         // Yang tidak punya sesi aktif = stuck
         const stuckTables = playingTables.filter(t => t.sessions.length === 0);
 
-        if (stuckTables.length === 0) {
+        // Kasus 2: Sesi ACTIVE yang menggantung pada meja AVAILABLE atau meja terhapus (orphan session)
+        const orphanSessions = await prisma.session.findMany({
+            where: {
+                status: 'ACTIVE',
+                table: {
+                    OR: [
+                        { status: 'AVAILABLE' },
+                        { deletedAt: { not: null } }
+                    ]
+                }
+            },
+            include: { table: true }
+        });
+
+        if (stuckTables.length === 0 && orphanSessions.length === 0) {
             return { fixed: 0, tableNames: [], relayOff: [], relayErrors: [] };
         }
 
-        logger.warn(
-            `🔧 fixStuckTables: ditemukan ${stuckTables.length} meja stuck → ` +
-            `[${stuckTables.map(t => `${t.name}(ch${t.relayChannel})`).join(', ')}]`
-        );
+        // ── LANGKAH 1: Reset status DB Meja Stuck ──────────────────────────
+        if (stuckTables.length > 0) {
+            logger.warn(
+                `🔧 fixStuckTables: ditemukan ${stuckTables.length} meja stuck → ` +
+                `[${stuckTables.map(t => `${t.name}(ch${t.relayChannel})`).join(', ')}]`
+            );
+            await prisma.table.updateMany({
+                where: { id: { in: stuckTables.map(t => t.id) } },
+                data: { status: 'AVAILABLE' }
+            });
+            logger.info(`✅ fixStuckTables: Status DB ${stuckTables.length} meja → AVAILABLE`);
+        }
 
-        // ── LANGKAH 1: Reset status DB ──────────────────────────────────
-        await prisma.table.updateMany({
-            where: { id: { in: stuckTables.map(t => t.id) } },
-            data: { status: 'AVAILABLE' }
-        });
-        logger.info(`✅ fixStuckTables: Status DB ${stuckTables.length} meja → AVAILABLE`);
+        // ── LANGKAH 1B: Batalkan sesi zombie menggantung ────────────────────
+        if (orphanSessions.length > 0) {
+            logger.warn(
+                `🔧 fixStuckTables: membersihkan ${orphanSessions.length} sesi zombie aktif pada meja AVAILABLE → ` +
+                `[${orphanSessions.map(s => `${s.table?.name || 'Unknown'}(${s.id})`).join(', ')}]`
+            );
+            await prisma.session.updateMany({
+                where: { id: { in: orphanSessions.map(s => s.id) } },
+                data: { status: 'CANCELLED', endTime: new Date() }
+            });
+            logger.info(`✅ fixStuckTables: ${orphanSessions.length} sesi zombie diubah ke CANCELLED`);
+        }
 
         // ── LANGKAH 2: Matikan relay per channel (DIPERINTAHKAN USER UNTUK DIHAPUS) ──────
         // User ingin meja direset di DB tapi lampu tetap menyala (mungkin untuk manual check)
@@ -167,9 +195,14 @@ export class TableService {
             logger.error(`❌ fixStuckTables Gagal mengirim socket: ${socketErr.message}`);
         }
 
+        const allFixedNames = [
+            ...stuckTables.map(t => t.name),
+            ...orphanSessions.map(s => s.table?.name || 'Sesi Zombie')
+        ];
+
         return {
-            fixed: stuckTables.length,
-            tableNames: stuckTables.map(t => t.name),
+            fixed: stuckTables.length + orphanSessions.length,
+            tableNames: Array.from(new Set(allFixedNames)),
             relayOff: [],
             relayErrors: [],
         };

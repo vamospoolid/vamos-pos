@@ -54,27 +54,45 @@ export class AttendanceService {
         });
     }
 
-    static async getDailyAttendance(date: string) {
-        let targetDate = new Date(date);
-        if (isNaN(targetDate.getTime())) {
-            targetDate = new Date(); // fallback today
+    static async getDailyAttendance(dateStr?: string) {
+        let startOfDay: Date;
+        let endOfDay: Date;
+
+        if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            startOfDay = new Date(y, m - 1, d, 0, 0, 0, 0);
+            endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+        } else if (dateStr && !isNaN(new Date(dateStr).getTime())) {
+            const d = new Date(dateStr);
+            startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+            endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+        } else {
+            const now = new Date();
+            startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         }
-        targetDate.setHours(0, 0, 0, 0);
-        const nextDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
 
         return prisma.attendance.findMany({
             where: {
                 date: {
-                    gte: targetDate,
-                    lt: nextDay
+                    gte: startOfDay,
+                    lte: endOfDay
                 }
             },
             include: {
                 employee: {
-                    select: { name: true, position: true }
-                }
+                    select: {
+                        id: true,
+                        name: true,
+                        position: true,
+                        phone: true,
+                        avatarUrl: true,
+                        shift: true
+                    }
+                },
+                shift: true
             },
-            orderBy: { checkIn: 'asc' }
+            orderBy: { checkIn: 'desc' }
         });
     }
 }

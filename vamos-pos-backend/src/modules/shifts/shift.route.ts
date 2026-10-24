@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { startShift, closeShift, getActiveShift, getAllShifts, getShiftReport } from './shift.controller';
+import { 
+    startShift, 
+    closeShift, 
+    getActiveShift, 
+    getActiveShiftSummary,
+    getShiftSummaryById,
+    getAllShifts, 
+    getShiftReport 
+} from './shift.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
@@ -7,6 +15,8 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/active', getActiveShift);
+router.get('/active/summary', getActiveShiftSummary);
+router.get('/:id/summary', getShiftSummaryById);
 router.post('/start', startShift);
 router.post('/close', closeShift);
 

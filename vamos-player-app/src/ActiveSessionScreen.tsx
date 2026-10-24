@@ -81,16 +81,28 @@ export function ActiveSessionScreen() {
             );
 
             // Estimate Subtotal Live (Hourly Billing)
-            const hourlyRate = activeSession.tableAmount > 0 && activeSession.durationOpts
-                ? (activeSession.tableAmount / (activeSession.durationOpts / 60))
-                : 40000;
+            let computedCost = 0;
+            if (activeSession.isVoucher) {
+                // First 60 minutes free covered by reward voucher
+                if (passedMs > 60 * 60000) {
+                    const overtimeMinutes = Math.floor((passedMs - 60 * 60000) / 60000);
+                    const overtimeHours = Math.ceil(overtimeMinutes / 60);
+                    computedCost = overtimeHours * 40000;
+                } else {
+                    computedCost = 0;
+                }
+            } else {
+                const hourlyRate = activeSession.tableAmount > 0 && activeSession.durationOpts
+                    ? (activeSession.tableAmount / (activeSession.durationOpts / 60))
+                    : 40000;
 
-            const hoursPassed = Math.ceil(passedMs / 3600000);
-            const computedCost = activeSession.durationOpts
-                ? (hoursPassed > (activeSession.durationOpts / 60)
-                    ? Math.ceil(hoursPassed / (activeSession.durationOpts / 60)) * activeSession.tableAmount
-                    : activeSession.tableAmount)
-                : hoursPassed * hourlyRate;
+                const hoursPassed = Math.ceil(passedMs / 3600000);
+                computedCost = activeSession.durationOpts
+                    ? (hoursPassed > (activeSession.durationOpts / 60)
+                        ? Math.ceil(hoursPassed / (activeSession.durationOpts / 60)) * activeSession.tableAmount
+                        : activeSession.tableAmount)
+                    : hoursPassed * hourlyRate;
+            }
 
             setEstimatedCost(Math.round(computedCost));
         }, 1000);
@@ -163,18 +175,30 @@ export function ActiveSessionScreen() {
                 </button>
                 <div className="text-center">
                     <h1 className="text-xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px]">{activeSession?.table?.name || 'F&B SAJA'}</h1>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Pemantauan Langsung</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">
+                        {activeSession?.isVoucher ? '🎟️ Sesi Voucher Poin' : 'Pemantauan Langsung'}
+                    </p>
                 </div>
-                <div className="px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] italic">{activeSession ? 'AKTIF' : 'F&B AKTIF'}</span>
+                <div className={`px-5 py-2 rounded-full border flex items-center gap-3 ${
+                    activeSession?.isVoucher
+                        ? 'bg-purple-500/10 border-purple-500/30 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.15)]'
+                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                }`}>
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${activeSession?.isVoucher ? 'bg-purple-400' : 'bg-emerald-500'}`} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] italic">
+                        {activeSession?.isVoucher ? 'VOUCHER 1 JAM' : (activeSession ? 'AKTIF' : 'F&B AKTIF')}
+                    </span>
                 </div>
             </header>
 
             <div className="mt-8 space-y-10">
                 {/* Timer Card (Only if table session exists) */}
                 {activeSession ? (
-                    <div className="bg-[#1a1f35]/30 p-12 rounded-[40px] text-center relative overflow-hidden flex flex-col items-center border border-white/5 shadow-lg">
+                    <div className={`p-12 rounded-[40px] text-center relative overflow-hidden flex flex-col items-center border shadow-lg ${
+                        activeSession.isVoucher
+                            ? 'bg-[#150e24]/60 border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.1)]'
+                            : 'bg-[#1a1f35]/30 border-white/5'
+                    }`}>
                         {activeSession?.durationOpts && (
                             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none scale-[1.5]">
                                 <svg className="w-64 h-64 -rotate-90">
@@ -196,23 +220,34 @@ export function ActiveSessionScreen() {
                                         fill="transparent"
                                         strokeDasharray={2 * Math.PI * 120}
                                         strokeDashoffset={2 * Math.PI * 120 * (1 - Math.min(1, Math.max(0, (new Date().getTime() - new Date(activeSession.startTime).getTime()) / (activeSession.durationOpts * 60000))))}
-                                        className="text-primary"
+                                        className={activeSession.isVoucher ? 'text-purple-400' : 'text-primary'}
                                         strokeLinecap="round"
                                     />
                                 </svg>
                             </div>
                         )}
                         
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">
-                            {activeSession?.durationOpts ? 'Waktu Misi Tersisa' : 'Durasi Sesi Biliar'}
+                        <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-4 italic ${
+                            activeSession.isVoucher ? 'text-purple-400' : 'text-slate-500'
+                        }`}>
+                            {activeSession.isVoucher ? '🎟️ Sesi Voucher Member (1 Jam Free)' : (activeSession?.durationOpts ? 'Waktu Misi Tersisa' : 'Durasi Sesi Biliar')}
                         </p>
 
                         <h2 className={`text-5xl font-black italic tracking-tighter mt-2 mb-8 ${activeSession?.durationOpts && elapsedTime.startsWith('-')
                             ? 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                            : activeSession.isVoucher
+                            ? 'text-purple-200 drop-shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                             : 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]'
                             }`}>
                             {elapsedTime}
                         </h2>
+
+                        {activeSession.isVoucher && (
+                            <div className="mb-6 px-4 py-2 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px] font-semibold flex items-center gap-2">
+                                <span>🎟️</span>
+                                <span>1 Jam pertama dicover Voucher Poin. Billing normal berlaku jika overtime.</span>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-8 w-full mt-6 pt-10 border-t border-white/5">
                             <div className="text-left border-r border-white/5 pr-8">
@@ -223,8 +258,12 @@ export function ActiveSessionScreen() {
                             </div>
                             <div className="text-right pl-8">
                                 <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest mb-1 italic">Billing Meja</p>
-                                <p className="text-2xl font-black text-[#00d084] italic tracking-tighter uppercase drop-shadow-[0_0_10px_rgba(0,208,132,0.3)]">
-                                    {estimatedCost.toLocaleString()} <span className="text-sm">Rp</span>
+                                <p className={`text-2xl font-black italic tracking-tighter uppercase drop-shadow-[0_0_10px_rgba(0,208,132,0.3)] ${
+                                    activeSession.isVoucher && estimatedCost === 0 ? 'text-purple-400' : 'text-[#00d084]'
+                                }`}>
+                                    {activeSession.isVoucher && estimatedCost === 0
+                                        ? 'Rp 0 (Voucher)'
+                                        : `${estimatedCost.toLocaleString()} Rp`}
                                 </p>
                             </div>
                         </div>

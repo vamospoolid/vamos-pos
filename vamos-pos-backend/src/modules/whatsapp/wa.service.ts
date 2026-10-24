@@ -1,213 +1,338 @@
-import { Client, LocalAuth } from 'whatsapp-web.js';
-import qrcode from 'qrcode-terminal';
-import { logger } from '../../utils/logger';
+/**
+ * wa.service.ts (Vamos POS — Baileys Edition)
+ * 
+ * PERBAIKAN ANTI-BLOCK:
+ * - Diganti dari whatsapp-web.js (Puppeteer/Chrome emulation) ke @whiskeysockets/baileys
+ * - Baileys menggunakan WebSocket native seperti WA Desktop — jauh lebih sulit diblok
+ * - Ditambahkan message queue dengan delay acak 1.5–3 detik (anti-spam/anti-ban)
+ * - Browser fingerprint disesuaikan: ['VamosPOS', 'Chrome', '124.0.0.0']
+ * - Reconnect clean, tidak aggressive
+ * 
+ * ADOPSI DARI: CodePOS WhatsAppManager.ts
+ */
+
+import makeWASocket, {
+    DisconnectReason,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion,
+    WASocket,
+    ConnectionState,
+} from '@whiskeysockets/baileys';
+import QRCode from 'qrcode';
+import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../../utils/logger';
 
 class WhatsAppService {
-    private client!: Client;
+    private sock: WASocket | null = null;
     public isReady: boolean = false;
-    public latestQr: string = '';
+    public latestQr: string = ''; // base64 data URL PNG
     public isInitializing: boolean = false;
-    private reconnectAttempts: number = 0;
-    private maxReconnectAttempts: number = 10;
     private reconnectTimer: NodeJS.Timeout | null = null;
+    private reconnectAttempts: number = 0;
+    private readonly maxReconnectAttempts = 8;
+    private isReconnecting = false;
+
+    // Message queue anti-ban: random delay 1.5–3 detik
+    private messageQueue: Array<() => Promise<void>> = [];
+    private isProcessingQueue = false;
+
+    // Lokasi folder sesi Baileys
+    private readonly sessionDir = path.resolve(process.cwd(), 'storage/whatsapp_session');
 
     constructor() {
-        this.initializeClient();
-    }
-
-    private initializeClient() {
-        if (this.client) {
-            try {
-                this.client.destroy();
-            } catch (e) { }
+        // Pastikan folder storage ada
+        if (!fs.existsSync(this.sessionDir)) {
+            fs.mkdirSync(this.sessionDir, { recursive: true });
         }
+        // Auto-init saat startup (coba restore sesi lama)
+        this.initialize();
+    }
 
-        this.client = new Client({
-            authStrategy: new LocalAuth(),
-            webVersionCache: {
-                type: 'none'
-            },
-            puppeteer: {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-extensions',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
-                    '--disable-gpu'
-                ]
+    /** Normalisasi nomor HP: 08xxx / 8xxx → 628xxx */
+    public normalizePhone(phone?: string): string {
+        if (!phone) return '';
+        let clean = phone.replace(/[^0-9]/g, '');
+        if (clean.startsWith('0')) {
+            clean = '62' + clean.slice(1);
+        } else if (clean.startsWith('8')) {
+            clean = '62' + clean;
+        }
+        return clean;
+    }
+
+    /** Emit status via Socket.IO ke frontend */
+    private async emitStatus() {
+        try {
+            const { getIO } = await import('../../socket');
+            const io = getIO();
+            if (io) {
+                io.emit('whatsapp:status', {
+                    isReady: this.isReady,
+                    isInitializing: this.isInitializing,
+                    hasQr: !!this.latestQr
+                });
             }
-        });
-
-        this.setupListeners();
+        } catch (e) { /* skip jika socket belum init */ }
     }
 
-    private setupListeners() {
-        const emitStatus = async () => {
-            try {
-                const { getIO } = await import('../../socket');
-                const io = getIO();
-                if (io) {
-                    io.emit('whatsapp:status', {
-                        isReady: this.isReady,
-                        isInitializing: this.isInitializing,
-                        hasQr: !!this.latestQr
-                    });
+    /** Inisialisasi koneksi Baileys */
+    public async initialize(): Promise<void> {
+        if (this.isInitializing) return;
+        this.isInitializing = true;
+        this.emitStatus();
+
+        logger.info('⏳ [WHATSAPP] Menginisialisasi Baileys engine...');
+
+        try {
+            const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir);
+            const { version } = await fetchLatestBaileysVersion();
+
+            // Pino logger — set warn agar tidak banjir log
+            const pinoLogger = pino({ level: 'warn' });
+
+            this.sock = makeWASocket({
+                version,
+                auth: state,
+                logger: pinoLogger,
+                printQRInTerminal: false,
+                connectTimeoutMs: 60000,
+                keepAliveIntervalMs: 25000,
+                // Browser fingerprint: menyamar sebagai WhatsApp Desktop
+                // Ini kunci anti-block — jangan pakai Chromium/Puppeteer
+                browser: ['VamosPOS', 'Chrome', '124.0.0.0'],
+                // Nonaktifkan fitur yang tidak perlu (lebih ringan & anti-ban)
+                getMessage: async () => undefined,
+            });
+
+            // Simpan credentials setiap update
+            this.sock.ev.on('creds.update', saveCreds);
+
+            // Handle connection state changes
+            this.sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
+                const { connection, lastDisconnect, qr } = update;
+
+                if (qr) {
+                    // QR baru — konversi ke base64 PNG untuk ditampilkan di UI
+                    try {
+                        const qrDataUrl = await QRCode.toDataURL(qr);
+                        this.latestQr = qrDataUrl;
+                        this.isInitializing = false;
+                        logger.info('📱 [WHATSAPP] QR Code baru tersedia. Scan melalui Settings → WhatsApp.');
+                        
+                        // Emit QR ke frontend via Socket.IO
+                        try {
+                            const { getIO } = await import('../../socket');
+                            const io = getIO();
+                            if (io) io.emit('whatsapp:qr', { qr: qrDataUrl });
+                        } catch (e) {}
+                        
+                        this.emitStatus();
+                    } catch (qrErr) {
+                        logger.error('❌ [WHATSAPP] Gagal konversi QR ke DataURL:', qrErr);
+                    }
                 }
-            } catch (e) {}
-        };
 
-        this.client.on('qr', async (qr) => {
-            this.latestQr = qr;
-            this.isInitializing = false;
-            logger.info('📱 [WHATSAPP] New QR Code generated. Silakan scan melalui Admin Settings.');
-            
-            try {
-                const { getIO } = await import('../../socket');
-                const io = getIO();
-                if (io) io.emit('whatsapp:qr', { qr });
-            } catch (e) {}
-            
-            emitStatus();
-            qrcode.generate(qr, { small: true });
-        });
+                if (connection === 'open') {
+                    this.isReady = true;
+                    this.isInitializing = false;
+                    this.latestQr = '';
+                    this.reconnectAttempts = 0;
+                    this.isReconnecting = false;
+                    const phone = this.sock?.user?.id?.split(':')[0] || this.sock?.user?.id || '';
+                    logger.info(`✅ [WHATSAPP] Terhubung! Nomor: ${phone}`);
+                    this.emitStatus();
+                }
 
-        this.client.on('ready', () => {
-            this.isReady = true;
-            this.isInitializing = false;
-            this.latestQr = '';
-            this.reconnectAttempts = 0; 
-            logger.info('✅ [WHATSAPP] Client is READY! Koneksi aktif.');
-            emitStatus();
-        });
+                if (connection === 'close') {
+                    const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+                    const loggedOut = statusCode === DisconnectReason.loggedOut;
 
-        this.client.on('authenticated', () => {
-            logger.info('✅ [WHATSAPP] Berhasil terautentikasi.');
-            emitStatus();
-        });
+                    this.isReady = false;
+                    this.isInitializing = false;
+                    this.latestQr = '';
+                    this.sock = null;
 
-        this.client.on('auth_failure', msg => {
-            logger.error(`❌ [WHATSAPP] Autentikasi gagal: ${msg}`);
+                    logger.warn(`❌ [WHATSAPP] Koneksi terputus. Code: ${statusCode}, Logged out: ${loggedOut}`);
+                    this.emitStatus();
+
+                    if (loggedOut) {
+                        // Logout permanen: hapus sesi lama
+                        logger.warn('⚠️ [WHATSAPP] Logout terdeteksi. Membersihkan sesi lama...');
+                        this.clearSession();
+                    } else {
+                        // Koneksi putus tapi bukan logout: reconnect
+                        this.scheduleReconnect();
+                    }
+                }
+            });
+
+        } catch (err: any) {
             this.isInitializing = false;
             this.isReady = false;
-            emitStatus();
-        });
-
-        this.client.on('disconnected', (reason) => {
-            logger.error(`❌ [WHATSAPP] Terputus: ${reason}`);
-            this.isReady = false;
-            this.latestQr = '';
-            emitStatus();
-            this.handleReconnect();
-        });
+            logger.error(`❌ [WHATSAPP] Gagal inisialisasi: ${err.message}`);
+            this.emitStatus();
+            this.scheduleReconnect();
+        }
     }
 
-    private handleReconnect() {
+    /** Jadwalkan reconnect dengan exponential backoff (max 30s) */
+    private scheduleReconnect() {
+        if (this.isReconnecting) return;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            logger.error('🚨 [WHATSAPP] Maksimal percobaan koneksi ulang tercapai. Mohon reset session manual.');
+            logger.error('🚨 [WHATSAPP] Batas maksimal reconnect tercapai. Reset session manual diperlukan.');
             return;
         }
 
-        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff max 30s
+        this.isReconnecting = true;
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
         this.reconnectAttempts++;
 
-        logger.warn(`♻️ [WHATSAPP] Mencoba koneksi ulang ke-${this.reconnectAttempts} dalam ${delay / 1000} detik...`);
+        logger.warn(`♻️ [WHATSAPP] Reconnect ke-${this.reconnectAttempts} dalam ${delay / 1000}s...`);
 
         if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = setTimeout(() => {
-            this.initialize();
+        this.reconnectTimer = setTimeout(async () => {
+            this.isReconnecting = false;
+            await this.initialize();
         }, delay);
     }
 
-    public async resetSession() {
-        logger.warn('♻️ [WHATSAPP] Melakukan reset session manual...');
-        
+    /** Hapus folder sesi Baileys */
+    private clearSession() {
         try {
-            if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-            await this.client.destroy();
-        } catch (e) { }
+            if (fs.existsSync(this.sessionDir)) {
+                fs.rmSync(this.sessionDir, { recursive: true, force: true });
+                fs.mkdirSync(this.sessionDir, { recursive: true });
+                logger.info('🗑️ [WHATSAPP] Sesi lama dihapus.');
+            }
+        } catch (e: any) {
+            logger.error('❌ [WHATSAPP] Gagal hapus sesi:', e.message);
+        }
+    }
 
-        this.isReady = false;
+    /** Reset session manual (dipanggil dari controller /reset) */
+    public async resetSession(): Promise<void> {
+        logger.warn('♻️ [WHATSAPP] Reset session manual...');
+
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
         this.reconnectAttempts = 0;
+        this.isReconnecting = false;
+
+        // Tutup socket
+        try {
+            this.sock?.end(undefined);
+        } catch (e) { /* ignore */ }
+        this.sock = null;
+        this.isReady = false;
         this.latestQr = '';
 
-        const authPath = path.join(process.cwd(), '.wwebjs_auth');
-        if (fs.existsSync(authPath)) {
-            try {
-                fs.rmSync(authPath, { recursive: true, force: true });
-                logger.info('🗑️ [WHATSAPP] Sesi lama dihapus (.wwebjs_auth)');
-            } catch (e) {
-                logger.error('❌ [WHATSAPP] Gagal menghapus folder sesi:', e);
-            }
-        }
+        // Hapus sesi lama
+        this.clearSession();
 
-        this.initializeClient();
-        return this.initialize();
+        // Re-initialize
+        await this.initialize();
     }
 
-    public async initialize(): Promise<void> {
-        if (this.isInitializing) return;
-        
-        this.isInitializing = true;
-        logger.info('⏳ [WHATSAPP] Menginisialisasi engine...');
-        
-        try {
-            await this.client.initialize();
-            this.isInitializing = false;
-        } catch (err: any) {
-            this.isInitializing = false;
-            logger.error(`❌ [WHATSAPP] Inisialisasi gagal: ${err.message}`);
-            this.handleReconnect();
-        }
-    }
-
-    public async sendMessage(phoneNumber: string, message: string, imageUrl?: string) {
-        if (!this.isReady) {
+    /**
+     * Kirim pesan WhatsApp
+     * Masuk ke queue dulu — anti-ban dengan delay acak 1.5–3 detik
+     */
+    public async sendMessage(
+        phoneNumber: string,
+        message: string,
+        imageUrl?: string
+    ): Promise<boolean> {
+        if (!this.isReady || !this.sock) {
             logger.warn(`⚠️ [WHATSAPP] Gagal kirim ke ${phoneNumber}: Client belum Ready.`);
             return false;
         }
 
-        try {
-            const { MessageMedia } = await import('whatsapp-web.js');
-
-            let formattedNumber = phoneNumber.replace(/\D/g, '');
-            if (formattedNumber.startsWith('0')) {
-                formattedNumber = '62' + formattedNumber.slice(1);
-            } else if (formattedNumber.startsWith('8')) {
-                formattedNumber = '62' + formattedNumber;
-            }
-
-            if (!formattedNumber.endsWith('@c.us')) {
-                formattedNumber += '@c.us';
-            }
-
-            if (imageUrl) {
-                try {
-                    const media = await MessageMedia.fromUrl(imageUrl);
-                    await this.client.sendMessage(formattedNumber, media, { caption: message });
-                    logger.info(`✅ [WHATSAPP] Pesan + Gambar terkirim ke ${phoneNumber}`);
-                } catch (mediaError: any) {
-                    logger.error(`❌ [WHATSAPP] Gambar gagal dimuat (${imageUrl}), kirim teks saja.`);
-                    await this.client.sendMessage(formattedNumber, message);
-                    logger.info(`✅ [WHATSAPP] Pesan teks terkirim ke ${phoneNumber}`);
-                }
-            } else {
-                await this.client.sendMessage(formattedNumber, message);
-                logger.info(`✅ [WHATSAPP] Pesan terkirim ke ${phoneNumber}`);
-            }
-            return true;
-        } catch (error: any) {
-            logger.error(`❌ [WHATSAPP] Gagal kirim pesan ke ${phoneNumber}: ${error.message}`);
+        const cleanPhone = this.normalizePhone(phoneNumber);
+        if (!cleanPhone || cleanPhone.length < 9) {
+            logger.warn(`⚠️ [WHATSAPP] Nomor tidak valid: ${phoneNumber}`);
             return false;
         }
+
+        return new Promise<boolean>((resolve) => {
+            const task = async () => {
+                try {
+                    const jid = `${cleanPhone}@s.whatsapp.net`;
+
+                    // 1. Anti-Ban Verification: Cegah kirim ke nomor non-WA (menjaga trust score akun WA)
+                    try {
+                        const checkResults = await this.sock!.onWhatsApp(cleanPhone);
+                        if (checkResults && checkResults.length > 0 && !checkResults[0].exists) {
+                            logger.warn(`⚠️ [WHATSAPP] Nomor ${cleanPhone} tidak terdaftar di WhatsApp. Pengiriman dibatalkan demi reputasi nomor.`);
+                            resolve(false);
+                            return;
+                        }
+                    } catch (checkErr) {
+                        // Jika timeout atau gagal cek onWhatsApp, tetap lanjut pengiriman
+                    }
+
+                    // 2. Human Behavior Simulation: Simulasi status 'composing' (sedang mengetik)
+                    try {
+                        await this.sock!.sendPresenceUpdate('composing', jid);
+                        await new Promise(r => setTimeout(r, 600 + Math.random() * 600));
+                        await this.sock!.sendPresenceUpdate('paused', jid);
+                    } catch (presenceErr) {
+                        // abaikan jika presence update gagal
+                    }
+
+                    if (imageUrl) {
+                        try {
+                            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                                await this.sock!.sendMessage(jid, { image: { url: imageUrl }, caption: message });
+                            } else if (fs.existsSync(imageUrl)) {
+                                await this.sock!.sendMessage(jid, { image: fs.readFileSync(imageUrl), caption: message });
+                            } else {
+                                await this.sock!.sendMessage(jid, { text: message });
+                            }
+                        } catch (imgErr: any) {
+                            logger.warn(`⚠️ [WHATSAPP] Gagal kirim gambar, fallback ke pesan teks: ${imgErr.message}`);
+                            await this.sock!.sendMessage(jid, { text: message });
+                        }
+                    } else {
+                        await this.sock!.sendMessage(jid, { text: message });
+                    }
+                    logger.info(`✅ [WHATSAPP] Pesan terkirim ke ${phoneNumber}`);
+                    resolve(true);
+                } catch (err: any) {
+                    logger.error(`❌ [WHATSAPP] Gagal kirim ke ${phoneNumber}: ${err.message}`);
+                    resolve(false);
+                }
+            };
+
+            this.messageQueue.push(task);
+            this.processQueue();
+        });
     }
 
+    /**
+     * Proses queue pesan satu per satu dengan delay acak 1.5–3 detik
+     * Ini yang membuat tidak terblok — menyerupai pengguna manusia
+     */
+    private async processQueue() {
+        if (this.isProcessingQueue) return;
+        this.isProcessingQueue = true;
+
+        while (this.messageQueue.length > 0) {
+            const task = this.messageQueue.shift();
+            if (task) {
+                await task();
+                // Random delay 1.5 – 3 detik (anti-ban, seperti di CodePOS)
+                if (this.messageQueue.length > 0) {
+                    const delay = Math.floor(Math.random() * 1500) + 1500;
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    /** Get current status */
     public getStatus() {
         return {
             isReady: this.isReady,

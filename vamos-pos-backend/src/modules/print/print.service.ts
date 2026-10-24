@@ -47,6 +47,7 @@ export class PrintService {
             
             printer.println(`TGL: ${dateStr}`);
             printer.println(`BIL: #${(data.id || '').substring(0, 6).toUpperCase()} | MEJA: ${data.table?.name || '-'}`);
+            if (data.customerName) printer.println(`PEL: ${data.customerName.toUpperCase()}`);
             if (data.member?.name) printer.println(`MEM: ${data.member.name.toUpperCase()}`);
             printer.println("-".repeat(width));
 
@@ -66,6 +67,9 @@ export class PrintService {
                 data.orders.forEach((o: any) => {
                     const name = o.product?.name || 'Item';
                     printer.println(`${name} x${o.quantity}`);
+                    if (o.notes) {
+                        printer.println(`  * ${o.notes}`);
+                    }
                     printer.alignRight();
                     printer.println(`Rp ${(o.total || 0).toLocaleString()}`);
                     printer.alignLeft();
@@ -75,9 +79,10 @@ export class PrintService {
             printer.println("-".repeat(width));
 
             // Totals
+            const rawSubtotal = (data.tableAmount || 0) + (data.fnbAmount || 0);
             printer.tableCustom([
                 { text: "SUBTOTAL", align: "LEFT", width: 0.5 },
-                { text: `Rp ${(data.totalAmount || data.finalAmount || 0).toLocaleString()}`, align: "RIGHT", width: 0.5 }
+                { text: `Rp ${rawSubtotal.toLocaleString()}`, align: "RIGHT", width: 0.5 }
             ]);
 
             if (data.discount > 0) {

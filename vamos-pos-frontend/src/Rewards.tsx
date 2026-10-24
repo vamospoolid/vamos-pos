@@ -28,7 +28,7 @@ export default function Rewards() {
     const [processingExpiry, setProcessingExpiry] = useState(false);
     const [memberSearch, setMemberSearch] = useState('');
 
-    const [form, setForm] = useState({ title: '', description: '', pointsRequired: '', stock: '', imageUrl: '' });
+    const [form, setForm] = useState({ title: '', description: '', pointsRequired: '', stock: '', imageUrl: '', category: 'TABLE', nominalValue: '', costPrice: '' });
 
     const [redeemMemberQuery, setRedeemMemberQuery] = useState('');
     const [redeemMemberId, setRedeemMemberId] = useState('');
@@ -88,13 +88,22 @@ export default function Rewards() {
 
     const openCreate = () => {
         setEditReward(null);
-        setForm({ title: '', description: '', pointsRequired: '', stock: '999', imageUrl: '' });
+        setForm({ title: '', description: '', pointsRequired: '', stock: '999', imageUrl: '', category: 'TABLE', nominalValue: '50000', costPrice: '0' });
         setShowModal(true);
     };
 
     const openEdit = (r: any) => {
         setEditReward(r);
-        setForm({ title: r.title, description: r.description || '', pointsRequired: String(r.pointsRequired), stock: String(r.stock), imageUrl: r.imageUrl || '' });
+        setForm({ 
+            title: r.title, 
+            description: r.description || '', 
+            pointsRequired: String(r.pointsRequired), 
+            stock: String(r.stock), 
+            imageUrl: r.imageUrl || '',
+            category: r.category || (r.title?.toLowerCase().includes('meja') ? 'TABLE' : 'FNB'),
+            nominalValue: String(r.nominalValue || r.value || ''),
+            costPrice: String(r.costPrice || '')
+        });
         setShowModal(true);
     };
 
@@ -102,7 +111,16 @@ export default function Rewards() {
         if (!form.title || !form.pointsRequired) { vamosAlert('Mohon isi nama dan poin.'); return; }
         setSaving(true);
         try {
-            const payload = { title: form.title, description: form.description, pointsRequired: Number(form.pointsRequired), stock: Number(form.stock || 999), imageUrl: form.imageUrl || null };
+            const payload = { 
+                title: form.title, 
+                description: form.description, 
+                pointsRequired: Number(form.pointsRequired), 
+                stock: Number(form.stock || 999), 
+                imageUrl: form.imageUrl || null,
+                category: form.category,
+                nominalValue: Number(form.nominalValue || 0),
+                costPrice: Number(form.costPrice || 0)
+            };
             if (editReward) await api.patch(`/loyalty/rewards/${editReward.id}`, payload);
             else await api.post('/loyalty/rewards', payload);
             setShowModal(false);
@@ -313,7 +331,9 @@ export default function Rewards() {
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             {r.status === 'PENDING' && (
-                                                <button onClick={() => handleFulfill(r.id)} className="px-4 py-2 bg-[#f59e0b] hover:bg-[#ffb020] text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Selesaikan</button>
+                                                <button onClick={() => handleFulfill(r.id)} className="px-4 py-2 bg-[#f59e0b] hover:bg-[#ffb020] text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                                    {r.reward?.category === 'MERCHANDISE' ? 'Serahkan Barang' : 'Selesaikan'}
+                                                </button>
                                             )}
                                         </td>
                                     </tr>
@@ -408,18 +428,40 @@ export default function Rewards() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Kategori Voucher</label>
+                                        <select 
+                                            value={form.category} 
+                                            onChange={e => setForm({...form, category: e.target.value})} 
+                                            className="w-full bg-[#070707] border border-white/10 rounded-2xl px-4 py-4 text-xs font-black text-white focus:border-[#f59e0b] outline-none transition-all cursor-pointer"
+                                        >
+                                            <option value="TABLE">🎱 Sewa Meja (Table)</option>
+                                            <option value="FNB">🥤 Makanan / Minuman (F&B)</option>
+                                            <option value="MERCHANDISE">👕 Merchandise (Jersey / Barang)</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Point Cost</label>
                                         <div className="relative">
                                             <input type="number" value={form.pointsRequired} onChange={e => setForm({...form, pointsRequired: e.target.value})} className="w-full bg-[#070707] border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-base font-mono font-black text-[#f59e0b] focus:border-[#f59e0b] outline-none transition-all shadow-inner" />
                                             <Star size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#f59e0b]/50" />
                                         </div>
                                     </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Available Stock</label>
-                                        <div className="relative">
-                                            <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full bg-[#070707] border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm font-black text-white focus:border-[#f59e0b] outline-none transition-all shadow-inner" />
-                                            <Package size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700" />
-                                        </div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Nilai Rupiah Normal (Rp)</label>
+                                        <input type="number" placeholder="50000" value={form.nominalValue} onChange={e => setForm({...form, nominalValue: e.target.value})} className="w-full bg-[#070707] border border-white/10 rounded-2xl px-5 py-4 text-sm font-mono font-black text-emerald-400 focus:border-[#f59e0b] outline-none transition-all shadow-inner" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Harga Modal HPP (Rp)</label>
+                                        <input type="number" placeholder="0" value={form.costPrice} onChange={e => setForm({...form, costPrice: e.target.value})} className="w-full bg-[#070707] border border-white/10 rounded-2xl px-5 py-4 text-sm font-mono font-black text-zinc-400 focus:border-[#f59e0b] outline-none transition-all shadow-inner" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Available Stock</label>
+                                    <div className="relative">
+                                        <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full bg-[#070707] border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm font-black text-white focus:border-[#f59e0b] outline-none transition-all shadow-inner" />
+                                        <Package size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700" />
                                     </div>
                                 </div>
                                 <div>

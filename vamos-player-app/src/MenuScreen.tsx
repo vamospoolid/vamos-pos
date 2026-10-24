@@ -12,6 +12,8 @@ export function MenuScreen() {
     const [menu, setMenu] = useState<Record<string, any[]>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [cart, setCart] = useState<Record<string, { product: any, quantity: number }>>({});
+    const [seatingLocation, setSeatingLocation] = useState('Sofa Lounge');
+    const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -80,25 +82,32 @@ export function MenuScreen() {
     }, [menu, searchQuery]);
 
     const handlePlaceOrder = async () => {
-        if (!activeSession || cartItems.length === 0) return;
+        if (cartItems.length === 0) return;
         setIsSubmitting(true);
         try {
             const res = await api.post('/player/order', {
                 memberId: member.id,
-                sessionId: activeSession.id,
+                sessionId: activeSession?.id || undefined,
+                seatingNote: !activeSession ? seatingLocation : undefined,
                 items: cartItems.map(item => ({
                     productId: item.product.id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    notes: itemNotes[item.product.id] || undefined
                 }))
             });
 
             if (res.data.success) {
                 setOrderSuccess(true);
                 setCart({});
+                setItemNotes({});
                 refreshMemberData();
                 setTimeout(() => {
                     setOrderSuccess(false);
-                    setActiveTab('active-session');
+                    if (activeSession) {
+                        setActiveTab('active-session');
+                    } else {
+                        setActiveTab('dashboard');
+                    }
                 }, 3000);
             }
         } catch (err: any) {
@@ -148,7 +157,7 @@ export function MenuScreen() {
                 <div className="text-center">
                     <h1 className="text-xl font-black text-white italic uppercase tracking-tighter">Tactical Provisions</h1>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">
-                        {activeSession?.table?.name || 'FIELD SERVICE'}
+                        {activeSession?.table?.name || 'LOUNGE & DINE-IN SERVICE'}
                     </p>
                 </div>
                 <div className="relative">
@@ -236,20 +245,29 @@ export function MenuScreen() {
                                                         </div>
                                                         
                                                         {inCart ? (
-                                                            <div className="flex items-center justify-between bg-[#101423] rounded-[16px] p-1.5 border border-white/5 shadow-inner mt-2">
-                                                                <button
-                                                                    onClick={() => removeFromCart(product.id)}
-                                                                    className="w-8 h-8 rounded-[12px] bg-white/5 flex items-center justify-center active:scale-90 transition-all text-slate-500 border border-white/5"
-                                                                >
-                                                                    <Minus className="w-4 h-4" />
-                                                                </button>
-                                                                <span className="text-sm font-black text-white w-6 text-center italic">{inCart.quantity}</span>
-                                                                <button
-                                                                    onClick={() => addToCart(product)}
-                                                                    className="w-8 h-8 rounded-[12px] bg-primary flex items-center justify-center active:scale-90 transition-all text-secondary fiery-glow"
-                                                                >
-                                                                    <Plus className="w-4 h-4" strokeWidth={3} />
-                                                                </button>
+                                                            <div className="space-y-1.5 mt-2">
+                                                                <div className="flex items-center justify-between bg-[#101423] rounded-[16px] p-1.5 border border-white/5 shadow-inner">
+                                                                    <button
+                                                                        onClick={() => removeFromCart(product.id)}
+                                                                        className="w-8 h-8 rounded-[12px] bg-white/5 flex items-center justify-center active:scale-90 transition-all text-slate-500 border border-white/5"
+                                                                    >
+                                                                        <Minus className="w-4 h-4" />
+                                                                    </button>
+                                                                    <span className="text-sm font-black text-white w-6 text-center italic">{inCart.quantity}</span>
+                                                                    <button
+                                                                        onClick={() => addToCart(product)}
+                                                                        className="w-8 h-8 rounded-[12px] bg-primary flex items-center justify-center active:scale-90 transition-all text-secondary fiery-glow"
+                                                                    >
+                                                                        <Plus className="w-4 h-4" strokeWidth={3} />
+                                                                    </button>
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    value={itemNotes[product.id] || ''}
+                                                                    onChange={e => setItemNotes(prev => ({ ...prev, [product.id]: e.target.value }))}
+                                                                    placeholder="Catatan (less ice, dll)..."
+                                                                    className="w-full bg-[#101423] border border-white/5 rounded-xl px-2.5 py-1 text-[10px] font-bold text-white placeholder-slate-600 focus:outline-none focus:border-primary/50"
+                                                                />
                                                             </div>
                                                         ) : (
                                                             <button
@@ -274,20 +292,51 @@ export function MenuScreen() {
             {/* Float Checkout Bar */}
             {cartCount > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 p-8 z-[100] bg-gradient-to-t from-[#0a0d18] via-[#0a0d18]/95 to-transparent pt-32 max-w-lg mx-auto pointer-events-none">
-                    <div className="pointer-events-auto fiery-card p-10 shadow-[0_-20px_100px_rgba(0,0,0,0.5)] border-primary/20 bg-[#1a1f35]">
-                        <div className="flex justify-between items-end mb-10">
-                            <div className="space-y-2">
+                    <div className="pointer-events-auto fiery-card p-8 shadow-[0_-20px_100px_rgba(0,0,0,0.5)] border-primary/20 bg-[#1a1f35]">
+                        {!activeSession && (
+                            <div className="mb-6 bg-[#101423] p-4 rounded-2xl border border-white/10 space-y-2.5">
+                                <label className="text-[10px] font-black text-primary uppercase tracking-widest block italic">
+                                    📍 Lokasi Duduk / Area Anda:
+                                </label>
+                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                    {['Sofa Lounge', 'Bar Counter', 'Area Kafe', 'Takeaway'].map(loc => (
+                                        <button
+                                            type="button"
+                                            key={loc}
+                                            onClick={() => setSeatingLocation(loc)}
+                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border ${
+                                                seatingLocation === loc
+                                                    ? 'bg-primary text-secondary border-primary shadow-sm'
+                                                    : 'bg-white/5 text-slate-400 border-white/5 hover:text-white'
+                                            }`}
+                                        >
+                                            {loc}
+                                        </button>
+                                    ))}
+                                </div>
+                                <input
+                                    type="text"
+                                    value={seatingLocation}
+                                    onChange={e => setSeatingLocation(e.target.value)}
+                                    placeholder="Ketik lokasi spesifik (misal: Sofa 2, Meja Depan)..."
+                                    className="w-full bg-[#0a0d18] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white placeholder-slate-600 focus:outline-none focus:border-primary"
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-end mb-8">
+                            <div className="space-y-1">
                                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] italic">Operation Budget</p>
                                 <div className="flex items-baseline gap-2">
-                                    <p className="text-4xl font-black text-white italic tracking-tighter leading-none">
+                                    <p className="text-3xl font-black text-white italic tracking-tighter leading-none">
                                         {cartTotal.toLocaleString()}
                                     </p>
                                     <span className="text-xs font-black text-slate-500 uppercase">Rp</span>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2 italic">Payload</p>
-                                <div className="inline-flex px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mb-1 italic">Payload</p>
+                                <div className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                                     <p className="text-xs font-black text-primary italic uppercase tracking-widest">{cartCount} UNITS</p>
                                 </div>
                             </div>
@@ -296,14 +345,14 @@ export function MenuScreen() {
                         <button
                             onClick={handlePlaceOrder}
                             disabled={isSubmitting}
-                            className="w-full fiery-btn-primary py-6 rounded-[32px] font-black text-xs transition-all flex items-center justify-center gap-6 active:scale-[0.98] text-secondary tracking-[0.3em] uppercase italic shadow-primary/30"
+                            className="w-full fiery-btn-primary py-5 rounded-[28px] font-black text-xs transition-all flex items-center justify-center gap-4 active:scale-[0.98] text-secondary tracking-[0.3em] uppercase italic shadow-primary/30"
                         >
                             {isSubmitting ? (
-                                <Loader2 className="w-6 h-6 animate-spin" />
+                                <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
                                 <>
                                     <span>Transmit Provision Protocol</span>
-                                    <ChevronRight className="w-6 h-6" strokeWidth={4} />
+                                    <ChevronRight className="w-5 h-5" strokeWidth={4} />
                                 </>
                             )}
                         </button>

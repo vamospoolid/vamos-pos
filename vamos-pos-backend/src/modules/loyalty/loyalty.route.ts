@@ -22,7 +22,7 @@ router.get('/member/:id/points', getMemberPoints);      // quick point check
 router.post('/redeem', redeemReward);         // redeem a reward
 
 // ── Admin endpoints ────────────────────────────────────────────────
-router.use(authorizeRoles('ADMIN', 'MANAGER', 'OWNER'));
+router.use(authorizeRoles('ADMIN', 'MANAGER', 'OWNER', 'KASIR'));
 
 router.get('/config', getLoyaltyConfig);
 router.patch('/config', updateLoyaltyConfig);

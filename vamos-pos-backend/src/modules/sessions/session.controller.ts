@@ -12,11 +12,12 @@ const startSessionParams = z.object({
     memberId: z.string().min(1).optional(),
     durationOpts: z.number().int().positive().optional(),
     billingType: z.string().min(1).optional(),
+    redemptionId: z.string().min(1).optional(),
 });
 
 export const startSession = catchAsync(async (req: AuthRequest, res: Response) => {
-    const { tableId, packageId, memberId, durationOpts, billingType } = startSessionParams.parse(req.body);
-    const session = await SessionService.startSession(tableId, req.user!.id, packageId, memberId, durationOpts, undefined, billingType);
+    const { tableId, packageId, memberId, durationOpts, billingType, redemptionId } = startSessionParams.parse(req.body);
+    const session = await SessionService.startSession(tableId, req.user!.id, packageId, memberId, durationOpts, undefined, billingType, redemptionId);
     getIO().emit('sessions:updated');
     res.status(201).json(session);
 });

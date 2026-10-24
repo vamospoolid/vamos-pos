@@ -37,7 +37,7 @@ export class SessionService {
         return updatedSession;
     }
 
-    static async startSession(tableId: string, userId: string, packageId?: string, memberId?: string, customDurationOpts?: number, overrideAmount?: number, billingType?: string) {
+    static async startSession(tableId: string, userId: string, packageId?: string, memberId?: string, customDurationOpts?: number, overrideAmount?: number, billingType?: string, redemptionId?: string) {
         // --- TRANSAKSI UNTUK CEGAH RACE CONDITION ---
         const session = await prisma.$transaction(async (tx) => {
             // 1. Cek status meja terbaru (serializable update)
@@ -68,8 +68,34 @@ export class SessionService {
             let durationOpts = null;
             let tableAmount = 0;
             let fnbIncluded = null;
+            let isVoucher = false;
+            let voucherDiscount = 0;
 
-            if (packageId) {
+            if (redemptionId) {
+                const redemption = await tx.redemption.findUnique({
+                    where: { id: redemptionId },
+                    include: { reward: true }
+                });
+                if (!redemption) throw new AppError('Voucher redemption tidak ditemukan!', 404);
+                if (redemption.status !== 'PENDING') throw new AppError('Voucher sudah pernah digunakan atau tidak valid!', 400);
+
+                isVoucher = true;
+                durationOpts = 60; // Default 1 jam free table
+                tableAmount = 0;
+                voucherDiscount = redemption.reward.nominalValue || (redemption.reward.value > 0 ? redemption.reward.value : 50000);
+                if (!memberId) {
+                    memberId = redemption.memberId;
+                }
+
+                await tx.redemption.update({
+                    where: { id: redemptionId },
+                    data: {
+                        status: 'DELIVERED',
+                        deliveredAt: new Date(),
+                        cashierId: userId,
+                    }
+                });
+            } else if (packageId) {
                 const pkg = await tx.package.findUnique({ where: { id: packageId } });
                 if (!pkg) throw new AppError('Paket tidak ditemukan!', 404);
                 durationOpts = pkg.duration;
@@ -105,6 +131,9 @@ export class SessionService {
                         billingType: billingType || null,
                         startTime: new Date(),
                         totalAmount: (existingActiveSession.fnbAmount || 0) + tableAmount,
+                        isVoucher,
+                        redemptionId: redemptionId || null,
+                        voucherDiscount,
                     },
                     include: { table: true }
                 });
@@ -120,8 +149,18 @@ export class SessionService {
                         status: 'ACTIVE',
                         cashierId: userId,
                         billingType: billingType || null,
+                        isVoucher,
+                        redemptionId: redemptionId || null,
+                        voucherDiscount,
                     },
                     include: { table: true }
+                });
+            }
+
+            if (redemptionId) {
+                await tx.redemption.update({
+                    where: { id: redemptionId },
+                    data: { sessionId: sessionResult.id }
                 });
             }
 
@@ -312,8 +351,18 @@ export class SessionService {
         const isMember = !!session.memberId;
         let tableAmount = session.tableAmount;
 
-        // Calculate Open Time billing ONLY if no package, no custom duration, and NOT FNB_ONLY or CAFE
-        if (!session.packageId && !session.durationOpts && session.table && session.billingType !== 'FNB_ONLY' && session.table.type !== 'CAFE') {
+        // Calculate Voucher vs Open Time billing
+        if (session.isVoucher) {
+            const freeDuration = session.durationOpts || 60;
+            const elapsedMinutes = Math.floor((endTime.getTime() - session.startTime.getTime()) / 60000);
+            if (elapsedMinutes > freeDuration && session.table) {
+                const overtimeStartTime = new Date(session.startTime.getTime() + freeDuration * 60000);
+                const calculationType = session.billingType || session.table.type;
+                tableAmount = await PricingService.calculateTableAmount(calculationType, overtimeStartTime, endTime, isMember);
+            } else {
+                tableAmount = 0;
+            }
+        } else if (!session.packageId && !session.durationOpts && session.table && session.billingType !== 'FNB_ONLY' && session.table.type !== 'CAFE') {
             const calculationType = session.billingType || session.table.type;
             tableAmount = await PricingService.calculateTableAmount(calculationType, session.startTime, endTime, isMember);
         } else if (session.billingType === 'FNB_ONLY' || session.table?.type === 'CAFE') {
@@ -462,6 +511,7 @@ export class SessionService {
                         venue: venueName,
                         table: session.table?.name || 'VAMOS',
                         amount: finalAmount.toLocaleString('id-ID'),
+                        points: (member.loyaltyPoints || 0).toLocaleString('id-ID'),
                     });
                     if (waTemplate) {
                         import('../whatsapp/wa.service').then(({ waService }) => {
@@ -676,6 +726,7 @@ export class SessionService {
                         venue: venueName,
                         table: session.table?.name || 'VAMOS',
                         amount: finalAmount.toLocaleString('id-ID'),
+                        points: (member.loyaltyPoints || 0).toLocaleString('id-ID'),
                     });
                     if (waTemplate) {
                         import('../whatsapp/wa.service').then(({ waService }) => {

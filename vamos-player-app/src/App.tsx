@@ -17,6 +17,7 @@ import { MenuScreen } from './MenuScreen';
 import { StoreScreen } from './StoreScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { TrainingScreen } from './screens/TrainingScreen';
+import { DominoScreen } from './screens/DominoScreen';
 
 // Components
 import { VictoryNotification } from './components/VictoryNotification';
@@ -281,6 +282,7 @@ function MainApp() {
         {activeTab === 'store' && <StoreScreen />}
         {activeTab === 'training' && <TrainingScreen />}
         {activeTab === 'rewards' && <RewardsScreen />}
+        {activeTab === 'domino' && <DominoScreen onBackToApp={() => setActiveTab('dashboard')} />}
       </div>
 
       {/* Bottom Navigation */}
@@ -317,6 +319,14 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const { setVenueInfo } = useAppStore();
 
+  // Direct Domino Route Detection (https://app.vamospool.id/domino or ?domino=true)
+  const isDominoDirect = typeof window !== 'undefined' && (
+    window.location.pathname.toLowerCase().includes('domino') ||
+    window.location.search.toLowerCase().includes('domino') ||
+    window.location.hash.toLowerCase().includes('domino')
+  );
+  const [isDominoMode, setIsDominoMode] = useState(isDominoDirect);
+
   useEffect(() => {
     api.get('/player/venues').then(res => {
       if (res.data.success && res.data.data.length > 0) {
@@ -324,6 +334,18 @@ export default function App() {
       }
     }).catch(() => {});
   }, [setVenueInfo]);
+
+  // If directly opened as Domino Portal (TV, Projector, Player spectator)
+  if (isDominoMode) {
+    return (
+      <DominoScreen 
+        onBackToApp={() => {
+          window.history.pushState({}, '', '/');
+          setIsDominoMode(false);
+        }} 
+      />
+    );
+  }
 
   return (
     <>

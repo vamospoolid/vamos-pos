@@ -5,7 +5,7 @@ import {
     TrendingUp, Activity, Loader2, Utensils,
     Download, DollarSign, FileText, Calendar, ArrowUpRight, ArrowDownRight,
     Clock, Receipt, BarChart3, ChevronDown, ChevronUp, Package, User,
-    Award, AlertTriangle
+    Award, AlertTriangle, Ticket, Flame
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -77,6 +77,36 @@ export default function Reports({
     } | null>(null);
     const [menuEngFilter, setMenuEngFilter] = useState<'ALL' | 'STAR' | 'PLOWHORSE' | 'PUZZLE' | 'DOG'>('ALL');
 
+    const [voucherBurnData, setVoucherBurnData] = useState<{
+        summary: {
+            totalVouchersBurned: number;
+            totalPointsBurned: number;
+            totalNominalBurned: number;
+            totalCostBurned: number;
+            burnRatioPercent: number;
+            totalRevenue: number;
+        };
+        byCategory: {
+            TABLE: { count: number; points: number; nominal: number; cost: number };
+            FNB: { count: number; points: number; nominal: number; cost: number };
+            MERCHANDISE: { count: number; points: number; nominal: number; cost: number };
+        };
+        transactions: Array<{
+            id: string;
+            rewardTitle: string;
+            category: 'TABLE' | 'FNB' | 'MERCHANDISE';
+            pointsCost: number;
+            nominalValue: number;
+            costPrice: number;
+            memberName: string;
+            memberPhone: string;
+            status: string;
+            deliveredAt: string;
+            cashierName: string;
+        }>;
+    } | null>(null);
+    const [voucherCategoryFilter, setVoucherCategoryFilter] = useState<'ALL' | 'TABLE' | 'FNB' | 'MERCHANDISE'>('ALL');
+
     const [transactions, setTransactions] = useState<any[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [txFilter, setTxFilter] = useState<'daily' | 'yesterday' | 'weekly' | 'monthly' | 'custom'>('daily');
@@ -109,12 +139,13 @@ export default function Reports({
             // Always use startDate/endDate for consistent operational-day boundaries
             const query = `?startDate=${sd}&endDate=${ed}`;
 
-            const [revRes, utilRes, topRes, prodRes, cogsRes] = await Promise.all([
+            const [revRes, utilRes, topRes, prodRes, cogsRes, burnRes] = await Promise.all([
                 api.get(`/reports/daily-revenue${query}`),
                 api.get(`/reports/table-utilization${query}`),
                 api.get(`/reports/top-players${query}`),
                 api.get(`/reports/top-products${query}`),
-                api.get(`/reports/fnb-cogs-analytics${query}`).catch(() => ({ data: { data: null } }))
+                api.get(`/reports/fnb-cogs-analytics${query}`).catch(() => ({ data: { data: null } })),
+                api.get(`/reports/voucher-burn${query}`).catch(() => ({ data: { data: null } }))
             ]);
 
             const revData = revRes.data.data || [];
@@ -125,6 +156,7 @@ export default function Reports({
             setTopPlayers(topRes.data.data || []);
             setTopProducts(prodRes.data.data || []);
             setFnbCogsData(cogsRes.data.data || null);
+            setVoucherBurnData(burnRes.data.data || null);
         } catch (err) {
             console.error('Failed to load reports', err);
         } finally {
@@ -641,6 +673,32 @@ export default function Reports({
                 styles: { fontSize: 8, cellPadding: 2.5 },
                 headStyles: { fillColor: [40, 25, 0], textColor: [255, 190, 40] },
                 alternateRowStyles: { fillColor: [255, 250, 240] },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // Voucher Burn / Loyalty Analysis
+        if (voucherBurnData?.summary) {
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setTextColor(180, 50, 220);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Analisis Voucher Terbakar (Loyalty Burn Rate)', 15, y);
+            y += 6;
+
+            autoTable(doc, {
+                startY: y,
+                head: [['Indikator Loyalty Voucher', 'Nilai']],
+                body: [
+                    ['Total Voucher Terpakai', `${voucherBurnData.summary.totalVouchersBurned} voucher`],
+                    ['Total Poin Terbakar (Burned Points)', `${voucherBurnData.summary.totalPointsBurned.toLocaleString('id-ID')} PTS`],
+                    ['Total Nilai Promo Dibebaskan (Harga Jual)', `Rp ${Math.round(voucherBurnData.summary.totalNominalBurned).toLocaleString('id-ID')}`],
+                    ['Total HPP / Beban Riil (Cost of Loyalty)', `Rp ${Math.round(voucherBurnData.summary.totalCostBurned).toLocaleString('id-ID')}`],
+                    ['Rasio Promo vs Omzet Venue', `${voucherBurnData.summary.burnRatioPercent}%`],
+                ],
+                styles: { fontSize: 9, cellPadding: 3 },
+                headStyles: { fillColor: [40, 10, 50], textColor: [220, 100, 255] },
+                alternateRowStyles: { fillColor: [252, 245, 255] },
             });
             y = (doc as any).lastAutoTable.finalY + 10;
         }
@@ -1633,6 +1691,278 @@ export default function Reports({
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* ─── Voucher Burn Rate Section (Loyalty Burn) ─────────────── */}
+            <div id="voucher-burn-section" className="bg-[#141414] border border-[#2a1b3d] rounded-2xl p-6 mb-6 relative overflow-hidden shadow-2xl">
+                {/* Background glow effect */}
+                <div className="absolute -top-24 -right-24 w-72 h-72 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                            <Flame className="w-5 h-5 text-purple-400 animate-pulse" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-white">Voucher Terbakar (Loyalty Burn Rate)</h2>
+                                <span className="text-[10px] bg-purple-500/20 text-purple-300 font-mono font-bold px-2 py-0.5 rounded-full border border-purple-500/30">
+                                    MEMBER REWARD
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                Pelacakan nilai rupiah omzet yang dibebaskan &amp; HPP modal reward yang diklaim member
+                            </p>
+                        </div>
+                    </div>
+
+                    {voucherBurnData?.summary && (
+                        <div className="bg-[#0f0a17] border border-purple-500/30 rounded-xl px-4 py-2 flex items-center gap-3">
+                            <span className="text-xs text-gray-400">Beban Promo vs Omzet:</span>
+                            <span className="text-sm font-black font-mono text-purple-300">
+                                {voucherBurnData.summary.burnRatioPercent}%
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {voucherBurnData?.summary ? (
+                    <>
+                        {/* 4 Summary Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            {/* Card 1: Nominal Terbakar (Promo / Nilai Jual) */}
+                            <div className="bg-[#0f0a17] border border-purple-500/25 rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-purple-300 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Nilai Omzet Terbebas</span>
+                                    <Ticket className="w-4 h-4 text-purple-400" />
+                                </div>
+                                <h3 className="text-2xl font-black font-mono text-purple-300">
+                                    Rp {Math.round(voucherBurnData.summary.totalNominalBurned).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Harga jual normal yang dinikmati gratis
+                                </p>
+                            </div>
+
+                            {/* Card 2: HPP / Biaya Riil Keluar */}
+                            <div className="bg-[#0f0a17] border border-blue-500/25 rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-blue-300 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">HPP / Biaya Riil (Cost)</span>
+                                    <Package className="w-4 h-4 text-blue-400" />
+                                </div>
+                                <h3 className="text-2xl font-black font-mono text-blue-300">
+                                    Rp {Math.round(voucherBurnData.summary.totalCostBurned).toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Modal riil bahan &amp; pengadaan hadiah
+                                </p>
+                            </div>
+
+                            {/* Card 3: Poin Terbakar */}
+                            <div className="bg-[#0f0a17] border border-amber-500/25 rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-amber-300 mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Poin Terbakar</span>
+                                    <Award className="w-4 h-4 text-amber-400" />
+                                </div>
+                                <h3 className="text-2xl font-black font-mono text-amber-300">
+                                    {voucherBurnData.summary.totalPointsBurned.toLocaleString('id-ID')} <span className="text-xs font-normal text-amber-400">PTS</span>
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Saldo loyalitas member yang terpotong
+                                </p>
+                            </div>
+
+                            {/* Card 4: Total Voucher Digunakan */}
+                            <div className="bg-[#0f0a17] border border-[#00ff66]/25 rounded-2xl p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between text-[#00ff66] mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Voucher Selesai</span>
+                                    <Flame className="w-4 h-4 text-[#00ff66]" />
+                                </div>
+                                <h3 className="text-2xl font-black font-mono text-[#00ff66]">
+                                    {voucherBurnData.summary.totalVouchersBurned} <span className="text-xs font-normal text-gray-400">voucher</span>
+                                </h3>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Telah aktif main / diserahkan kasir
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Breakdown per Kategori */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-6">
+                            {/* Meja */}
+                            <div 
+                                onClick={() => setVoucherCategoryFilter(voucherCategoryFilter === 'TABLE' ? 'ALL' : 'TABLE')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                    voucherCategoryFilter === 'TABLE' ? 'bg-purple-900/30 border-purple-500 ring-1 ring-purple-500' : 'bg-[#0d0a14] border-[#222] hover:border-purple-500/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                                        🎱 Meja Biliar (Free Sesi)
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                                        {voucherBurnData.byCategory.TABLE.count} x
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-2 text-gray-400">
+                                    <span>Nominal Omzet:</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.TABLE.nominal).toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-1 text-gray-400">
+                                    <span>Poin Terbakar:</span>
+                                    <span className="font-mono text-amber-400">{voucherBurnData.byCategory.TABLE.points.toLocaleString('id-ID')} PTS</span>
+                                </div>
+                            </div>
+
+                            {/* F&B */}
+                            <div 
+                                onClick={() => setVoucherCategoryFilter(voucherCategoryFilter === 'FNB' ? 'ALL' : 'FNB')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                    voucherCategoryFilter === 'FNB' ? 'bg-amber-900/30 border-amber-500 ring-1 ring-amber-500' : 'bg-[#0d0a14] border-[#222] hover:border-amber-500/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                                        ☕ Food &amp; Beverage
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                                        {voucherBurnData.byCategory.FNB.count} x
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-2 text-gray-400">
+                                    <span>Nominal Omzet:</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.FNB.nominal).toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-1 text-gray-400">
+                                    <span>HPP Bahan Keluar:</span>
+                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory.FNB.cost).toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+
+                            {/* Merchandise */}
+                            <div 
+                                onClick={() => setVoucherCategoryFilter(voucherCategoryFilter === 'MERCHANDISE' ? 'ALL' : 'MERCHANDISE')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                    voucherCategoryFilter === 'MERCHANDISE' ? 'bg-blue-900/30 border-blue-500 ring-1 ring-blue-500' : 'bg-[#0d0a14] border-[#222] hover:border-blue-500/50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                                        👕 Jersey &amp; Merchandise
+                                    </span>
+                                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+                                        {voucherBurnData.byCategory.MERCHANDISE.count} x
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-2 text-gray-400">
+                                    <span>Nominal Nilai:</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.MERCHANDISE.nominal).toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex justify-between text-xs mt-1 text-gray-400">
+                                    <span>HPP Pengadaan:</span>
+                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory.MERCHANDISE.cost).toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Audit Table of Burned Vouchers */}
+                        <div className="bg-[#0a0710] border border-[#222] rounded-xl overflow-hidden">
+                            <div className="px-5 py-3 border-b border-[#222] flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    {(['ALL', 'TABLE', 'FNB', 'MERCHANDISE'] as const).map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setVoucherCategoryFilter(tab)}
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                                voucherCategoryFilter === tab
+                                                    ? 'bg-purple-600 text-white shadow-lg'
+                                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {tab === 'ALL' ? 'Semua Voucher' : tab === 'TABLE' ? '🎱 Meja' : tab === 'FNB' ? '☕ F&B' : '👕 Merchandise'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <span className="text-xs text-gray-500 font-mono">
+                                    {voucherBurnData.transactions.filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length} riwayat voucher
+                                </span>
+                            </div>
+
+                            <div className="overflow-x-auto max-h-[360px] custom-scrollbar">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="sticky top-0 bg-[#0d0a14] text-gray-400 text-[10px] uppercase font-bold tracking-wider border-b border-[#222]">
+                                        <tr>
+                                            <th className="px-4 py-3">Waktu Digunakan</th>
+                                            <th className="px-4 py-3">Member</th>
+                                            <th className="px-4 py-3">Reward / Voucher</th>
+                                            <th className="px-4 py-3">Kategori</th>
+                                            <th className="px-4 py-3 text-right">Poin</th>
+                                            <th className="px-4 py-3 text-right">Nilai Normal</th>
+                                            <th className="px-4 py-3 text-right">HPP</th>
+                                            <th className="px-4 py-3">Kasir / Validator</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#1e152d]">
+                                        {voucherBurnData.transactions
+                                            .filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter)
+                                            .map((tx) => (
+                                                <tr key={tx.id} className="hover:bg-purple-950/20 transition-colors">
+                                                    <td className="px-4 py-3 text-gray-300 font-mono whitespace-nowrap">
+                                                        {tx.deliveredAt ? new Date(tx.deliveredAt).toLocaleString('id-ID', {
+                                                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                        }) : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-bold text-white">{tx.memberName}</div>
+                                                        <div className="text-[10px] text-gray-500 font-mono">{tx.memberPhone || '-'}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3 font-semibold text-purple-200">
+                                                        {tx.rewardTitle}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                            tx.category === 'TABLE' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                                                            tx.category === 'FNB' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                                            'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                                        }`}>
+                                                            {tx.category === 'TABLE' ? '🎱 Meja' : tx.category === 'FNB' ? '☕ F&B' : '👕 Merch'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-amber-400 font-bold">
+                                                        {tx.pointsCost.toLocaleString('id-ID')} PTS
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-white font-bold whitespace-nowrap">
+                                                        Rp {Math.round(tx.nominalValue || 0).toLocaleString('id-ID')}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-blue-300 whitespace-nowrap">
+                                                        Rp {Math.round(tx.costPrice || 0).toLocaleString('id-ID')}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+                                                        <div className="flex items-center gap-1">
+                                                            <User className="w-3 h-3 text-purple-400" />
+                                                            <span>{tx.cashierName || 'Kasir'}</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+
+                                        {voucherBurnData.transactions.filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length === 0 && (
+                                            <tr>
+                                                <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-xs">
+                                                    Belum ada voucher yang digunakan / diserahkan pada periode ini.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="py-12 text-center text-gray-500 text-xs">
+                        Tidak ada aktivitas voucher terbakar pada rentang tanggal ini.
+                    </div>
+                )}
             </div>
 
             {/* ─── Transaction List ───────────────────────────────────────── */}

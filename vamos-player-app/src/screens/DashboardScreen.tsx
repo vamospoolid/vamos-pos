@@ -38,6 +38,37 @@ export function DashboardScreen({ member, tournaments = [], venueInfo, loading }
       {/* ─── BOOKING PAKET PROMO ─── */}
       <PackagePromoCard />
 
+      {/* ─── SPECIAL EVENT: DOMINO FUN TOURNAMENT BANNER ─── */}
+      <div 
+        onClick={() => setActiveTab('domino')}
+        className="mx-1 bg-gradient-to-r from-[#0d1630] via-[#151c38] to-[#1e1028] border-2 border-red-500/30 rounded-[28px] p-5 cursor-pointer hover:border-red-400 active:scale-98 transition-all shadow-xl relative overflow-hidden group"
+      >
+        <div className="absolute top-0 right-0 w-44 h-44 bg-red-600/15 rounded-full blur-[50px] pointer-events-none" />
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div className="space-y-1.5 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[8px] font-black uppercase tracking-wider italic">
+                EVENT SPESIAL BESOK
+              </span>
+              <span className="text-[9px] font-bold text-amber-400">9 OKTOBER 2026</span>
+            </div>
+            <h4 className="text-lg font-black uppercase italic text-white leading-tight">
+              DOMINO <span className="text-red-500">FUN TOURNAMENT</span>
+            </h4>
+            <p className="text-[10px] text-slate-300 font-medium">
+              Prize Pool <strong className="text-red-400 font-bold">Rp 3.000.000</strong> + Voucher 2 Jam • 64 Slot Pasangan
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center border border-red-400 shadow-lg group-hover:scale-110 transition-transform">
+              <span className="text-xl">🎲</span>
+            </div>
+            <span className="text-[8px] font-black text-red-400 uppercase tracking-widest italic flex items-center gap-0.5">
+              BAGAN & UNDIAN <ChevronRight className="w-2.5 h-2.5" />
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* ─── ONGOING EVENTS ─── */}
       <div className="space-y-4">

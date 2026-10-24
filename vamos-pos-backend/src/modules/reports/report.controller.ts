@@ -60,3 +60,19 @@ export const getTransactionList = catchAsync(async (req: Request, res: Response)
     const result = await ReportService.getTransactionList(days, startDate, endDate);
     res.json({ success: true, data: result });
 });
+
+export const getFnbCogsAnalytics = catchAsync(async (req: Request, res: Response) => {
+    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const result = await ReportService.getFnbCogsAnalytics(days, startDate, endDate);
+    res.json({ success: true, data: result });
+});
+
+export const getVoucherBurnReport = catchAsync(async (req: Request, res: Response) => {
+    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const result = await ReportService.getVoucherBurnReport(days, startDate, endDate);
+    res.json({ success: true, data: result });
+});

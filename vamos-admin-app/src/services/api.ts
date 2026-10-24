@@ -125,6 +125,8 @@ export const tournamentsApi = {
         api.post(`/tournaments/${id}/register`, body),
     updateParticipantStatus: (id: string, participantId: string, paymentStatus: string) =>
         api.put(`/tournaments/${id}/participants/${participantId}/status`, { paymentStatus }),
+    updateParticipant: (id: string, participantId: string, body: { name?: string; handicap?: number; paymentNotes?: string }) =>
+        api.put(`/tournaments/${id}/participants/${participantId}`, body),
     generateBracket: (id: string) =>
         api.post(`/tournaments/${id}/generate-bracket`),
     resetBracket: (id: string) =>

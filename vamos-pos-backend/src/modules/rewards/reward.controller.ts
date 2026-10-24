@@ -15,7 +15,7 @@ export const getRewards = catchAsync(async (req: Request, res: Response) => {
 
 // ─── Admin: Create reward ─────────────────────────────────────────────────────
 export const createReward = catchAsync(async (req: Request, res: Response) => {
-    const { title, description, pointsRequired, stock, imageUrl } = req.body;
+    const { title, description, pointsRequired, stock, imageUrl, category, nominalValue, costPrice } = req.body;
     if (!title || !pointsRequired) throw new AppError('title and pointsRequired are required', 400);
 
     const reward = await prisma.reward.create({
@@ -25,6 +25,9 @@ export const createReward = catchAsync(async (req: Request, res: Response) => {
             pointsRequired: Number(pointsRequired),
             stock: stock !== undefined ? Number(stock) : 999,
             imageUrl: imageUrl || null,
+            category: category || (title.toLowerCase().includes('meja') ? 'TABLE' : (title.toLowerCase().includes('tea') || title.toLowerCase().includes('kopi') || title.toLowerCase().includes('snack') ? 'FNB' : 'MERCHANDISE')),
+            nominalValue: nominalValue !== undefined ? Number(nominalValue) : 0,
+            costPrice: costPrice !== undefined ? Number(costPrice) : 0,
         }
     });
     res.status(201).json({ success: true, data: reward });
@@ -33,7 +36,7 @@ export const createReward = catchAsync(async (req: Request, res: Response) => {
 // ─── Admin: Update reward ─────────────────────────────────────────────────────
 export const updateReward = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { title, description, pointsRequired, stock, imageUrl, isActive } = req.body;
+    const { title, description, pointsRequired, stock, imageUrl, isActive, category, nominalValue, costPrice } = req.body;
 
     const reward = await prisma.reward.update({
         where: { id },
@@ -44,6 +47,9 @@ export const updateReward = catchAsync(async (req: Request, res: Response) => {
             ...(stock !== undefined && { stock: Number(stock) }),
             ...(imageUrl !== undefined && { imageUrl }),
             ...(isActive !== undefined && { isActive }),
+            ...(category !== undefined && { category }),
+            ...(nominalValue !== undefined && { nominalValue: Number(nominalValue) }),
+            ...(costPrice !== undefined && { costPrice: Number(costPrice) }),
         }
     });
     res.json({ success: true, data: reward });
@@ -114,9 +120,14 @@ export const getRedemptions = catchAsync(async (req: Request, res: Response) => 
 // ─── POS: Fulfill a redemption (mark as DELIVERED) ───────────────────────────
 export const fulfillRedemption = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
+    const userId = (req as any).user?.id || null;
     const redemption = await prisma.redemption.update({
         where: { id },
-        data: { status: 'DELIVERED' },
+        data: {
+            status: 'DELIVERED',
+            deliveredAt: new Date(),
+            cashierId: userId,
+        },
         include: { member: true, reward: true }
     });
     res.json({ success: true, data: redemption });

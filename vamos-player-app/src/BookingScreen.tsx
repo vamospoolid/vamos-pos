@@ -483,7 +483,13 @@ export function BookingScreen() {
 
                 {/* Deployment Windows - Optimized Grid */}
                 <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-slate-500 italic uppercase tracking-widest px-1">Pilih Jam Mulai</h3>
+                    <div className="flex justify-between items-baseline px-1">
+                        <h3 className="text-[10px] font-black text-slate-400 italic uppercase tracking-widest">Pilih Waktu Kosong (Jam Mulai)</h3>
+                        <span className="text-[9px] font-bold text-emerald-400/90 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Slot Tersedia
+                        </span>
+                    </div>
                     <div className="grid grid-cols-4 gap-2">
                         {filteredSlots.map(slot => {
                             const isSelected = selectedSlot === slot;
@@ -493,7 +499,7 @@ export function BookingScreen() {
                                     onClick={() => setSelectedSlot(slot)}
                                     className={`py-2.5 rounded-[12px] transition-all duration-300 font-black text-[10px] italic border ${isSelected
                                         ? 'bg-primary text-secondary border-primary shadow-md shadow-primary/20 scale-105'
-                                        : 'bg-[#1a1f35]/40 text-slate-500 border-white/5 hover:text-white'
+                                        : 'bg-[#1a1f35]/40 text-slate-300 border-white/5 hover:border-primary/40 hover:text-white'
                                         }`}
                                 >
                                     {slot}
@@ -502,10 +508,14 @@ export function BookingScreen() {
                         })}
                     </div>
                     {filteredSlots.length === 0 && (
-                        <div className="py-8 text-center bg-[#1a1f35]/20 rounded-[24px] border border-dashed border-white/5 opacity-50">
-                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest italic">Tidak Ada Jadwal Tersedia</p>
+                        <div className="py-8 text-center bg-[#1a1f35]/20 rounded-[24px] border border-dashed border-white/5 opacity-70">
+                            <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest italic">Semua Jadwal Penuh Pada Tanggal Ini</p>
+                            <p className="text-[9px] text-slate-500 mt-1">Silakan pilih tanggal lain untuk melihat waktu kosong.</p>
                         </div>
                     )}
+                    <p className="text-[9px] text-slate-500 italic px-1 flex items-center gap-1.5">
+                        <span>🔒</span> Meja akan disiapkan otomatis oleh kasir saat Anda tiba.
+                    </p>
                 </div>
             </div>
 

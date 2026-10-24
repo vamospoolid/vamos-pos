@@ -339,8 +339,10 @@ export class ReportService {
             lteDate = today.end;
         }
 
-        // --- Base: all tables (include zero-revenue tables) ---
-        const allTables = await prisma.table.findMany();
+        // --- Base: all tables (include zero-revenue tables, exclude soft-deleted) ---
+        const allTables = await prisma.table.findMany({
+            where: { deletedAt: null }
+        });
 
         // --- Use Payment as source of truth (same as getDailyRevenue) ---
         const payments = await prisma.payment.findMany({
@@ -672,5 +674,276 @@ export class ReportService {
                 ordersCount: (s.orders || []).length,
             };
         });
+    }
+
+    /**
+     * FnB COGS, Laba Rugi Kafe, dan Menu Engineering Matrix Analytics
+     */
+    static async getFnbCogsAnalytics(days = 30, startDateStr?: string, endDateStr?: string) {
+        let start: Date;
+        let end: Date;
+
+        if (startDateStr && endDateStr) {
+            const openHour = await ReportService.getOpenHour();
+            const [sYear, sMonth, sDay] = startDateStr.split('-').map(Number);
+            const [eYear, eMonth, eDay] = endDateStr.split('-').map(Number);
+
+            const tzOffsetMs = getTimezoneOffsetMs();
+            const startLocal = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            start = new Date(startLocal.getTime() - tzOffsetMs);
+
+            const endLocal = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour, 0, 0, 0);
+            end = new Date(endLocal.getTime() - tzOffsetMs - 1);
+        } else {
+            const today = await ReportService.getOperationalDayBounds(0);
+            const oldest = await ReportService.getOperationalDayBounds(Math.max(days - 1, 0));
+            start = oldest.start;
+            end = today.end;
+        }
+
+        const dateFilter = { createdAt: { gte: start, lte: end } };
+
+        // 1. Fetch Orders with product & recipes
+        const orders = await prisma.order.findMany({
+            where: {
+                ...dateFilter
+            },
+            include: {
+                product: {
+                    include: {
+                        recipes: {
+                            include: {
+                                rawMaterial: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Fetch Waste Logs in same period
+        const wasteLogs = await prisma.wasteLog.findMany({
+            where: {
+                ...dateFilter
+            }
+        });
+
+        let totalFnbRevenue = 0;
+        let totalCogs = 0;
+        let totalItemsSold = 0;
+
+        const productMap: Record<string, {
+            id: string;
+            name: string;
+            category: string;
+            quantitySold: number;
+            revenue: number;
+            cogs: number;
+            grossProfit: number;
+            marginPercent: number;
+        }> = {};
+
+        for (const order of orders) {
+            if (!order.product) continue;
+
+            const pId = order.product.id;
+            const orderQty = order.quantity || 1;
+            const revenue = order.total !== undefined ? order.total : (order.price * orderQty);
+
+            // Compute unit HPP from recipes
+            let unitHpp = 0;
+            if (order.product.recipes && order.product.recipes.length > 0) {
+                for (const r of order.product.recipes) {
+                    unitHpp += (r.quantity || 0) * (r.rawMaterial?.costPerUnit || 0);
+                }
+            }
+            const orderCogs = unitHpp * orderQty;
+
+            totalFnbRevenue += revenue;
+            totalCogs += orderCogs;
+            totalItemsSold += orderQty;
+
+            if (!productMap[pId]) {
+                productMap[pId] = {
+                    id: pId,
+                    name: order.product.name,
+                    category: order.product.category || 'Uncategorized',
+                    quantitySold: 0,
+                    revenue: 0,
+                    cogs: 0,
+                    grossProfit: 0,
+                    marginPercent: 0
+                };
+            }
+
+            productMap[pId].quantitySold += orderQty;
+            productMap[pId].revenue += revenue;
+            productMap[pId].cogs += orderCogs;
+        }
+
+        const productsList = Object.values(productMap).map(p => {
+            const grossProfit = p.revenue - p.cogs;
+            const marginPercent = p.revenue > 0 ? Number(((grossProfit / p.revenue) * 100).toFixed(1)) : 0;
+            return {
+                ...p,
+                revenue: Math.round(p.revenue),
+                cogs: Math.round(p.cogs),
+                grossProfit: Math.round(grossProfit),
+                marginPercent
+            };
+        });
+
+        const grossProfit = totalFnbRevenue - totalCogs;
+        const grossMarginPercent = totalFnbRevenue > 0 ? Number(((grossProfit / totalFnbRevenue) * 100).toFixed(1)) : 0;
+        const totalWasteCost = wasteLogs.reduce((acc, w) => acc + (w.costLoss || 0), 0);
+        const netFnbProfit = grossProfit - totalWasteCost;
+
+        // 3. Menu Engineering Classification (Stars, Plowhorses, Puzzles, Dogs)
+        const avgQty = productsList.length > 0 ? (totalItemsSold / productsList.length) : 0;
+        const avgMargin = grossMarginPercent;
+
+        const menuEngineering = productsList.map(p => {
+            const isHighVol = p.quantitySold >= avgQty;
+            const isHighMargin = p.marginPercent >= avgMargin;
+
+            let classification: 'STAR' | 'PLOWHORSE' | 'PUZZLE' | 'DOG';
+            if (isHighVol && isHighMargin) classification = 'STAR';
+            else if (isHighVol && !isHighMargin) classification = 'PLOWHORSE';
+            else if (!isHighVol && isHighMargin) classification = 'PUZZLE';
+            else classification = 'DOG';
+
+            return {
+                ...p,
+                classification
+            };
+        }).sort((a, b) => b.revenue - a.revenue);
+
+        return {
+            summary: {
+                totalFnbRevenue: Math.round(totalFnbRevenue),
+                totalCogs: Math.round(totalCogs),
+                grossProfit: Math.round(grossProfit),
+                grossMarginPercent,
+                totalWasteCost: Math.round(totalWasteCost),
+                netFnbProfit: Math.round(netFnbProfit),
+                totalOrdersCount: orders.length,
+                totalItemsSold
+            },
+            menuEngineering,
+            benchmark: {
+                avgQty: Math.round(avgQty * 10) / 10,
+                avgMargin
+            }
+        };
+    }
+
+    static async getVoucherBurnReport(days = 30, startDate?: string, endDate?: string) {
+        let dbStart: Date;
+        let dbEnd: Date;
+
+        if (startDate && endDate) {
+            const openHour = await ReportService.getOpenHour();
+            const tzOffsetMs = getTimezoneOffsetMs();
+
+            const startLocal = new Date(`${startDate}T00:00:00.000Z`);
+            startLocal.setUTCHours(openHour, 0, 0, 0);
+            dbStart = new Date(startLocal.getTime() - tzOffsetMs);
+
+            const endLocal = new Date(`${endDate}T00:00:00.000Z`);
+            endLocal.setUTCDate(endLocal.getUTCDate() + 1);
+            endLocal.setUTCHours(openHour - 1, 59, 59, 999);
+            dbEnd = new Date(endLocal.getTime() - tzOffsetMs);
+        } else {
+            const bounds = await ReportService.getOperationalDayBounds(days <= 1 ? 0 : days);
+            dbStart = bounds.start;
+            dbEnd = bounds.end;
+        }
+
+        const redemptions = await prisma.redemption.findMany({
+            where: {
+                status: 'DELIVERED',
+                deliveredAt: { gte: dbStart, lte: dbEnd }
+            },
+            include: {
+                member: { select: { id: true, name: true, phone: true } },
+                reward: true
+            },
+            orderBy: { deliveredAt: 'desc' }
+        });
+
+        const payments = await prisma.payment.findMany({
+            where: {
+                status: 'SUCCESS',
+                createdAt: { gte: dbStart, lte: dbEnd }
+            },
+            select: { amount: true }
+        });
+        const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+
+        let totalRupiahBurned = 0;
+        let totalCostBurned = 0;
+        let totalPointsBurned = 0;
+
+        const categorySummary: Record<string, { count: number; rupiah: number; points: number }> = {
+            TABLE: { count: 0, rupiah: 0, points: 0 },
+            FNB: { count: 0, rupiah: 0, points: 0 },
+            MERCHANDISE: { count: 0, rupiah: 0, points: 0 },
+            OTHER: { count: 0, rupiah: 0, points: 0 }
+        };
+
+        const details = redemptions.map(r => {
+            const nominal = r.reward.nominalValue || (r.reward.value > 0 ? r.reward.value : (r.reward.title.toLowerCase().includes('meja') ? 50000 : 0));
+            const cost = r.reward.costPrice || 0;
+            const points = r.pointsUsed || r.reward.pointsRequired || 0;
+            const rawCat = (r.reward.category || '').toUpperCase();
+            const cat = ['TABLE', 'FNB', 'MERCHANDISE'].includes(rawCat) ? rawCat : (
+                r.reward.title.toLowerCase().includes('meja') ? 'TABLE' : (
+                    r.reward.title.toLowerCase().includes('tea') || r.reward.title.toLowerCase().includes('kopi') || r.reward.title.toLowerCase().includes('snack') || r.reward.title.toLowerCase().includes('drink') ? 'FNB' : 'MERCHANDISE'
+                )
+            );
+
+            totalRupiahBurned += nominal;
+            totalCostBurned += cost;
+            totalPointsBurned += points;
+
+            if (!categorySummary[cat]) {
+                categorySummary[cat] = { count: 0, rupiah: 0, points: 0 };
+            }
+            categorySummary[cat].count += 1;
+            categorySummary[cat].rupiah += nominal;
+            categorySummary[cat].points += points;
+
+            return {
+                id: r.id,
+                date: r.deliveredAt || r.claimedAt,
+                memberName: r.member?.name || 'Unknown',
+                memberPhone: r.member?.phone || '',
+                rewardTitle: r.reward.title,
+                category: cat,
+                pointsUsed: points,
+                nominalValue: nominal,
+                costPrice: cost,
+                cashierId: r.cashierId,
+                sessionId: r.sessionId
+            };
+        });
+
+        const burnRatio = totalRevenue > 0 ? Number(((totalRupiahBurned / totalRevenue) * 100).toFixed(2)) : 0;
+
+        return {
+            summary: {
+                totalRupiahBurned,
+                totalCostBurned,
+                totalPointsBurned,
+                totalVouchersBurned: redemptions.length,
+                totalRevenue,
+                burnRatio
+            },
+            categorySummary,
+            details
+        };
     }
 }

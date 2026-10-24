@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Glowing Background Aura for V -->
+    <path
+        android:pathData="M32,28 L54,74 L76,28 L62,28 L54,46 L46,28 Z"
+        android:fillColor="#3000FF66" />
+
+    <!-- Main Sharp Vamos 'V' Logo -->
+    <path
+        android:pathData="M30,26 L54,72 L78,26 L64,26 L54,46 L44,26 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="30"
+                android:startY="26"
+                android:endX="78"
+                android:endY="72"
+                android:type="linear"
+                android:startColor="#00FF66"
+                android:endColor="#00E5FF" />
+        </aapt:attr>
+    </path>
+
+    <!-- Inner V Bevel Stroke -->
+    <path
+        android:pathData="M30,26 L54,72 L78,26 L64,26 L54,46 L44,26 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#AAFFFFFF"
+        android:strokeWidth="0.6" />
+
+    <!-- Staff Badge Ribbon Pill Container -->
+    <path
+        android:pathData="M34,74 L74,74 A4,4 0 0,1 78,78 L78,84 A4,4 0 0,1 74,88 L34,88 A4,4 0 0,1 30,84 L30,78 A4,4 0 0,1 34,74 Z"
+        android:fillColor="#18221D"
+        android:strokeColor="#00FF66"
+        android:strokeWidth="1.2" />
+
+    <!-- Mini Star / Crest in Badge -->
+    <path
+        android:pathData="M54,77 L55.5,80.5 L59.5,80.5 L56.5,82.5 L57.5,86 L54,84 L50.5,86 L51.5,82.5 L48.5,80.5 L52.5,80.5 Z"
+        android:fillColor="#00FF66" />
+
+    <!-- Left / Right Accent Dots on Badge -->
+    <path
+        android:pathData="M37,81 A1.5,1.5 0 1,0 37,84 A1.5,1.5 0 1,0 37,81 Z"
+        android:fillColor="#00E5FF" />
+    <path
+        android:pathData="M71,81 A1.5,1.5 0 1,0 71,84 A1.5,1.5 0 1,0 71,81 Z"
+        android:fillColor="#00E5FF" />
+</vector>

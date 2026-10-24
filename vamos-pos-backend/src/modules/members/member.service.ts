@@ -54,8 +54,8 @@ export class MemberService {
         // WhatsApp Welcome Message
         if (newMember.phone) {
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
                 const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WELCOME_MEMBER, {
                     name: newMember.name,
@@ -159,8 +159,14 @@ export class MemberService {
     }
 
     static async getMemberByPhone(phone: string) {
+        const rawDigits = phone.replace(/[^0-9]/g, '');
+        let base = rawDigits;
+        if (base.startsWith('62')) base = base.slice(2);
+        else if (base.startsWith('0')) base = base.slice(1);
+        const candidatePhones = Array.from(new Set([rawDigits, base, `0${base}`, `62${base}`]));
+
         const member = await prisma.member.findFirst({
-            where: { phone, deletedAt: null }
+            where: { phone: { in: candidatePhones }, deletedAt: null }
         });
 
         if (!member) {

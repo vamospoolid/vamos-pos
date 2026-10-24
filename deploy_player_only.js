@@ -28,9 +28,9 @@ conn.on('ready', () => {
         const localArchive = path.join(__dirname, archiveName);
         const remoteArchive = `/tmp/${archiveName}`;
 
-        // 1. Compress local dist
-        console.log(`   - Compressing local dist...`);
-        execSync(`tar -czf "${localArchive}" -C "${project.localDist}" .`);
+        // 1. Compress local dist (exclude heavy APK files)
+        console.log(`   - Compressing local dist (excluding APK)...`);
+        execSync(`tar -czf "${localArchive}" --exclude="*.apk" -C "${project.localDist}" .`);
 
         // 2. Upload to VPS
         console.log(`   - Uploading to VPS...`);
@@ -44,12 +44,11 @@ conn.on('ready', () => {
             });
         });
 
-        // 3. Extract on VPS
+        // 3. Extract on VPS without wiping remote APK
         console.log(`   - Extracting on VPS...`);
         await new Promise((resolve, reject) => {
             const cmd = `
                 sudo mkdir -p ${project.remoteDist}
-                sudo rm -rf ${project.remoteDist}/*
                 sudo tar -xzf ${remoteArchive} -C ${project.remoteDist}
                 sudo rm ${remoteArchive}
             `;

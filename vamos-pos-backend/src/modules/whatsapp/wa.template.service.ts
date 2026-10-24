@@ -18,7 +18,7 @@ const DEFAULTS: Record<string, { name: string; body: string }> = {
     },
     [WA_TEMPLATE_IDS.PAYMENT_RECEIPT]: {
         name: 'Notifikasi Pembayaran',
-        body: `Halo {{name}}! 🧾\n\nTerima kasih telah bermain di {{venue}}.\nPembayaran Anda untuk meja *{{table}}* sebesar *Rp {{amount}}* telah kami terima.\n\nSelamat beristirahat dan sampai jumpa kembali! 🎱`,
+        body: `Halo {{name}}! 🧾\n\nTerima kasih telah bermain di {{venue}}.\nPembayaran Anda untuk meja *{{table}}* sebesar *Rp {{amount}}* telah kami terima.\nTotal Poin Member: *{{points}} Poin*\n\nSelamat beristirahat dan sampai jumpa kembali! 🎱`,
     },
     [WA_TEMPLATE_IDS.BOOKING_CONFIRM]: {
         name: 'Konfirmasi Booking',
@@ -82,7 +82,10 @@ export class WaTemplateService {
      * Render template — ganti semua {{variable}} dengan nilai nyata.
      */
     static render(body: string, vars: Record<string, string>): string {
-        return body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
+        let rendered = body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
+        // Ensure "Serpong" is never sent in WhatsApp messages
+        rendered = rendered.replace(/serpong/gi, 'Wonomulyo');
+        return rendered;
     }
 
     /**
@@ -92,8 +95,30 @@ export class WaTemplateService {
     static async renderTemplate(id: string, vars: Record<string, string>): Promise<{ body: string; imageUrl: string | null } | null> {
         const tpl = await prisma.waTemplate.findUnique({ where: { id } });
         if (!tpl || !tpl.isActive) return null;
+
+        // Clean venue variable to ensure Vamos Pool and Cafe
+        if (vars.venue) {
+            vars.venue = vars.venue.replace(/serpong/gi, 'Wonomulyo');
+            if (vars.venue.toLowerCase().includes('vamos') && !vars.venue.toLowerCase().includes('cafe')) {
+                vars.venue = 'Vamos Pool and Cafe';
+            }
+        } else {
+            vars.venue = 'Vamos Pool and Cafe';
+        }
+
+        let body = WaTemplateService.render(tpl.body, vars);
+
+        // If template doesn't explicitly have {{points}} placeholder, automatically append points for PAYMENT_RECEIPT
+        if (id === WA_TEMPLATE_IDS.PAYMENT_RECEIPT && vars.points && !tpl.body.includes('{{points}}')) {
+            if (body.includes('telah kami terima.')) {
+                body = body.replace('telah kami terima.', `telah kami terima.\nTotal Poin Member: *${vars.points} Poin*`);
+            } else {
+                body += `\nTotal Poin Member: *${vars.points} Poin*`;
+            }
+        }
+
         return {
-            body: WaTemplateService.render(tpl.body, vars),
+            body,
             imageUrl: tpl.imageUrl
         };
     }

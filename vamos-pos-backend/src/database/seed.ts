@@ -47,8 +47,8 @@ async function main() {
 
     const venue = await prisma.venue.create({
         data: {
-            name: 'Vamos Billiards - Serpong',
-            address: 'Jl. M.H. Thamrin Kav 5, Serpong, Tangerang',
+            name: 'Vamos Pool and Cafe',
+            address: 'Kompleks Perumahan Balanipa Residence, Wonomulyo, Polewali Mandar',
             openTime: '09:00',
             closeTime: '23:00'
         }

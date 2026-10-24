@@ -133,9 +133,17 @@ export const getPointLogs = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const updateRedemptionStatus = catchAsync(async (req: Request, res: Response) => {
+    const isDelivered = req.body.status === 'DELIVERED';
     const redemption = await prisma.redemption.update({
         where: { id: req.params.id },
-        data: { status: req.body.status, notes: req.body.notes },
+        data: {
+            status: req.body.status,
+            notes: req.body.notes,
+            ...(isDelivered && {
+                deliveredAt: new Date(),
+                cashierId: (req as any).user?.id || null
+            })
+        },
     });
 
     const { getIO } = await import('../../socket');

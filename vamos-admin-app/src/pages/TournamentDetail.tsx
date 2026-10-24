@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trophy, Users, Settings, Shuffle, Save, Plus, AlertCircle, RefreshCw, Check, Trash2, XCircle, Download } from 'lucide-react';
+import { ArrowLeft, Trophy, Users, Settings, Shuffle, Save, Plus, AlertCircle, RefreshCw, Check, Trash2, XCircle, Download, Pencil } from 'lucide-react';
 import { tournamentsApi, membersApi } from '../services/api';
 import type { Tournament, Match, Member } from '../services/api';
 import { vamosAlert, vamosConfirm } from '../utils/dialog';
@@ -36,6 +36,12 @@ const TournamentDetail: React.FC = () => {
     const [matchSelect, setMatchSelect] = useState<{ matchId: string; slot: 1 | 2 } | null>(null);
     const [quickName, setQuickName] = useState('');
     const [addingQuick, setAddingQuick] = useState(false);
+
+    // Inline edit for VAMOS placeholder slots
+    // key: participantId → value: edited name string
+    const [inlineEdit, setInlineEdit] = useState<Record<string, string>>({});
+    const [inlineSaving, setInlineSaving] = useState<Record<string, boolean>>({});
+    const [inlineSaved, setInlineSaved] = useState<Record<string, boolean>>({});
 
     // Settings editing
     const [isEditingSettings, setIsEditingSettings] = useState(false);
@@ -162,6 +168,34 @@ const TournamentDetail: React.FC = () => {
             setSaving(p => ({ ...p, [match.id]: false }));
         }
     };
+
+    // ── VAMOS inline rename ──────────────────────────────────────
+    const isVamosName = (name: string) =>
+        name?.toLowerCase().includes('vamos');
+
+    const startInlineEdit = (participantId: string, currentName: string) => {
+        setInlineEdit(prev => ({ ...prev, [participantId]: currentName }));
+    };
+
+    const handleRenameVamos = async (participantId: string) => {
+        if (!id) return;
+        const newName = (inlineEdit[participantId] || '').trim();
+        if (!newName) return;
+        setInlineSaving(prev => ({ ...prev, [participantId]: true }));
+        try {
+            await tournamentsApi.updateParticipant(id, participantId, { name: newName });
+            setInlineSaved(prev => ({ ...prev, [participantId]: true }));
+            setInlineEdit(prev => { const n = { ...prev }; delete n[participantId]; return n; });
+            setTimeout(() => setInlineSaved(prev => ({ ...prev, [participantId]: false })), 2000);
+            fetchTournament();
+        } catch (err: unknown) {
+            const anyErr = err as { response?: { data?: { message?: string } } };
+            vamosAlert(anyErr?.response?.data?.message ?? 'Gagal update nama peserta');
+        } finally {
+            setInlineSaving(prev => ({ ...prev, [participantId]: false }));
+        }
+    };
+    // ────────────────────────────────────────────────────────────────
 
     const handleUpdatePlayer = async (matchId: string, slot: 1 | 2, participantId: string) => {
         try {
@@ -827,12 +861,53 @@ const TournamentDetail: React.FC = () => {
                                                                             <div className="flex-1 min-w-0">
                                                                                 <div className="flex items-center gap-3">
                                                                                     {m.player1 ? (
-                                                                                        <p
-                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
-                                                                                            className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p1Winner ? 'text-white' : 'text-slate-500'}`}
-                                                                                        >
-                                                                                            {(m.player1 as any)?.name || (m.player1 as any)?.member?.name || 'OPERATIVE ALPHA'}
-                                                                                        </p>
+                                                                                        (() => {
+                                                                                            const p1 = m.player1 as any;
+                                                                                            const p1Id = p1?.id;
+                                                                                            const p1Name = p1?.name || p1?.member?.name || 'OPERATIVE ALPHA';
+                                                                                            const p1IsVamos = isVamosName(p1Name);
+                                                                                            const isEditing = p1IsVamos && p1Id && inlineEdit[p1Id] !== undefined;
+                                                                                            return p1IsVamos && p1Id ? (
+                                                                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                                    {isEditing ? (
+                                                                                                        <>
+                                                                                                            <input
+                                                                                                                autoFocus
+                                                                                                                type="text"
+                                                                                                                value={inlineEdit[p1Id]}
+                                                                                                                onChange={e => setInlineEdit(prev => ({ ...prev, [p1Id]: e.target.value }))}
+                                                                                                                onKeyDown={e => { if (e.key === 'Enter') handleRenameVamos(p1Id); if (e.key === 'Escape') setInlineEdit(prev => { const n={...prev}; delete n[p1Id]; return n; }); }}
+                                                                                                                placeholder="Ketik nama asli..."
+                                                                                                                className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-400/50 text-amber-300 text-sm font-bold uppercase italic outline-none focus:ring-2 ring-amber-400/40 placeholder:text-amber-600/50"
+                                                                                                            />
+                                                                                                            <button onClick={() => handleRenameVamos(p1Id)} disabled={inlineSaving[p1Id]} className="w-7 h-7 rounded-lg bg-amber-500 text-black flex items-center justify-center hover:bg-amber-400 transition-all active:scale-95 shadow-lg flex-shrink-0">
+                                                                                                                {inlineSaving[p1Id] ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} strokeWidth={3} />}
+                                                                                                            </button>
+                                                                                                            <button onClick={() => setInlineEdit(prev => { const n={...prev}; delete n[p1Id]; return n; })} className="w-7 h-7 rounded-lg bg-slate-700 text-slate-300 flex items-center justify-center hover:bg-slate-600 transition-all flex-shrink-0">
+                                                                                                                <XCircle size={12} />
+                                                                                                            </button>
+                                                                                                        </>
+                                                                                                    ) : (
+                                                                                                        <button
+                                                                                                            onClick={() => startInlineEdit(p1Id, '')}
+                                                                                                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-400/30 border-dashed hover:border-amber-400/70 hover:bg-amber-500/20 transition-all group/vamos"
+                                                                                                        >
+                                                                                                            <Pencil size={11} className="text-amber-500 flex-shrink-0" />
+                                                                                                            <span className="text-sm font-black text-amber-400/70 uppercase italic tracking-tight group-hover/vamos:text-amber-300 transition-colors">
+                                                                                                                {inlineSaved[p1Id] ? '✓ TERSIMPAN' : 'VAMOS — klik untuk isi nama'}
+                                                                                                            </span>
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <p
+                                                                                                    onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
+                                                                                                    className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p1Winner ? 'text-white' : 'text-slate-500'}`}
+                                                                                                >
+                                                                                                    {p1Name}
+                                                                                                </p>
+                                                                                            );
+                                                                                        })()
                                                                                     ) : (
                                                                                         <button
                                                                                             onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })}
@@ -841,7 +916,7 @@ const TournamentDetail: React.FC = () => {
                                                                                             + ASSIGN OPERATIVE
                                                                                         </button>
                                                                                     )}
-                                                                                    <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })} />
+                                                                                    {!isVamosName((m.player1 as any)?.name || '') && <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 1 })} />}
                                                                                 </div>
                                                                                 {p1Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
                                                                             </div>
@@ -863,12 +938,53 @@ const TournamentDetail: React.FC = () => {
                                                                             <div className="flex-1 min-w-0">
                                                                                 <div className="flex items-center gap-3">
                                                                                     {m.player2 ? (
-                                                                                        <p
-                                                                                            onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
-                                                                                            className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p2Winner ? 'text-white' : 'text-slate-500'}`}
-                                                                                        >
-                                                                                            {(m.player2 as any)?.name || (m.player2 as any)?.member?.name || 'OPERATIVE BRAVO'}
-                                                                                        </p>
+                                                                                        (() => {
+                                                                                            const p2 = m.player2 as any;
+                                                                                            const p2Id = p2?.id;
+                                                                                            const p2Name = p2?.name || p2?.member?.name || 'OPERATIVE BRAVO';
+                                                                                            const p2IsVamos = isVamosName(p2Name);
+                                                                                            const isEditing = p2IsVamos && p2Id && inlineEdit[p2Id] !== undefined;
+                                                                                            return p2IsVamos && p2Id ? (
+                                                                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                                    {isEditing ? (
+                                                                                                        <>
+                                                                                                            <input
+                                                                                                                autoFocus
+                                                                                                                type="text"
+                                                                                                                value={inlineEdit[p2Id]}
+                                                                                                                onChange={e => setInlineEdit(prev => ({ ...prev, [p2Id]: e.target.value }))}
+                                                                                                                onKeyDown={e => { if (e.key === 'Enter') handleRenameVamos(p2Id); if (e.key === 'Escape') setInlineEdit(prev => { const n={...prev}; delete n[p2Id]; return n; }); }}
+                                                                                                                placeholder="Ketik nama asli..."
+                                                                                                                className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-400/50 text-amber-300 text-sm font-bold uppercase italic outline-none focus:ring-2 ring-amber-400/40 placeholder:text-amber-600/50"
+                                                                                                            />
+                                                                                                            <button onClick={() => handleRenameVamos(p2Id)} disabled={inlineSaving[p2Id]} className="w-7 h-7 rounded-lg bg-amber-500 text-black flex items-center justify-center hover:bg-amber-400 transition-all active:scale-95 shadow-lg flex-shrink-0">
+                                                                                                                {inlineSaving[p2Id] ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} strokeWidth={3} />}
+                                                                                                            </button>
+                                                                                                            <button onClick={() => setInlineEdit(prev => { const n={...prev}; delete n[p2Id]; return n; })} className="w-7 h-7 rounded-lg bg-slate-700 text-slate-300 flex items-center justify-center hover:bg-slate-600 transition-all flex-shrink-0">
+                                                                                                                <XCircle size={12} />
+                                                                                                            </button>
+                                                                                                        </>
+                                                                                                    ) : (
+                                                                                                        <button
+                                                                                                            onClick={() => startInlineEdit(p2Id, '')}
+                                                                                                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-400/30 border-dashed hover:border-amber-400/70 hover:bg-amber-500/20 transition-all group/vamos"
+                                                                                                        >
+                                                                                                            <Pencil size={11} className="text-amber-500 flex-shrink-0" />
+                                                                                                            <span className="text-sm font-black text-amber-400/70 uppercase italic tracking-tight group-hover/vamos:text-amber-300 transition-colors">
+                                                                                                                {inlineSaved[p2Id] ? '✓ TERSIMPAN' : 'VAMOS — klik untuk isi nama'}
+                                                                                                            </span>
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <p
+                                                                                                    onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
+                                                                                                    className={`text-lg font-black truncate cursor-pointer uppercase italic tracking-tighter group-hover:text-primary transition-colors ${p2Winner ? 'text-white' : 'text-slate-500'}`}
+                                                                                                >
+                                                                                                    {p2Name}
+                                                                                                </p>
+                                                                                            );
+                                                                                        })()
                                                                                     ) : (
                                                                                         <button
                                                                                             onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })}
@@ -877,7 +993,7 @@ const TournamentDetail: React.FC = () => {
                                                                                             + ASSIGN OPERATIVE
                                                                                         </button>
                                                                                     )}
-                                                                                    <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })} />
+                                                                                    {!isVamosName((m.player2 as any)?.name || '') && <Settings size={12} className="text-slate-700 hover:text-primary cursor-pointer transition-colors" onClick={() => setMatchSelect({ matchId: m.id, slot: 2 })} />}
                                                                                 </div>
                                                                                 {p2Winner && <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 italic leading-none animate-in fade-in duration-1000">VICTORIOUS</p>}
                                                                             </div>

@@ -19,6 +19,11 @@ export class VenueService {
                 tables: {
                     where: { deletedAt: null }
                 }
+            },
+            orderBy: {
+                tables: {
+                    _count: 'desc'
+                }
             }
         });
     }
@@ -59,6 +64,7 @@ export class VenueService {
         phone?: string;
         waVerificationText?: string;
         timezoneOffset?: number;
+        isRecipeSystemEnabled?: boolean;
     }) {
         const venue = await prisma.venue.findFirst({ where: { id, deletedAt: null } });
         if (!venue) {

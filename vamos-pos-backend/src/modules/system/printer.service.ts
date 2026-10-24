@@ -27,17 +27,18 @@ export class PrinterService {
         // Header: Center, Bold, Large
         content += ESC + 'a' + '\x01'; // Center
         content += ESC + 'E' + '\x01'; // Bold ON
-        content += GS + '!' + '\x11'; // Double height/width
-        content += (venue.name || 'VAMOS POOL').toUpperCase() + LF;
+        const venueName = (venue.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'VAMOS POOL AND CAFE';
+        const venueAddress = (venue.address && !venue.address.toLowerCase().includes('serpong')) ? venue.address : 'Kompleks Perumahan Balanipa Residence, Wonomulyo';
+        content += venueName.toUpperCase() + LF;
         content += GS + '!' + '\x00'; // Normal size
         content += ESC + 'E' + '\x00'; // Bold OFF
-        content += (venue.address || '') + LF;
+        content += venueAddress + LF;
         content += '-'.repeat(width) + LF;
 
         // Session Info: Left
         content += ESC + 'a' + '\x00'; // Left
         content += `TRX: ${session.id.substring(0, 8).toUpperCase()}` + LF;
-        content += `Meja: ${session.table?.name || '-'}` + LF;
+        content += `Meja: ${session.table?.name || session.customerName || '-'}` + LF;
         content += `Kasir: ${session.cashier?.name || '-'}` + LF;
         content += `Waktu: ${new Date().toLocaleString()}` + LF;
         content += '-'.repeat(width) + LF;
@@ -46,10 +47,12 @@ export class PrinterService {
         content += 'ITEM            QTY    TOTAL' + LF;
         content += '-'.repeat(width) + LF;
 
-        // Playtime
-        const playTime = `${session.table?.name || 'Billiard'}`;
-        const hours = (session.tableAmount || 0).toLocaleString();
-        content += `${playTime.padEnd(16)} 1x ${hours.padStart(10)}` + LF;
+        // Playtime - hanya cetak jika ada biaya meja / sesi biliar
+        if (session.tableAmount > 0 || session.table) {
+            const playTime = `${session.table?.name ? `Meja ${session.table.name}` : 'Billiard'}`;
+            const hours = (session.tableAmount || 0).toLocaleString();
+            content += `${playTime.padEnd(16)} 1x ${hours.padStart(10)}` + LF;
+        }
 
         // F&B Orders
         if (session.orders && session.orders.length > 0) {
@@ -102,14 +105,35 @@ export class PrinterService {
                     table: { include: { venue: true } },
                     orders: { include: { product: true } },
                     cashier: true,
-                    member: true
+                    member: true,
+                    payments: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1
+                    }
                 }
             });
 
             if (!session) throw new Error('Session not found');
 
-            const venue = session.table?.venue || await prisma.venue.findFirst();
+            const venue = session.table?.venue || await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
             if (!venue) throw new Error('Venue not configured');
+
+            const latestPayment = session.payments?.[0];
+            const discount = latestPayment?.discount || 0;
+            const receivedAmount = latestPayment?.received || 0;
+            const change = latestPayment?.change || 0;
+            const method = latestPayment?.method || session.paymentMethod || 'CASH';
+            const finalAmount = latestPayment?.amount || session.totalAmount;
+
+            const printPayload = {
+                ...session,
+                discount,
+                receivedAmount,
+                change,
+                method,
+                finalAmount,
+                venue
+            };
 
             // --- CLOUD VPS MODE: EMIT SOCKET TO LOCAL BRIDGE ---
             if (!isLocalBridge) {
@@ -119,10 +143,7 @@ export class PrinterService {
                     logger.info(`📡 [VPS] Emitting print:receipt for session ${sessionId} to Local Bridge...`);
                     // We emit to everyone, the Local Bridge with matching Venue (or all) will pick it up
                     // Ideally we should emit to specific room, but for now global is fine as usually 1 venue 1 bridge
-                    io.emit('print:receipt', {
-                        ...session,
-                        venue
-                    });
+                    io.emit('print:receipt', printPayload);
                     return; // Stop here, VPS doesn't print physically
                 }
             }
@@ -135,14 +156,14 @@ export class PrinterService {
             // If we are on local bridge, we can use our new PrintService (more stable for 58mm)
             try {
                 const { PrintService } = await import('../print/print.service');
-                await PrintService.printReceipt({ ...session, venue });
+                await PrintService.printReceipt(printPayload);
                 return;
             } catch (e) {
                 logger.warn(`⚠️ PrintService (raw) failed, falling back to PowerShell: ${e}`);
             }
 
             // FALLBACK TO POWERSHELL (Old Method)
-            const buffer = this.encodeReceipt(venue, session);
+            const buffer = this.encodeReceipt(venue, printPayload);
             const tempFile = path.join(os.tmpdir(), `receipt_${sessionId}.bin`);
             fs.writeFileSync(tempFile, buffer);
 

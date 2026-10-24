@@ -439,7 +439,10 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [memberId, setMemberId] = useState<string>('');
   const [memberQuery, setMemberQuery] = useState<string>(''); // separate display value from ID
   const [selectedPackage, setSelectedPackage] = useState<string>('');
-  const [billingMode, setBillingMode] = useState<'OPEN' | 'PACKAGE' | 'CUSTOM'>('CUSTOM');
+  const [billingMode, setBillingMode] = useState<'OPEN' | 'PACKAGE' | 'CUSTOM' | 'VOUCHER'>('CUSTOM');
+  const [selectedVoucherId, setSelectedVoucherId] = useState<string>('');
+  const [memberVouchers, setMemberVouchers] = useState<any[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [billingClass, setBillingClass] = useState<string>('');
   const [customMinutes, setCustomMinutes] = useState<number>(60);
   const [packages, setPackages] = useState<any[]>([]);
@@ -450,6 +453,30 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [discountCategories, setDiscountCategories] = useState<any[]>([]);
   const [pricingEstimate, setPricingEstimate] = useState<number | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
+
+  useEffect(() => {
+    if (memberId) {
+      setLoadingVouchers(true);
+      api.get('/loyalty/admin/redemptions?status=PENDING')
+        .then(res => {
+          const allPending = res.data.data || [];
+          const forThisMember = allPending.filter((r: any) => 
+            r.memberId === memberId && (r.reward?.category === 'TABLE' || (r.reward?.title || '').toLowerCase().includes('meja'))
+          );
+          setMemberVouchers(forThisMember);
+          if (forThisMember.length > 0) {
+            setSelectedVoucherId(forThisMember[0].id);
+          } else {
+            setSelectedVoucherId('');
+          }
+        })
+        .catch(err => console.error('Failed to fetch vouchers', err))
+        .finally(() => setLoadingVouchers(false));
+    } else {
+      setMemberVouchers([]);
+      setSelectedVoucherId('');
+    }
+  }, [memberId]);
 
   const [orderSessionId, setOrderSessionId] = useState<string | null>(null);
   const [cart, setCart] = useState<{ product: any, qty: number }[]>([]);
@@ -772,7 +799,15 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       let payload: any = { tableId: startTableId };
       if (memberId) payload.memberId = memberId;
 
-      if (billingMode === 'PACKAGE' && selectedPackage) {
+      if (billingMode === 'VOUCHER') {
+        if (!selectedVoucherId) {
+          vamosAlert('Silakan pilih voucher meja yang akan digunakan!');
+          return;
+        }
+        payload.redemptionId = selectedVoucherId;
+        payload.durationOpts = 60;
+        if (billingClass) payload.billingType = billingClass;
+      } else if (billingMode === 'PACKAGE' && selectedPackage) {
         payload.packageId = selectedPackage;
       } else if (billingMode === 'CUSTOM') {
         payload.durationOpts = customMinutes; // send in minutes
@@ -787,6 +822,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
       setMemberId('');
       setMemberQuery('');
       setSelectedPackage('');
+      setSelectedVoucherId('');
+      setMemberVouchers([]);
       setBillingMode('CUSTOM');
       setCustomMinutes(60);
       fetchData();
@@ -1925,7 +1962,14 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     {checkoutBill.tableId && (
                       <div className="flex justify-between items-center mt-4 pt-4 border-t border-[#222] text-sm">
                         <span className="text-gray-400 font-semibold uppercase tracking-widest text-[10px]">Table Bill</span>
-                        <span className="font-bold font-mono text-white text-base bg-[#1a1a1a] px-3 py-1 rounded-lg border border-[#333]">Rp {(checkoutBill.tableAmount || 0).toLocaleString()}</span>
+                        <div className="text-right">
+                          <span className="font-bold font-mono text-white text-base bg-[#1a1a1a] px-3 py-1 rounded-lg border border-[#333]">Rp {(checkoutBill.tableAmount || 0).toLocaleString()}</span>
+                          {checkoutBill.isVoucher && (
+                            <p className="text-[9px] font-black text-purple-400 mt-1 uppercase tracking-wider">
+                              🎟️ 1 Jam Dicover Voucher Poin
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2498,6 +2542,27 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                             </div>
                           </div>
                         )}
+
+                        {selectedMember && memberVouchers.length > 0 && (
+                          <div 
+                            onClick={() => {
+                              setBillingMode('VOUCHER');
+                              if (memberVouchers.length > 0) setSelectedVoucherId(memberVouchers[0].id);
+                            }}
+                            className="bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 cursor-pointer rounded-xl p-3 flex items-center justify-between transition-all group shadow-[0_0_15px_rgba(168,85,247,0.15)] mt-2"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Gift className="w-4 h-4 text-purple-400 animate-bounce" />
+                              <div>
+                                <p className="text-[10px] font-black text-purple-300 uppercase tracking-wider">Voucher Meja Tersedia ({memberVouchers.length})</p>
+                                <p className="text-[9px] text-gray-400">Klik untuk langsung gunakan voucher ini</p>
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-black bg-purple-500 text-black px-2.5 py-1 rounded-lg uppercase tracking-wider group-hover:scale-105 transition-transform">
+                              Pakai
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2527,11 +2592,12 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                     {/* Billing Mode Grid */}
                     <div className="space-y-3">
                       <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Select Billing Mode</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[
                           { key: 'OPEN', label: 'Open Time', icon: <Clock className="w-4 h-4" />, color: '#00aaff' },
                           { key: 'PACKAGE', label: 'Paket Promo', icon: <Package2 className="w-4 h-4" />, color: '#ff9900' },
                           { key: 'CUSTOM', label: 'Jam Tetap', icon: <TimerReset className="w-4 h-4" />, color: '#00ff66' },
+                          { key: 'VOUCHER', label: 'Voucher Poin', icon: <Gift className="w-4 h-4" />, color: '#a855f7' },
                         ].map(({ key, label, icon, color }) => (
                           <button
                             key={key}
@@ -2645,11 +2711,71 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         </div>
                       )}
 
+                      {billingMode === 'VOUCHER' && (
+                        <div className="text-center animate-in fade-in zoom-in-95 duration-500 py-6 w-full">
+                          <div className="w-16 h-16 rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-4 text-purple-400">
+                            <Gift className="w-8 h-8 animate-pulse" />
+                          </div>
+                          <h3 className="text-lg font-black text-white italic tracking-tight uppercase">Voucher Reward Meja</h3>
+                          
+                          {!selectedMember ? (
+                            <p className="text-xs text-amber-400 mt-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl max-w-xs mx-auto">
+                              Silakan pilih member di kolom kiri terlebih dahulu untuk mendeteksi voucher yang dimiliki.
+                            </p>
+                          ) : loadingVouchers ? (
+                            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 py-6">
+                              <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                              <span>Memeriksa voucher member...</span>
+                            </div>
+                          ) : memberVouchers.length === 0 ? (
+                            <div className="mt-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 max-w-sm mx-auto text-left">
+                              <p className="text-xs font-bold text-red-400 mb-1">Tidak Ada Voucher Meja Tersedia</p>
+                              <p className="text-[10px] text-gray-400 leading-relaxed">
+                                Member <span className="text-white font-bold">{selectedMember.name}</span> belum menukarkan poin untuk voucher sewa meja (Poin: {selectedMember.loyaltyPoints || 0} PTS).
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="mt-3 space-y-2.5 max-w-sm mx-auto text-left w-full">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-purple-400">Voucher Meja Tersedia ({memberVouchers.length}):</p>
+                              {memberVouchers.map((v: any) => (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => setSelectedVoucherId(v.id)}
+                                  className={`w-full p-4 rounded-2xl border text-left transition-all ${
+                                    selectedVoucherId === v.id
+                                      ? 'bg-purple-500/20 border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.2)]'
+                                      : 'bg-[#141414] border-[#222] hover:border-gray-600'
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-start mb-1">
+                                    <h4 className="text-sm font-black text-white uppercase italic truncate">{v.reward?.title || 'Free Meja 1 Jam'}</h4>
+                                    <span className="text-[9px] font-black bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full border border-purple-400/30">
+                                      {selectedVoucherId === v.id ? 'TERPILIH' : 'KLAIM'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] text-gray-400 font-mono mt-2 pt-2 border-t border-white/5">
+                                    <span>⏱️ Durasi: 60 Menit Free</span>
+                                    <span className="text-[#00ff66] font-bold">Biaya: Rp 0</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Estimate Preview */}
-                      {pricingEstimate !== null && (
+                      {pricingEstimate !== null && billingMode !== 'VOUCHER' && (
                         <div className="mt-auto w-full flex items-center justify-between px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-sm animate-in slide-in-from-bottom-2">
                           <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em]">Estimated Bill</span>
                           <span className="text-lg font-black text-[#00ff66] font-mono tracking-tighter">Rp {Math.round(pricingEstimate).toLocaleString('id-ID')}</span>
+                        </div>
+                      )}
+                      {billingMode === 'VOUCHER' && (
+                        <div className="mt-auto w-full flex items-center justify-between px-6 py-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl backdrop-blur-sm animate-in slide-in-from-bottom-2">
+                          <span className="text-[9px] font-black text-purple-300 uppercase tracking-[0.2em]">Estimasi Tagihan Meja</span>
+                          <span className="text-lg font-black text-[#00ff66] font-mono tracking-tighter">Rp 0 (Voucher)</span>
                         </div>
                       )}
                     </div>
@@ -2710,19 +2836,19 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
               {/* Action Buttons Footer */}
               <div className="px-6 py-2.5 border-t border-[#1e1e1e] bg-[#0d0d0d] flex gap-4 shrink-0">
                 <button
-                  onClick={() => { setStartTableId(null); setMemberId(''); setMemberQuery(''); }}
+                  onClick={() => { setStartTableId(null); setMemberId(''); setMemberQuery(''); setSelectedVoucherId(''); setMemberVouchers([]); }}
                   className="flex-1 py-4 rounded-2xl bg-white/5 border border-[#1e1e1e] text-gray-500 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 hover:text-white transition-all active:scale-95"
                 >
                   Terminate
                 </button>
                 <button
                   onClick={startSession}
-                  disabled={billingMode === 'PACKAGE' && !selectedPackage}
+                  disabled={(billingMode === 'PACKAGE' && !selectedPackage) || (billingMode === 'VOUCHER' && (!selectedVoucherId || memberVouchers.length === 0))}
                   className="flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.97] disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed shadow-[0_10px_40px_rgba(0,255,102,0.2)]"
-                  style={{ background: '#00ff66', color: '#0a0a0a' }}
+                  style={{ background: billingMode === 'VOUCHER' ? '#a855f7' : '#00ff66', color: billingMode === 'VOUCHER' ? '#fff' : '#0a0a0a' }}
                 >
                   <Activity className="w-5 h-5" />
-                  Initialize Session
+                  {billingMode === 'VOUCHER' ? 'Mulai Sesi Voucher' : 'Initialize Session'}
                 </button>
               </div>
             </div>
@@ -3938,7 +4064,8 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
   return (
     <div className={`bg-[#141414] border rounded-2xl p-4 sm:p-6 flex flex-col justify-between transition-all duration-300 ${isAvailable && !hasFnbOnlySession ? "min-h-[160px] sm:min-h-[260px]" : "min-h-[220px] sm:min-h-[260px]"} relative group
       ${isPlaying ?
-        (isTimeUp ? 'border-yellow-500/80 shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-yellow-500/5' :
+        (table.activeSession?.isVoucher ? 'border-purple-500/80 shadow-[0_0_30px_rgba(168,85,247,0.25)] bg-purple-500/5' :
+         isTimeUp ? 'border-yellow-500/80 shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-yellow-500/5' :
           isTimeBlinking ? 'border-[#00aaff]/80 shadow-[0_0_30px_rgba(0,170,255,0.4)] bg-[#00aaff]/5 animate-pulse' :
             'border-[#ff3333]/30 shadow-[0_0_30px_rgba(255,51,51,0.05)]') :
         hasFnbOnlySession ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)] bg-orange-500/5' :
@@ -3947,7 +4074,14 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
     >
       <div className="flex justify-between items-start mb-4 sm:mb-6 z-10">
         <div>
-          <h3 className="text-lg sm:text-xl font-bold mb-1">{table.name}</h3>
+          <h3 className="text-lg sm:text-xl font-bold mb-1 flex items-center gap-2">
+            <span>{table.name}</span>
+            {table.activeSession?.isVoucher && (
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-purple-500/25 border border-purple-400/50 text-purple-300 tracking-wider animate-pulse">
+                VOUCHER
+              </span>
+            )}
+          </h3>
           <p className="text-xs text-gray-400 tracking-wider uppercase">{table.type}</p>
           {isPlaying && (() => {
             const session = table.activeSession;
@@ -3982,12 +4116,13 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
           )}
 
           <span className={`text-[10px] px-2 py-1 rounded border font-bold tracking-wider shrink-0
-             ${isPlaying ? 'bg-[#ff3333]/10 border-[#ff3333]/50 text-[#ff3333]' :
+             ${table.activeSession?.isVoucher ? 'bg-purple-500/20 border-purple-400/50 text-purple-300' :
+               isPlaying ? 'bg-[#ff3333]/10 border-[#ff3333]/50 text-[#ff3333]' :
               hasFnbOnlySession ? 'bg-orange-500/10 border-orange-500/50 text-orange-400 animate-pulse' :
               isAvailable ? 'bg-[#00ff66]/10 border-[#00ff66]/50 text-[#00ff66]' :
                 'bg-orange-500/10 border-orange-500/50 text-orange-500'}`}
           >
-            {hasFnbOnlySession ? 'F&B ORDER' : table.status}
+            {hasFnbOnlySession ? 'F&B ORDER' : (table.activeSession?.isVoucher ? 'VOUCHER PLAY' : table.status)}
           </span>
 
           {/* Quick Actions on Desktop: 100% UNCHANGED, hovers to the left of the badge */}
@@ -4008,21 +4143,30 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
         {isPlaying ? (
           <>
             <div className={`text-4xl font-mono font-bold tracking-tight mb-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all relative
-              ${table.activeSession.durationOpts ? 'text-orange-400' : ''}`}>
+              ${table.activeSession.isVoucher ? 'text-purple-400' : table.activeSession.durationOpts ? 'text-orange-400' : ''}`}>
               {formatDuration(table.activeSession, tick)}
-              {isTimeUp && (
+              {table.activeSession.isVoucher && (
+                <div className="text-[10px] text-purple-300 text-center uppercase font-black tracking-widest mt-2 bg-purple-500/20 py-1 px-3 rounded-full border border-purple-500/40 w-full">
+                  Voucher 1 Jam Free
+                </div>
+              )}
+              {isTimeUp && !table.activeSession.isVoucher && (
                 <div className="text-[10px] text-yellow-500 text-center uppercase font-black tracking-widest mt-2 bg-yellow-500/20 py-1 px-3 rounded-full border border-yellow-500/50 w-full animate-bounce">
                   Ready To Pay
                 </div>
               )}
-              {isTimeBlinking && !isTimeUp && (
+              {isTimeBlinking && !isTimeUp && !table.activeSession.isVoucher && (
                 <div className="text-[10px] text-[#00aaff] text-center uppercase font-black tracking-widest mt-2 bg-[#00aaff]/20 py-1 px-3 rounded-full border border-[#00aaff]/50 w-full animate-pulse">
                   Waktu Hampir Habis
                 </div>
               )}
             </div>
             <div className="text-sm font-semibold text-gray-400 flex flex-col items-center relative group/hw">
-              <span>{table.activeSession.durationOpts ? 'Pre-paid Package' : 'Open Time Billing'}</span>
+              <span>
+                {table.activeSession.isVoucher
+                  ? '🎟️ Sesi Voucher Poin'
+                  : (table.activeSession.durationOpts ? 'Pre-paid Package' : 'Open Time Billing')}
+              </span>
               <button
                 onClick={onViewDetail}
                 className="mt-1 flex items-center shrink-0 border border-[#ff9900]/30 bg-[#ff9900]/10 px-3 py-1.5 rounded-lg hover:bg-[#ff9900] hover:text-[#0a0a0a] text-[#ff9900] transition-colors cursor-pointer group-hover:shadow-[0_0_15px_rgba(255,153,0,0.2)]"

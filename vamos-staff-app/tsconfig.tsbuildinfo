@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/screens/attendancescreen.tsx","./src/screens/bonusleaderboardscreen.tsx","./src/screens/homescreen.tsx","./src/screens/kdsscreen.tsx","./src/screens/loginscreen.tsx","./src/screens/profilescreen.tsx","./src/screens/waiterorderscreen.tsx","./src/utils/productimages.ts"],"version":"5.9.3"}

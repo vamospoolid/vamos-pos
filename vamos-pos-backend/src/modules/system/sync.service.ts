@@ -8,8 +8,18 @@ const SYNC_TIMEOUT_MS = 60000;    // Fix #1: 60s HTTP timeout (up from 10s)
 const TX_TIMEOUT_MS   = 60000;    // Fix #1: 60s Prisma transaction timeout
 
 export class SyncService {
+    // In-memory anti-spam cache for WhatsApp welcome notifications
+    private static notifiedMemberPhones = new Set<string>();
+    private static isInitialized = false;
+
     // Jalankan worker yang memantau pengaturan sinkronisasi
     static startBackgroundSync() {
+        const isLocal = process.env.IS_LOCAL_ELECTRON === 'true';
+        if (!isLocal) {
+            logger.info('☁️ Cloud server detected: Outbound sync worker is disabled on VPS.');
+            return;
+        }
+
         const runSyncCycle = async () => {
             try {
                 const venue: any = await prisma.venue.findFirst();
@@ -31,9 +41,9 @@ export class SyncService {
     private static hashVenue(venue: any): string {
         if (!venue) return '';
         const { name, address, openTime, closeTime, servicePercent, taxPercent,
-                isSyncEnabled, syncIntervalSeconds, phone } = venue;
+                isSyncEnabled, syncIntervalSeconds, phone, isRecipeSystemEnabled } = venue;
         return JSON.stringify({ name, address, openTime, closeTime, servicePercent,
-                                taxPercent, isSyncEnabled, syncIntervalSeconds, phone });
+                                taxPercent, isSyncEnabled, syncIntervalSeconds, phone, isRecipeSystemEnabled });
     }
 
     static async syncPendingData() {
@@ -118,6 +128,12 @@ export class SyncService {
     }
 
     static async getUnsyncedCount() {
+        const isLocal = process.env.IS_LOCAL_ELECTRON === 'true';
+        if (!isLocal) {
+            // Outbound sync only applies to local clients. VPS Cloud is the sync destination.
+            return 0;
+        }
+
         const [c1, c2, c3, c4, c5, c6, c7] = await Promise.all([
             prisma.cashierShift.count({ where: { syncStatus: 'PENDING' } }),
             prisma.member.count({ where: { syncStatus: 'PENDING' } }),
@@ -131,9 +147,27 @@ export class SyncService {
     }
 
     /**
+     * Inisialisasi daftar nomor telepon member yang sudah ada agar tidak pernah terkirim pesan selamat bergabung berulang
+     */
+    private static async ensureInitialized() {
+        if (SyncService.isInitialized) return;
+        try {
+            const existing = await prisma.member.findMany({ select: { phone: true } });
+            for (const m of existing) {
+                if (m.phone) SyncService.notifiedMemberPhones.add(m.phone.trim());
+            }
+            SyncService.isInitialized = true;
+        } catch (e) {
+            // Ignore error if table not ready
+        }
+    }
+
+    /**
      * Dipanggil oleh VPS Cloud ketika Local Backend menembak data ke `/api/sync/receive`
      */
     static async receiveSyncPayload(payload: any) {
+        await SyncService.ensureInitialized();
+
         const {
             users    = [],
             venues   = [],
@@ -149,10 +183,28 @@ export class SyncService {
         let upsertedCount = 0;
         const isLocal = process.env.IS_LOCAL_ELECTRON === 'true';
 
-        // ── Fix #2: Get all valid product IDs on VPS before processing orders
-        const vpsProductIds = new Set(
-            (await prisma.product.findMany({ select: { id: true } })).map(p => p.id)
-        );
+        // ── Pre-fetch valid Foreign Keys on destination DB to prevent constraint crashes ──
+        const [allProducts, allTables, allUsers, allPackages] = await Promise.all([
+            prisma.product.findMany({ select: { id: true } }),
+            prisma.table.findMany({ select: { id: true, name: true } }),
+            prisma.user.findMany({ select: { id: true } }),
+            prisma.package.findMany({ select: { id: true } })
+        ]);
+
+        const validProductIds = new Set(allProducts.map(p => p.id));
+        const validTableIds   = new Set(allTables.map(t => t.id));
+        const validUserIds    = new Set(allUsers.map(u => u.id));
+        const validPackageIds = new Set(allPackages.map(p => p.id));
+
+        // Create table name lookup (e.g. "meja01" -> id, "table01" -> id)
+        const tableNameMap = new Map<string, string>();
+        for (const t of allTables) {
+            const clean = t.name.toLowerCase().replace(/\s+/g, '').replace('table', 'meja');
+            tableNameMap.set(clean, t.id);
+            tableNameMap.set(t.name.toLowerCase().replace(/\s+/g, ''), t.id);
+        }
+
+        const newMembersToNotify: any[] = [];
 
         // ── Helper: upsert with Last-Write-Wins + FK guard ───────────────────
         const runUpsert = async (modelDelegate: any, items: any[]) => {
@@ -183,13 +235,74 @@ export class SyncService {
                     const isVenue   = dataToSave.isSyncEnabled !== undefined && dataToSave.syncIntervalSeconds !== undefined;
                     const isMaster  = dataToSave.relayChannel !== undefined || isVenue;
                     const isMember  = dataToSave.loyaltyPoints !== undefined && dataToSave.tier !== undefined;
+                    const isSession = dataToSave.startTime !== undefined && (dataToSave.status !== undefined || dataToSave.tableAmount !== undefined);
                     const isOrder   = dataToSave.productId !== undefined && dataToSave.quantity !== undefined;
+                    const isPayment = dataToSave.amount !== undefined && dataToSave.method !== undefined;
+                    const isShift   = dataToSave.startingCash !== undefined && dataToSave.shiftNumber !== undefined;
 
-                    // Fix #2: Skip order if product doesn't exist on this DB
-                    if (isOrder && !vpsProductIds.has(dataToSave.productId)) {
-                        logger.warn(`[SYNC] ⚠️ Skipped Order ${item.id}: productId ${dataToSave.productId} not found.`);
-                        upsertedCount++;
-                        continue;
+                    // FK Guard 1: Orders (skip if product doesn't exist on this DB)
+                    if (isOrder) {
+                        if (!validProductIds.has(dataToSave.productId)) {
+                            logger.warn(`[SYNC] ⚠️ Skipped Order ${item.id}: productId ${dataToSave.productId} not found.`);
+                            upsertedCount++;
+                            continue;
+                        }
+                        delete dataToSave.product;
+                        delete dataToSave.session;
+                    }
+
+                    // FK Guard 2: Sessions (tableId, packageId, cashierId)
+                    if (isSession) {
+                        if (dataToSave.tableId && !validTableIds.has(dataToSave.tableId)) {
+                            const localName = (dataToSave.table?.name || '').toLowerCase().replace(/\s+/g, '').replace('table', 'meja');
+                            const matchedId = tableNameMap.get(localName);
+                            if (matchedId) {
+                                dataToSave.tableId = matchedId;
+                            } else {
+                                logger.warn(`[SYNC] ⚠️ Session ${item.id} tableId ${dataToSave.tableId} not found on destination DB. Setting tableId to null to prevent FK violation.`);
+                                dataToSave.tableId = null;
+                            }
+                        }
+                        if (dataToSave.packageId && !validPackageIds.has(dataToSave.packageId)) {
+                            dataToSave.packageId = null;
+                        }
+                        if (dataToSave.cashierId && !validUserIds.has(dataToSave.cashierId)) {
+                            dataToSave.cashierId = null;
+                        }
+                        delete dataToSave.table;
+                        delete dataToSave.member;
+                        delete dataToSave.package;
+                        delete dataToSave.cashier;
+                        delete dataToSave.orders;
+                        delete dataToSave.payments;
+                    }
+
+                    // FK Guard 3: Shifts (userId)
+                    if (isShift) {
+                        if (dataToSave.userId && !validUserIds.has(dataToSave.userId)) {
+                            dataToSave.userId = Array.from(validUserIds)[0] || dataToSave.userId;
+                        }
+                        delete dataToSave.user;
+                        delete dataToSave.expenses;
+                    }
+
+                    // Cleanup and guard payment foreign keys
+                    if (isPayment) {
+                        if (dataToSave.cashierId && !validUserIds.has(dataToSave.cashierId)) {
+                            dataToSave.cashierId = Array.from(validUserIds)[0] || null;
+                        }
+                        delete dataToSave.session;
+                        delete dataToSave.cashier;
+                    }
+
+                    // Guard expense foreign keys
+                    const isExpense = dataToSave.amount !== undefined && dataToSave.category !== undefined;
+                    if (isExpense) {
+                        if (dataToSave.userId && !validUserIds.has(dataToSave.userId)) {
+                            dataToSave.userId = Array.from(validUserIds)[0] || dataToSave.userId;
+                        }
+                        delete dataToSave.user;
+                        delete dataToSave.shift;
                     }
 
                     if (!isMaster) {
@@ -234,6 +347,9 @@ export class SyncService {
                     let existingMember: any = null;
                     if (isNewMember) {
                         existingMember = await modelDelegate.findUnique({ where: { id: item.id } });
+                        if (!existingMember && dataToSave.phone) {
+                            existingMember = await modelDelegate.findFirst({ where: { phone: dataToSave.phone } });
+                        }
                     }
 
                     await modelDelegate.upsert({
@@ -242,9 +358,15 @@ export class SyncService {
                         update: dataToSave
                     });
 
-                    // WhatsApp welcome for brand-new member arriving on VPS
+                    // Queue WhatsApp welcome ONLY for brand-new member arriving on VPS
+                    // Member must be created recently (< 2 hours) and phone must not have been notified
                     if (isNewMember && !existingMember && dataToSave.phone) {
-                        this.triggerSyncNotification(dataToSave).catch(() => {});
+                        const phoneClean = dataToSave.phone.trim();
+                        const isRecent = dataToSave.createdAt && (Date.now() - new Date(dataToSave.createdAt).getTime() < 2 * 60 * 60 * 1000);
+                        if (isRecent && !SyncService.notifiedMemberPhones.has(phoneClean)) {
+                            SyncService.notifiedMemberPhones.add(phoneClean);
+                            newMembersToNotify.push(dataToSave);
+                        }
                     }
                 }
                 upsertedCount++;
@@ -265,6 +387,11 @@ export class SyncService {
             await runUpsert(tx.waitlist, waitlists);
         }, { timeout: TX_TIMEOUT_MS });
 
+        // CRITICAL FIX: Trigger WhatsApp welcome ONLY AFTER transaction is successfully committed to database!
+        for (const member of newMembersToNotify) {
+            this.triggerSyncNotification(member).catch(() => {});
+        }
+
         return upsertedCount;
     }
 
@@ -273,6 +400,9 @@ export class SyncService {
      */
     static async triggerSyncNotification(memberData: any) {
         try {
+            if (!memberData?.phone) return;
+            const phone = memberData.phone.trim();
+
             const { prisma: localPrisma } = await import('../../database/db');
             const venue = await localPrisma.venue.findFirst();
             const venueName = venue?.name || 'VAMOS';
@@ -286,8 +416,8 @@ export class SyncService {
             if (waTemplate) {
                 const { waService } = await import('../whatsapp/wa.service');
                 if (waService.isReady) {
-                    await waService.sendMessage(memberData.phone, waTemplate.body, waTemplate.imageUrl || undefined);
-                    logger.info(`✅ [VPS_SYNC_WA] Welcome message sent for synced member: ${memberData.name}`);
+                    await waService.sendMessage(phone, waTemplate.body, waTemplate.imageUrl || undefined);
+                    logger.info(`✅ [VPS_SYNC_WA] Welcome message sent for synced member: ${memberData.name} (${phone})`);
                 }
             }
         } catch (err: any) {

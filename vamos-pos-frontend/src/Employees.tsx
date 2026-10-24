@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Trash2, Clock, Trophy, Camera, Star, MapPin, UserCheck, Navigation } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, Clock, Trophy, Camera, Star, MapPin, UserCheck, Navigation, Settings as SettingsIcon, FileText, Save, BookOpen, Flame } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 
 export default function Employees() {
-    const [activeTab, setActiveTab] = useState<'list' | 'attendance' | 'shift' | 'approval' | 'location' | 'bonus'>('list');
+    const [activeTab, setActiveTab] = useState<'list' | 'attendance' | 'shift' | 'approval' | 'location' | 'bonus' | 'bonus_settings'>('list');
 
     const [employees, setEmployees] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<any[]>([]);
@@ -60,6 +60,93 @@ export default function Employees() {
         status?: string;
         lateMinutes?: number;
     } | null>(null);
+
+    // Pengaturan Fleksibel Sistem Bonus (Omzet Harian & Zero Late)
+    const [bonusConfigForm, setBonusConfigForm] = useState({
+        dailyOmzetTiers: [
+            { level: 1, name: 'Tier 1 (Target Minimum)', target: 2000000, bonusPerStaff: 10000, label: 'Bronze Target' },
+            { level: 2, name: 'Tier 2 (Target Reguler)', target: 3500000, bonusPerStaff: 20000, label: 'Silver Target' },
+            { level: 3, name: 'Tier 3 (Target Super)', target: 5000000, bonusPerStaff: 35000, label: 'Gold Crown Target' }
+        ],
+        disciplineBonus: {
+            targetDays: 30,
+            bonusAmount: 150000,
+            allowedAbsenceQuota: 2
+        }
+    });
+    const [isSavingBonusConfig, setIsSavingBonusConfig] = useState(false);
+
+    // Modal Fleksibel SOP & Jobdesk Staf
+    const [selectedEmpForJobdesk, setSelectedEmpForJobdesk] = useState<any>(null);
+    const [customJobdeskText, setCustomJobdeskText] = useState('');
+    const [isSavingJobdesk, setIsSavingJobdesk] = useState(false);
+
+    const SOP_TEMPLATES = [
+        {
+            title: '🍹 Waiter & Cafe Host',
+            text: `1. Melayani customer dengan 5S (Senyum, Sapa, Salam, Sopan, Santun).\n2. Memeriksa kebersihan area makan, meja biliar, stick & bola.\n3. Menginput pesanan FnB secara cepat, teliti, dan bacakan ulang pesanan.\n4. Aktif melakukan up-selling menu pendamping & minuman pitcher.`
+        },
+        {
+            title: '🎱 Billiard Casteling & Host',
+            text: `1. Menata bola biliar segitiga dengan rapi & presisi.\n2. Membersihkan laken/karpet meja biliar dari debu & kapur kalsium.\n3. Memeriksa tip stick biliar & kelengkapan koin/pencatatan waktu.\n4. Ramah mendampingi pemain serta menawarkan promo paket jam biliar.`
+        },
+        {
+            title: '☕ Barista & Minuman',
+            text: `1. Meracik kopi dan minuman sesuai takaran resep standar Vamos.\n2. Menjaga kebersihan mesin espresso, grinder, dan area bar.\n3. Melakukan rotasi bahan baku dengan sistem FIFO (First-In First-Out).\n4. Memastikan es batu dan bahan baku selalu higienis dan siap saji.`
+        },
+        {
+            title: '🍳 Kitchen & Cook',
+            text: `1. Memasak menu pesanan dengan standar rasa, porsi, dan waktu penyajian cepat.\n2. Menjaga kebersihan dapur, wajan, kompor, dan area penyimpanan bahan.\n3. Melakukan pengecekan stok bahan baku segar setiap awal dan akhir shift.\n4. Memastikan sanitasi dapur selalu bersih sebelum closing.`
+        },
+        {
+            title: '💵 Kasir & Closing',
+            text: `1. Memproses transaksi pembayaran pelanggan dengan cepat, ramah, dan teliti.\n2. Mengkonfirmasi metode pembayaran (Cash/QRIS/Transfer) dan mencetak struk.\n3. Melakukan cash count uang modal dan uang hasil penjualan saat serah terima shift.\n4. Mencetak rekap settlement EDC / QRIS dan laporan closing harian.`
+        }
+    ];
+
+    const fetchBonusConfig = async () => {
+        try {
+            const res = await api.get('/staff/bonus-config');
+            if (res.data?.success && res.data.data) {
+                setBonusConfigForm(res.data.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch bonus config', err);
+        }
+    };
+
+    const saveBonusConfig = async () => {
+        setIsSavingBonusConfig(true);
+        try {
+            const res = await api.put('/staff/bonus-config', bonusConfigForm);
+            if (res.data?.success) {
+                vamosAlert('Pengaturan target omzet dan bonus staf berhasil disimpan!');
+            }
+        } catch (err: any) {
+            vamosAlert('Gagal menyimpan pengaturan bonus: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setIsSavingBonusConfig(false);
+        }
+    };
+
+    const saveEmployeeJobdesk = async () => {
+        if (!selectedEmpForJobdesk) return;
+        setIsSavingJobdesk(true);
+        try {
+            const res = await api.put(`/staff/employee/${selectedEmpForJobdesk.id}/jobdesk`, {
+                jobdesk: customJobdeskText
+            });
+            if (res.data?.success) {
+                vamosAlert(`SOP & Jobdesk untuk ${selectedEmpForJobdesk.name} berhasil disimpan!`);
+                setSelectedEmpForJobdesk(null);
+                fetchEmployees();
+            }
+        } catch (err: any) {
+            vamosAlert('Gagal menyimpan SOP: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setIsSavingJobdesk(false);
+        }
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -118,7 +205,7 @@ export default function Employees() {
 
     const fetchData = async () => {
         setLoading(true);
-        await Promise.all([fetchEmployees(), fetchWorkShifts(), fetchAttendance(), fetchLeaderboard(), fetchVenue()]);
+        await Promise.all([fetchEmployees(), fetchWorkShifts(), fetchAttendance(), fetchLeaderboard(), fetchVenue(), fetchBonusConfig()]);
         setLoading(false);
     };
 
@@ -338,6 +425,17 @@ export default function Employees() {
                 >
                     <Trophy className="w-4 h-4" /> Karyawan Teladan & Bonus KPI
                 </button>
+
+                <button
+                    onClick={() => setActiveTab('bonus_settings')}
+                    className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 text-xs transition-all ${
+                        activeTab === 'bonus_settings'
+                            ? 'bg-gradient-to-r from-[#ff5e14] to-[#ff8c00] text-white shadow-lg shadow-[#ff5e14]/25'
+                            : 'bg-[#141414] text-gray-400 hover:text-white border border-[#222222]'
+                    }`}
+                >
+                    <SettingsIcon className="w-4 h-4" /> Pengaturan Bonus & Target
+                </button>
             </div>
 
             {/* TAB 1: DAFTAR STAF */}
@@ -451,6 +549,16 @@ export default function Employees() {
                                                     title="Edit Data, Shift & Jobdesk"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedEmpForJobdesk(emp);
+                                                        setCustomJobdeskText(emp.jobdesk || '');
+                                                    }}
+                                                    className="text-[#ff9900] bg-[#ff9900]/10 p-2 rounded-xl hover:bg-[#ff9900] hover:text-black transition-colors"
+                                                    title="Atur SOP & Tugas Khusus Staf Ini"
+                                                >
+                                                    <FileText className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => deleteEmployee(emp.id)}
@@ -909,6 +1017,173 @@ export default function Employees() {
                 </div>
             )}
 
+            {/* TAB 7: PENGATURAN BONUS & TARGET OMZET */}
+            {activeTab === 'bonus_settings' && (
+                <div className="bg-[#141414] border border-[#222222] rounded-2xl p-6 space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#222222]">
+                        <div>
+                            <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                                <SettingsIcon className="w-5 h-5 text-[#ff5e14]" />
+                                Pengaturan Sistem Bonus & Target Omzet Staf
+                            </h2>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Konfigurasikan target omzet berjenjang shift harian dan reward kedisiplinan 30 hari zero-late untuk seluruh karyawan.
+                            </p>
+                        </div>
+                        <button
+                            onClick={saveBonusConfig}
+                            disabled={isSavingBonusConfig}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff5e14] to-[#ff8c00] text-white font-extrabold text-xs shadow-lg shadow-[#ff5e14]/25 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                            {isSavingBonusConfig ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>Simpan Pengaturan Bonus</span>
+                        </button>
+                    </div>
+
+                    {/* Section 1: Target Omzet Harian (3 Tier) */}
+                    <div className="bg-[#0a0a0a] border border-[#222222] p-5 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="p-2 rounded-xl bg-[#ff5e14]/10 text-[#ff5e14]">
+                                    <Trophy className="w-5 h-5 stroke-[2.2]" />
+                                </span>
+                                <div>
+                                    <h3 className="font-extrabold text-white text-sm">Target Pendapatan Harian (Omzet Shift Berjenjang)</h3>
+                                    <p className="text-[11px] text-gray-400">Bonus dibagikan rata ke seluruh karyawan yang sedang bertugas (on-duty) di shift tersebut.</p>
+                                </div>
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-[#ff5e14]/10 text-[#ff5e14] font-bold border border-[#ff5e14]/30">
+                                Otomatis Realtime di HP Staf
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                            {bonusConfigForm.dailyOmzetTiers.map((tier, idx) => (
+                                <div key={tier.level} className="bg-[#141414] border border-[#222222] rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                                            idx === 0 ? 'bg-amber-900/20 text-amber-400 border-amber-800' :
+                                            idx === 1 ? 'bg-slate-700/30 text-slate-200 border-slate-600' :
+                                            'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                                        }`}>
+                                            Tier {tier.level} ({tier.label || 'Target'})
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Target Omzet (Rp)</label>
+                                        <input
+                                            type="number"
+                                            value={tier.target}
+                                            onChange={e => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setBonusConfigForm(prev => {
+                                                    const newTiers = [...prev.dailyOmzetTiers];
+                                                    newTiers[idx] = { ...newTiers[idx], target: val };
+                                                    return { ...prev, dailyOmzetTiers: newTiers };
+                                                });
+                                            }}
+                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2 text-xs font-mono font-bold text-[#00ff66] focus:outline-none focus:border-[#00ff66]"
+                                        />
+                                        <span className="text-[10px] text-gray-500 mt-1 block">
+                                            = Rp {(tier.target || 0).toLocaleString('id-ID')}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Bonus per Staf (Rp)</label>
+                                        <input
+                                            type="number"
+                                            value={tier.bonusPerStaff}
+                                            onChange={e => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setBonusConfigForm(prev => {
+                                                    const newTiers = [...prev.dailyOmzetTiers];
+                                                    newTiers[idx] = { ...newTiers[idx], bonusPerStaff: val };
+                                                    return { ...prev, dailyOmzetTiers: newTiers };
+                                                });
+                                            }}
+                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2 text-xs font-mono font-bold text-[#ff5e14] focus:outline-none focus:border-[#ff5e14]"
+                                        />
+                                        <span className="text-[10px] text-gray-500 mt-1 block">
+                                            = Rp {(tier.bonusPerStaff || 0).toLocaleString('id-ID')} / staf
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Section 2: Bonus Kedisiplinan Kehadiran (Zero Late) */}
+                    <div className="bg-[#0a0a0a] border border-[#222222] p-5 rounded-2xl space-y-4">
+                        <div className="flex items-center gap-2">
+                            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                                <Flame className="w-5 h-5 stroke-[2.2]" />
+                            </span>
+                            <div>
+                                <h3 className="font-extrabold text-white text-sm">Bonus Kedisiplinan Kehadiran (Zero Late & Streak)</h3>
+                                <p className="text-[11px] text-gray-400">Reward insentif bagi karyawan yang konsisten hadir tepat waktu sesuai shift selama 1 bulan.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                            <div className="bg-[#141414] border border-[#222222] rounded-2xl p-4">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Target Hari Bebas Telat</label>
+                                <input
+                                    type="number"
+                                    value={bonusConfigForm.disciplineBonus.targetDays}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value) || 30;
+                                        setBonusConfigForm(prev => ({
+                                            ...prev,
+                                            disciplineBonus: { ...prev.disciplineBonus, targetDays: val }
+                                        }));
+                                    }}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white focus:outline-none focus:border-[#00ff66]"
+                                />
+                                <span className="text-[10px] text-gray-500 mt-1 block">Rekomendasi: 30 hari penuh</span>
+                            </div>
+
+                            <div className="bg-[#141414] border border-[#222222] rounded-2xl p-4">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Nominal Bonus Bulanan (Rp)</label>
+                                <input
+                                    type="number"
+                                    value={bonusConfigForm.disciplineBonus.bonusAmount}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setBonusConfigForm(prev => ({
+                                            ...prev,
+                                            disciplineBonus: { ...prev.disciplineBonus, bonusAmount: val }
+                                        }));
+                                    }}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2 text-xs font-mono font-bold text-[#00ff66] focus:outline-none focus:border-[#00ff66]"
+                                />
+                                <span className="text-[10px] text-gray-500 mt-1 block">
+                                    = Rp {(bonusConfigForm.disciplineBonus.bonusAmount || 0).toLocaleString('id-ID')}
+                                </span>
+                            </div>
+
+                            <div className="bg-[#141414] border border-[#222222] rounded-2xl p-4">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Toleransi Izin/Off Sah (Kali)</label>
+                                <input
+                                    type="number"
+                                    value={bonusConfigForm.disciplineBonus.allowedAbsenceQuota}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setBonusConfigForm(prev => ({
+                                            ...prev,
+                                            disciplineBonus: { ...prev.disciplineBonus, allowedAbsenceQuota: val }
+                                        }));
+                                    }}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-400"
+                                />
+                                <span className="text-[10px] text-gray-500 mt-1 block">Maks kuota izin tanpa reset streak</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Photo Modal Preview */}
             {selectedPhoto && (
                 <div
@@ -1154,6 +1429,83 @@ export default function Employees() {
                                 className="flex-1 py-2.5 rounded-xl bg-[#00ff66] text-black font-extrabold text-xs hover:opacity-90 transition-all glow-neon shadow-lg"
                             >
                                 Simpan Shift
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Fleksibel SOP & Jobdesk Karyawan */}
+            {selectedEmpForJobdesk && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#141414] border border-[#222222] p-6 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-[#222222] pb-3">
+                            <div>
+                                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5 text-[#ff9900]" />
+                                    Atur SOP & Tugas Khusus Karyawan
+                                </h3>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Staf: <strong className="text-white">{selectedEmpForJobdesk.name}</strong> ({selectedEmpForJobdesk.position})
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedEmpForJobdesk(null)}
+                                className="w-8 h-8 rounded-full bg-[#222222] text-gray-400 hover:text-white flex items-center justify-center cursor-pointer"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Pilihan Cepat Template SOP */}
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                                Template Standar Cepat (Klik untuk Pasang):
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {SOP_TEMPLATES.map(tpl => (
+                                    <button
+                                        key={tpl.title}
+                                        type="button"
+                                        onClick={() => setCustomJobdeskText(tpl.text)}
+                                        className="px-3 py-1.5 rounded-xl bg-[#0a0a0a] border border-[#333333] hover:border-[#ff9900] hover:text-[#ff9900] text-gray-300 text-[11px] font-bold active:scale-95 transition-all cursor-pointer"
+                                    >
+                                        {tpl.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                                Rincian Tugas & SOP Kustom (Tampil Langsung di HP Staf):
+                            </label>
+                            <textarea
+                                rows={8}
+                                value={customJobdeskText}
+                                onChange={e => setCustomJobdeskText(e.target.value)}
+                                placeholder="Ketik rincian tugas spesifik, standar operasional, atau instruksi khusus untuk staf ini..."
+                                className="w-full bg-[#0a0a0a] border border-[#222222] rounded-2xl p-4 text-xs font-medium text-white focus:outline-none focus:border-[#ff9900] leading-relaxed resize-y"
+                            />
+                            <p className="text-[10px] text-gray-500 mt-1">
+                                💡 Format: Ketik per nomor (1, 2, 3...) agar rapi saat dibaca di aplikasi Vamos Staff karyawan.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={() => setSelectedEmpForJobdesk(null)}
+                                className="flex-1 py-3 rounded-xl bg-[#222222] text-xs font-bold text-gray-300 hover:bg-[#333333] transition-all cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={saveEmployeeJobdesk}
+                                disabled={isSavingJobdesk}
+                                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#ff9900] to-[#ff6600] text-black font-black text-xs hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 cursor-pointer"
+                            >
+                                {isSavingJobdesk ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                                <span>Simpan SOP Staf</span>
                             </button>
                         </div>
                     </div>

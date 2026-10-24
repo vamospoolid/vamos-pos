@@ -9,14 +9,30 @@ export const startShift = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const closeShift = catchAsync(async (req: Request, res: Response) => {
-    const { endingCashActual, notes } = req.body;
-    const shift = await ShiftService.closeShift((req as any).user.id, endingCashActual, notes);
+    const { endingCashActual, notes, cashBreakdown, differenceReason } = req.body;
+    const shift = await ShiftService.closeShift(
+        (req as any).user.id,
+        Number(endingCashActual) || 0,
+        notes,
+        cashBreakdown,
+        differenceReason
+    );
     res.json({ success: true, data: shift });
 });
 
 export const getActiveShift = catchAsync(async (req: Request, res: Response) => {
     const shift = await ShiftService.getActiveShift((req as any).user.id);
     res.json({ success: true, data: shift || null });
+});
+
+export const getActiveShiftSummary = catchAsync(async (req: Request, res: Response) => {
+    const summary = await ShiftService.getActiveShiftSummary((req as any).user.id);
+    res.json({ success: true, data: summary });
+});
+
+export const getShiftSummaryById = catchAsync(async (req: Request, res: Response) => {
+    const summary = await ShiftService.getShiftSummaryById(req.params.id);
+    res.json({ success: true, data: summary });
 });
 
 export const getAllShifts = catchAsync(async (req: Request, res: Response) => {

@@ -675,18 +675,35 @@ export class PlayerController {
             if (!phone || !name) return res.status(400).json({ success: false, message: 'Phone and Name are required' });
             if (!password) return res.status(400).json({ success: false, message: 'Password wajib diisi untuk keamanan' });
 
-            const cleanedPhone = phone.replace(/[^0-9]/g, '');
+            const rawDigits = phone.replace(/[^0-9]/g, '');
+            let base = rawDigits;
+            if (base.startsWith('62')) base = base.slice(2);
+            else if (base.startsWith('0')) base = base.slice(1);
+
+            const candidatePhones = Array.from(new Set([
+                rawDigits,
+                base,
+                `0${base}`,
+                `62${base}`
+            ]));
             
             const hashedPassword = await bcrypt.hash(password, 10);
 
             const existing = await prisma.member.findFirst({
-                where: { OR: [{ phone: cleanedPhone }, { email: email || undefined }] }
+                where: { 
+                    OR: [
+                        { phone: { in: candidatePhones }, deletedAt: null }, 
+                        { email: email || undefined }
+                    ] 
+                }
             });
-            if (existing) return res.status(400).json({ success: false, message: 'Number or email already registered' });
+            if (existing) return res.status(400).json({ success: false, message: 'Nomor WhatsApp atau email sudah terdaftar' });
+
+            const standardPhone = `0${base}`;
 
             const member = await prisma.member.create({
                 data: {
-                    phone: cleanedPhone,
+                    phone: standardPhone,
                     name: name.toUpperCase(),
                     password: hashedPassword,
                     tier: 'BRONZE',
@@ -711,8 +728,8 @@ export class PlayerController {
 
             // Send WhatsApp Welcome Message
             try {
-                const venue = await prisma.venue.findFirst();
-                const venueName = venue?.name || 'VAMOS';
+                const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                 const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
                 const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.WELCOME_MEMBER, {
                     name: member.name,
@@ -739,10 +756,26 @@ export class PlayerController {
             if (!phone) return res.status(400).json({ success: false, message: 'No Handphone wajib diisi' });
             if (!password) return res.status(400).json({ success: false, message: 'Password wajib diisi untuk keamanan' });
 
-            const cleanedPhone = phone.replace(/[^0-9]/g, '');
+            const rawDigits = phone.replace(/[^0-9]/g, '');
+            let base = rawDigits;
+            if (base.startsWith('62')) {
+                base = base.slice(2);
+            } else if (base.startsWith('0')) {
+                base = base.slice(1);
+            }
+
+            const candidatePhones = Array.from(new Set([
+                rawDigits,
+                base,
+                `0${base}`,
+                `62${base}`
+            ]));
 
             const member = await prisma.member.findFirst({
-                where: { phone: cleanedPhone },
+                where: { 
+                    phone: { in: candidatePhones },
+                    deletedAt: null
+                },
                 include: {
                     sessions: {
                         where: { status: { in: ['ACTIVE', 'PENDING'] } },
@@ -1196,134 +1229,130 @@ export class PlayerController {
             const nextDay = new Date(targetDate);
             nextDay.setDate(targetDate.getDate() + 1);
 
-            // Fetch tables that are playable
+            // Ambil jam buka & tutup venue untuk menentukan slot waktu
+            const venue = await prisma.venue.findFirst({ select: { openTime: true, closeTime: true } });
+            const openHour = venue?.openTime ? parseInt(venue.openTime.split(':')[0], 10) : 10;
+            let closeHour = venue?.closeTime ? parseInt(venue.closeTime.split(':')[0], 10) : 2;
+            if (closeHour <= openHour) closeHour += 24; // Contoh: 10:00 s/d 02:00 (lewat tengah malam)
+
+            // Buat slot jam operasional venue (interval 1 jam konsisten dengan Player App)
+            const generatedSlots: string[] = [];
+            for (let h = openHour; h <= closeHour; h++) {
+                const displayH = h % 24;
+                generatedSlots.push(`${displayH.toString().padStart(2, '0')}:00`);
+            }
+
+            // Hitung kapasitas total per tipe meja (REGULAR, VIP, VVIP)
             const tables = await prisma.table.findMany({
                 where: {
                     status: { not: 'MAINTENANCE' },
                     deletedAt: null
-                }
+                },
+                select: { id: true, type: true }
             });
 
-            // Fetch active sessions (ongoing now)
+            // Ambil sesi aktif yang sedang berjalan saat ini
             const activeSessions = await prisma.session.findMany({
                 where: {
                     status: 'ACTIVE',
                     deletedAt: null
                 },
-                include: { table: true }
+                select: { 
+                    startTime: true, 
+                    endTime: true, 
+                    durationOpts: true, 
+                    table: { select: { type: true } } 
+                }
             });
 
-            // Fetch confirmed bookings for target date
+            // Ambil antrian booking pada tanggal target
+            const searchStart = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+            const searchEnd = new Date(nextDay.getTime() + 12 * 60 * 60 * 1000);
             const bookings = await prisma.waitlist.findMany({
                 where: {
                     status: { in: ['WAITING', 'CONFIRMED'] },
-                    reservedTime: {
-                        gte: targetDate,
-                        lt: nextDay
-                    },
+                    reservedTime: { gte: searchStart, lte: searchEnd },
                     deletedAt: null
                 },
-                include: { table: true }
+                select: { reservedTime: true, durationMinutes: true, tableType: true }
             });
 
-            const TIME_SLOTS = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:30", "21:00", "22:30", "00:00"];
-            const existingTypes = [...new Set(tables.map(t => t.type))];
-            const tableTypes = ['REGULAR', 'VIP', 'VVIP'].filter(type => existingTypes.includes(type));
+            const now = new Date();
+            const isToday = targetDate.toDateString() === now.toDateString();
 
-            const availabilityBySlot: Record<string, any> = {};
+            const tableTypes = ['REGULAR', 'VIP', 'VVIP'];
 
-            tableTypes.forEach(type => {
-                const typeTables = tables.filter(t => t.type === type);
-                const totalOfThisType = typeTables.length;
+            const result = tableTypes.map(type => {
+                const totalTablesOfType = tables.filter(t => t.type === type).length;
+                const slotsObj: Record<string, { isAvailable: boolean; isFull: boolean }> = {};
 
-                const slots: Record<string, any> = {};
-                
-                TIME_SLOTS.forEach(slot => {
+                generatedSlots.forEach(slot => {
                     const [h, m] = slot.split(':').map(Number);
                     const slotStart = new Date(targetDate);
+                    if (h < openHour) {
+                        slotStart.setDate(slotStart.getDate() + 1);
+                    }
                     slotStart.setHours(h, m, 0, 0);
-                    
-                    // Assume each slot is 90 mins for checking overlap
-                    const slotEnd = new Date(slotStart.getTime() + 90 * 60000);
+                    const slotEnd = new Date(slotStart.getTime() + 60 * 60000); // 1 jam durasi slot
+
+                    // 1. Waktu lampau tidak bisa dipesan untuk hari ini
+                    if (isToday && slotStart.getTime() <= now.getTime()) {
+                        slotsObj[slot] = { isAvailable: false, isFull: true };
+                        return;
+                    }
+
+                    if (totalTablesOfType === 0) {
+                        slotsObj[slot] = { isAvailable: false, isFull: true };
+                        return;
+                    }
 
                     let occupiedCount = 0;
 
-                    // 1. Check Active Sessions overlap with this slot
-                    activeSessions.forEach(s => {
-                        if (s.table?.type !== type) return;
+                    // 2. Cek sesi aktif yang bertabrakan dengan slot ini (hanya jika cek hari ini)
+                    if (isToday) {
+                        activeSessions.forEach(s => {
+                            if (s.table?.type !== type) return;
+                            const sStart = new Date(s.startTime);
+                            const sEnd = s.endTime 
+                                ? new Date(s.endTime) 
+                                : (s.durationOpts 
+                                    ? new Date(sStart.getTime() + s.durationOpts * 60000) 
+                                    : new Date(sStart.getTime() + 120 * 60000));
+                            if (slotStart < sEnd && slotEnd > sStart) {
+                                occupiedCount++;
+                            }
+                        });
+                    }
 
-                        const sStart = new Date(s.startTime);
-                        let sEnd = s.endTime ? new Date(s.endTime) : null;
-                        
-                        // If end time not set but duration is, calculate it
-                        if (!sEnd && s.durationOpts) {
-                            sEnd = new Date(sStart.getTime() + s.durationOpts * 60000);
-                        }
-
-                        // If it's open time (no end), and we are checking today, 
-                        // we assume it occupies the slot if sStart <= slotStart or overlap exists
-                        const isOccupied = sEnd 
-                            ? (slotStart < sEnd && slotEnd > sStart)
-                            : (slotEnd > sStart); // Open time assumes occupied from start onwards
-                        
-                        if (isOccupied) occupiedCount++;
-                    });
-
-                    // 2. Check Bookings overlap with this slot
+                    // 3. Cek booking yang bertabrakan dengan slot ini
                     bookings.forEach(b => {
-                        // Check either table specific booking or table type area booking
-                        const isSameType = (b.tableType === type) || (b.table?.type === type);
-                        if (!isSameType || !b.reservedTime) return;
-
+                        if (b.tableType !== type || !b.reservedTime) return;
                         const bStart = new Date(b.reservedTime);
                         const bEnd = new Date(bStart.getTime() + (b.durationMinutes || 60) * 60000);
-
                         if (slotStart < bEnd && slotEnd > bStart) {
                             occupiedCount++;
                         }
                     });
 
-                    slots[slot] = {
-                        available: Math.max(0, totalOfThisType - occupiedCount),
-                        isFull: occupiedCount >= totalOfThisType,
-                        occupied: occupiedCount,
-                        total: totalOfThisType
+                    const isFull = occupiedCount >= totalTablesOfType;
+
+                    // PRIVACY GUARANTEE:
+                    // HANYA mengembalikan status apakah jam ini kosong atau penuh.
+                    // TIDAK mengembalikan nomor meja, sisa meja, atau okupansi riil.
+                    slotsObj[slot] = {
+                        isAvailable: !isFull,
+                        isFull: isFull
                     };
                 });
 
-                availabilityBySlot[type] = {
-                    total: totalOfThisType,
-                    slots
-                };
-            });
-
-            // Legacy support for basic available count (summary)
-            const summary = tableTypes.map(type => {
-                const typeTables = tables.filter(t => t.type === type);
-                const activeOnType = activeSessions.filter(s => s.table?.type === type).length;
-                
-                let nextFreeAt = new Date();
-                if (activeOnType >= typeTables.length && typeTables.length > 0) {
-                    // Estimate soonest free time from active sessions
-                    const ends = activeSessions
-                        .filter(s => s.table?.type === type)
-                        .map(s => {
-                            const start = new Date(s.startTime);
-                            return s.endTime ? new Date(s.endTime).getTime() : (start.getTime() + (s.durationOpts || 60) * 60000);
-                        });
-                    nextFreeAt = new Date(Math.min(...ends));
-                }
-
                 return {
                     type,
-                    total: typeTables.length,
-                    available: Math.max(0, typeTables.length - activeOnType),
-                    nextFreeAt,
-                    slots: availabilityBySlot[type].slots
+                    hasAnyAvailableSlot: Object.values(slotsObj).some(s => s.isAvailable),
+                    slots: slotsObj
                 };
             });
 
-            res.json({ success: true, data: summary });
+            res.json({ success: true, data: result });
         } catch (error) { next(error); }
     }
 
@@ -1336,12 +1365,6 @@ export class PlayerController {
                     deletedAt: null
                 },
                 include: {
-                    sessions: {
-                        where: { status: 'ACTIVE' },
-                        include: {
-                            member: { select: { name: true, photo: true, level: true, handicap: true } }
-                        }
-                    },
                     kingStatus: {
                         include: { king: true }
                     }
@@ -1349,30 +1372,20 @@ export class PlayerController {
                 orderBy: { name: 'asc' }
             });
 
-            const result = tables.map(t => {
-                const activeSession = t.sessions[0];
+            // PRIVACY PROTECTION:
+            // Jangan ekspos nomor meja fisik (Meja 1, Meja 2), nama pemain, atau status meja kosong kepada publik.
+            // Kembalikan nama sektor anonim dan King info untuk leaderboard umum.
+            const result = tables.map((t, idx) => {
                 const king = t.kingStatus;
-
                 return {
                     id: t.id,
-                    name: t.name,
+                    name: t.isKingTable ? 'King Table Arena' : `Arena ${t.type} Sector ${idx + 1}`,
                     type: t.type,
-                    status: activeSession ? 'PLAYING' : t.status,
                     isKingTable: t.isKingTable,
                     kingInfo: king ? {
                         name: king.king.name,
                         avatar: king.king.photo,
                         streak: king.streak
-                    } : null,
-                    session: activeSession ? {
-                        id: activeSession.id,
-                        startTime: activeSession.startTime,
-                        endTime: activeSession.endTime,
-                        durationMinutes: activeSession.durationOpts,
-                        customerName: activeSession.customerName || activeSession.member?.name || 'Guest',
-                        memberPhoto: activeSession.member?.photo,
-                        memberLevel: activeSession.member?.level,
-                        memberHandicap: activeSession.member?.handicap
                     } : null
                 };
             });
@@ -1384,13 +1397,13 @@ export class PlayerController {
 
     static async createBooking(req: Request, res: Response, next: NextFunction) {
         try {
-            const { memberId, tableId, tableType, packageId, reservedTime, partySize, durationMinutes, notes } = req.body;
+            const { memberId, tableType, packageId, reservedTime, partySize, durationMinutes, notes } = req.body;
             if (!memberId) return res.status(400).json({ success: false, message: 'Member ID is required' });
 
             const member = await prisma.member.findUnique({ where: { id: memberId } });
             if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
 
-            // ANTI-SPAM: 1 Booking constraint
+            // ANTI-SPAM: 1 Booking constraint per member
             const activeBooking = await prisma.waitlist.findFirst({
                 where: {
                     memberId,
@@ -1399,12 +1412,89 @@ export class PlayerController {
                 }
             });
             if (activeBooking) {
-                return res.status(400).json({ success: false, message: 'You already have an active booking waiting. Please wait for the cashier to process your previous booking.' });
+                return res.status(400).json({ success: false, message: 'Anda sudah memiliki reservasi aktif yang sedang menunggu. Silakan tunggu kasir memproses reservasi Anda.' });
+            }
+
+            let duration = parseInt(durationMinutes as string) || 60;
+            const selectedType = (tableType || 'REGULAR').toUpperCase();
+
+            // ── VALIDASI KAPASITAS & WAKTU KOSONG (Cegah Overbooking & Jaga Privasi) ──
+            const totalTablesOfType = await prisma.table.count({
+                where: {
+                    type: selectedType,
+                    status: { not: 'MAINTENANCE' },
+                    deletedAt: null
+                }
+            });
+
+            if (totalTablesOfType === 0) {
+                return res.status(400).json({ success: false, message: `Area meja ${selectedType} sedang tidak beroperasi.` });
+            }
+
+            const startTime = reservedTime ? new Date(reservedTime) : new Date();
+            const endTime = new Date(startTime.getTime() + duration * 60000);
+
+            // Cek apakah waktu sudah lewat jika memesan untuk hari ini
+            if (startTime.getTime() < Date.now() - 5 * 60000) {
+                return res.status(400).json({ success: false, message: 'Waktu yang dipilih sudah berlalu. Silakan pilih waktu yang akan datang.' });
+            }
+
+            // 1. Cek sesi aktif yang sedang bertabrakan
+            const overlappingSessions = await prisma.session.findMany({
+                where: {
+                    status: 'ACTIVE',
+                    deletedAt: null,
+                    table: { type: selectedType }
+                },
+                select: { startTime: true, endTime: true, durationOpts: true }
+            });
+
+            let occupiedSessionsCount = 0;
+            for (const s of overlappingSessions) {
+                const sStart = new Date(s.startTime);
+                const sEnd = s.endTime 
+                    ? new Date(s.endTime) 
+                    : (s.durationOpts 
+                        ? new Date(sStart.getTime() + s.durationOpts * 60000) 
+                        : new Date(sStart.getTime() + 120 * 60000));
+                if (startTime < sEnd && endTime > sStart) {
+                    occupiedSessionsCount++;
+                }
+            }
+
+            // 2. Cek antrean booking lain yang bertabrakan pada rentang waktu ini
+            const overlappingBookings = await prisma.waitlist.findMany({
+                where: {
+                    status: { in: ['WAITING', 'CONFIRMED'] },
+                    deletedAt: null,
+                    tableType: selectedType,
+                    reservedTime: {
+                        gte: new Date(startTime.getTime() - 24 * 60 * 60 * 1000),
+                        lte: new Date(endTime.getTime() + 24 * 60 * 60 * 1000)
+                    }
+                },
+                select: { reservedTime: true, durationMinutes: true }
+            });
+
+            let occupiedBookingsCount = 0;
+            for (const b of overlappingBookings) {
+                if (!b.reservedTime) continue;
+                const bStart = new Date(b.reservedTime);
+                const bEnd = new Date(bStart.getTime() + (b.durationMinutes || 60) * 60000);
+                if (startTime < bEnd && endTime > bStart) {
+                    occupiedBookingsCount++;
+                }
+            }
+
+            if (occupiedSessionsCount + occupiedBookingsCount >= totalTablesOfType) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Maaf, waktu yang Anda pilih sudah terisi penuh. Silakan pilih waktu kosong lainnya.' 
+                });
             }
 
             // DYNAMIC POINT DEDUCTION LOGIC
             let cost = 0;
-            let duration = parseInt(durationMinutes as string) || 60;
 
             if (packageId) {
                 const pkg = await prisma.package.findUnique({ where: { id: packageId } });
@@ -1412,10 +1502,8 @@ export class PlayerController {
                 cost = pkg.memberPrice || pkg.price;
                 duration = pkg.duration;
             } else {
-                const startTime = reservedTime ? new Date(reservedTime) : new Date();
-                const endTime = new Date(startTime.getTime() + duration * 60000);
                 cost = await PricingService.calculateTableAmount(
-                    tableType || 'REGULAR',
+                    selectedType,
                     startTime,
                     endTime,
                     true // Player App users are members
@@ -1426,18 +1514,18 @@ export class PlayerController {
             const pointsToEarn = Math.floor(cost / 1000);
 
             const result = await prisma.$transaction(async (tx) => {
-                // Create booking/waitlist entry
+                // Create booking/waitlist entry (tableId dibiarkan null agar kasir yang assign saat tamu tiba)
                 const booking = await tx.waitlist.create({
                     data: {
                         customerName: member.name,
                         phone: member.phone,
                         memberId: member.id,
                         packageId: packageId || undefined,
-                        pointsCost: pointsToEarn, // This is now projected points to earn
-                        price: cost, // Save actual IDR price
-                        tableId,
-                        tableType: (tableType || 'REGULAR').toUpperCase(),
-                        reservedTime: reservedTime ? new Date(reservedTime) : new Date(),
+                        pointsCost: pointsToEarn,
+                        price: cost,
+                        tableId: null, // Jaga privasi nomor meja
+                        tableType: selectedType,
+                        reservedTime: startTime,
                         durationMinutes: duration,
                         partySize: partySize || 1,
                         notes: notes || 'Booked via Player App',
@@ -1452,8 +1540,8 @@ export class PlayerController {
             let waSent = false;
             if (member.phone) {
                 try {
-                    const venue = await prisma.venue.findFirst();
-                    const venueName = venue?.name || 'VAMOS';
+                    const venue = await prisma.venue.findFirst({ orderBy: { tables: { _count: 'desc' } } }) || await prisma.venue.findFirst();
+                    const venueName = (venue?.name && !venue.name.toLowerCase().includes('serpong')) ? venue.name : 'Vamos Pool and Cafe';
                     const bookedTime = reservedTime ? new Date(reservedTime).toLocaleString('id-ID') : 'Sekarang';
                     const { WaTemplateService, WA_TEMPLATE_IDS } = await import('../whatsapp/wa.template.service');
                     const waTemplate = await WaTemplateService.renderTemplate(WA_TEMPLATE_IDS.BOOKING_CONFIRM, {
@@ -1651,21 +1739,44 @@ export class PlayerController {
 
     static async placeOrder(req: Request, res: Response, next: NextFunction) {
         try {
-            const { memberId, sessionId, items } = req.body;
+            const { memberId, sessionId, items, seatingNote } = req.body;
             if (!memberId || !items || !items.length) {
                 return res.status(400).json({ success: false, message: 'Missing required order details' });
             }
 
             let targetSessionId = sessionId;
             if (!targetSessionId) {
-                const { SessionService } = await import('../sessions/session.service');
-                const member = await prisma.member.findUnique({ where: { id: memberId } });
-                const newSession = await SessionService.createFnbSession(
-                    `PLAYER_${memberId}`,
-                    memberId,
-                    member?.name || 'Guest Player'
-                );
-                targetSessionId = newSession.id;
+                // Cek apakah member sudah memiliki sesi PENDING non-meja yang belum dibayar
+                const existingPending = await prisma.session.findFirst({
+                    where: {
+                        memberId,
+                        status: 'PENDING',
+                        tableId: null
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+
+                if (existingPending) {
+                    targetSessionId = existingPending.id;
+                    if (seatingNote && !existingPending.customerName?.includes(seatingNote)) {
+                        await prisma.session.update({
+                            where: { id: existingPending.id },
+                            data: { customerName: `${existingPending.customerName} / ${seatingNote}` }
+                        });
+                    }
+                } else {
+                    const { SessionService } = await import('../sessions/session.service');
+                    const member = await prisma.member.findUnique({ where: { id: memberId } });
+                    const customerLabel = member?.name 
+                        ? (seatingNote ? `${member.name} (${seatingNote})` : `${member.name} (Non-Meja)`)
+                        : (seatingNote ? `Guest (${seatingNote})` : 'Guest Non-Meja');
+                    const newSession = await SessionService.createFnbSession(
+                        `PLAYER_${memberId}`,
+                        memberId,
+                        customerLabel
+                    );
+                    targetSessionId = newSession.id;
+                }
             }
 
             const { OrderService } = await import('../orders/order.service');
@@ -1676,12 +1787,15 @@ export class PlayerController {
                     targetSessionId,
                     item.productId,
                     item.quantity,
-                    `PLAYER_${memberId}`
+                    `PLAYER_${memberId}`,
+                    item.notes || ''
                 );
                 results.push(order);
             }
 
             getIO().emit('orders:updated');
+            getIO().emit('sessions:updated');
+            getIO().emit('kds:updated');
 
             res.json({ success: true, data: results, message: 'Order Transmitted!' });
         } catch (error) { next(error); }

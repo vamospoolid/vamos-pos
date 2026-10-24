@@ -1,13 +1,14 @@
 import { Router } from 'express';
-import { getStatus, getQr, reset, getTemplates, updateTemplate, resetTemplate } from './whatsapp.controller';
+import { getStatus, getQr, reset, sendTest, getTemplates, updateTemplate, resetTemplate } from './whatsapp.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
 
-// Public (internal)
+// Public / internal
 router.get('/status', getStatus);
 router.get('/qr', getQr);
 router.post('/reset', reset);
+router.post('/send-test', sendTest);
 
 // WA Template management — admin only
 router.get('/templates', authenticate, authorizeRoles('ADMIN', 'OWNER'), getTemplates);

@@ -86,6 +86,9 @@ export default function Competitions() {
     const [isPlayerlotModalOpen, setIsPlayerLotModalOpen] = useState(false);
     const [editingMatch, setEditingMatch] = useState<{ matchId: string, tournamentId: string, slot: 1 | 2 } | null>(null);
     const [selectedSlotPlayerId, setSelectedSlotPlayerId] = useState<string>('');
+    const [editSlotName, setEditSlotName] = useState<string>('');
+    const [currentSlotParticipantId, setCurrentSlotParticipantId] = useState<string | null>(null);
+    const [savingSlotName, setSavingSlotName] = useState(false);
 
     const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
     const [scoreMatchData, setScoreMatchData] = useState<{ matchId: string, player1Id: string, player2Id: string, p1Name: string, p2Name: string, score1: number, score2: number } | null>(null);
@@ -476,6 +479,45 @@ export default function Competitions() {
             fetchData();
         } catch (err: any) {
             vamosAlert(err.response?.data?.message || 'Failed to finish tournament');
+        }
+    };
+
+    const openEditSlotModal = (matchId: string, tournamentId: string, slot: 1 | 2, currentParticipant: any) => {
+        setEditingMatch({ matchId, tournamentId, slot });
+        setSelectedSlotPlayerId(currentParticipant?.id || '');
+        setCurrentSlotParticipantId(currentParticipant?.id || null);
+        setEditSlotName(currentParticipant?.name || currentParticipant?.member?.name || '');
+        setIsPlayerLotModalOpen(true);
+    };
+
+    const handleSaveCustomName = async () => {
+        if (!editingMatch || !editSlotName.trim()) return;
+        setSavingSlotName(true);
+        try {
+            const trimmed = editSlotName.trim();
+            if (currentSlotParticipantId) {
+                await api.put(`/tournaments/${editingMatch.tournamentId}/participants/${currentSlotParticipantId}`, {
+                    name: trimmed
+                });
+            } else {
+                const regRes = await api.post(`/tournaments/${editingMatch.tournamentId}/register`, {
+                    name: trimmed
+                });
+                const newPt = regRes.data?.data || regRes.data;
+                if (newPt && newPt.id) {
+                    await api.put(`/tournaments/matches/${editingMatch.matchId}/players`, {
+                        [editingMatch.slot === 1 ? 'player1Id' : 'player2Id']: newPt.id
+                    });
+                }
+            }
+            setIsPlayerLotModalOpen(false);
+            setEditingMatch(null);
+            fetchData();
+            vamosAlert('Nama peserta berhasil diperbarui!');
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal memperbarui nama peserta');
+        } finally {
+            setSavingSlotName(false);
         }
     };
 
@@ -1440,34 +1482,32 @@ export default function Competitions() {
                                                             <div key={m.id} className="bg-[#0a0a0a] border border-[#222222] p-3 rounded-lg flex items-center shadow-sm relative z-10 w-full mb-4">
                                                                 <div className="flex-1 space-y-2">
                                                                     <div
-                                                                        onClick={() => {
-                                                                            if (roundNum === 1 && m.status !== 'COMPLETED') {
-                                                                                setEditingMatch({ matchId: m.id, tournamentId: t.id, slot: 1 });
-                                                                                setSelectedSlotPlayerId(p1?.id || '');
-                                                                                setIsPlayerLotModalOpen(true);
-                                                                            }
-                                                                        }}
-                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1 rounded cursor-pointer ${m.winnerId === m.player1Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-white/10'}`}>
-                                                                        <div className="flex flex-col truncate w-24">
-                                                                            <span>{p1Name || (roundNum === 1 ? 'Select P1...' : 'TBD')}</span>
-                                                                            {p1?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p1.handicap}</span>}
+                                                                        onClick={() => openEditSlotModal(m.id, t.id, 1, p1)}
+                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p1 ${m.winnerId === m.player1Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400'}`}
+                                                                        title="Klik untuk edit / ganti nama pemain ini"
+                                                                    >
+                                                                        <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
+                                                                            <Edit3 className="w-3 h-3 text-gray-500 group-hover/p1:text-yellow-400 flex-shrink-0" />
+                                                                            <div className="flex flex-col truncate min-w-0">
+                                                                                <span className="truncate">{p1Name || 'TBD (Klik untuk isi)'}</span>
+                                                                                {p1?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p1.handicap}</span>}
+                                                                            </div>
                                                                         </div>
-                                                                        <span>{m.score1}</span>
+                                                                        <span className="ml-2 font-mono">{m.score1}</span>
                                                                     </div>
                                                                     <div
-                                                                        onClick={() => {
-                                                                            if (roundNum === 1 && m.status !== 'COMPLETED') {
-                                                                                setEditingMatch({ matchId: m.id, tournamentId: t.id, slot: 2 });
-                                                                                setSelectedSlotPlayerId(p2?.id || '');
-                                                                                setIsPlayerLotModalOpen(true);
-                                                                            }
-                                                                        }}
-                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1 rounded cursor-pointer ${m.winnerId === m.player2Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-white/10'}`}>
-                                                                        <div className="flex flex-col truncate w-24">
-                                                                            <span>{p2Name || (roundNum === 1 ? 'Select P2...' : 'TBD')}</span>
-                                                                            {p2?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p2.handicap}</span>}
+                                                                        onClick={() => openEditSlotModal(m.id, t.id, 2, p2)}
+                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p2 ${m.winnerId === m.player2Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400'}`}
+                                                                        title="Klik untuk edit / ganti nama pemain ini"
+                                                                    >
+                                                                        <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
+                                                                            <Edit3 className="w-3 h-3 text-gray-500 group-hover/p2:text-yellow-400 flex-shrink-0" />
+                                                                            <div className="flex flex-col truncate min-w-0">
+                                                                                <span className="truncate">{p2Name || 'TBD (Klik untuk isi)'}</span>
+                                                                                {p2?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p2.handicap}</span>}
+                                                                            </div>
                                                                         </div>
-                                                                        <span>{m.score2}</span>
+                                                                        <span className="ml-2 font-mono">{m.score2}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="ml-4 pl-4 border-l border-[#222222] min-w-[70px] text-center">
@@ -2122,30 +2162,82 @@ export default function Competitions() {
                 </div>
             )}
 
-            {/* Assign Player Lot Modal */}
+            {/* Assign / Edit Player Slot Modal */}
             {isPlayerlotModalOpen && editingMatch && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-sm overflow-hidden border-yellow-500/30">
-                        <div className="p-6 border-b border-[#222222]">
-                            <h2 className="text-xl font-bold flex items-center text-yellow-500">Pick Player for Slot</h2>
-                            <p className="text-xs text-gray-400 mt-2">Select a registered participant for this match (hasil lot/draw).</p>
-                        </div>
-                        <div className="p-6 space-y-4">
+                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-[#141414] border border-[#222222] rounded-2xl w-full max-w-md overflow-hidden border-yellow-500/40 shadow-2xl">
+                        <div className="p-5 border-b border-[#222222] flex justify-between items-center bg-[#181818]">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Select Participant</label>
-                                <select value={selectedSlotPlayerId} onChange={e => setSelectedSlotPlayerId(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:outline-none focus:border-yellow-500">
-                                    <option value="">-- TBD / Empty Slot --</option>
+                                <h2 className="text-lg font-bold flex items-center gap-2 text-yellow-500">
+                                    <Edit3 className="w-5 h-5 text-yellow-400" /> Edit Nama Slot ({editingMatch.slot === 1 ? 'Player 1' : 'Player 2'})
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">Ubah nama peserta langsung atau pilih dari daftar peserta yang ada.</p>
+                            </div>
+                            <button onClick={() => { setIsPlayerLotModalOpen(false); setEditingMatch(null); }} className="text-gray-400 hover:text-white p-1 rounded-lg">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-5">
+                            {/* Opsi 1: Ketik / Ganti Nama Langsung */}
+                            <div className="bg-[#0a0a0a] border border-yellow-500/30 p-4 rounded-xl space-y-3">
+                                <label className="block text-xs font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Edit3 className="w-3.5 h-3.5" /> Ketik / Ganti Nama Langsung
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        value={editSlotName}
+                                        onChange={e => setEditSlotName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveCustomName(); }}
+                                        placeholder="Ketik nama peserta / tim baru..."
+                                        className="flex-1 bg-[#141414] border border-[#333] rounded-lg px-3.5 py-2.5 text-white font-bold text-sm focus:border-yellow-500 outline-none placeholder:text-gray-600"
+                                    />
+                                    <button
+                                        onClick={handleSaveCustomName}
+                                        disabled={savingSlotName || !editSlotName.trim()}
+                                        className="px-4 py-2.5 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-black text-xs rounded-lg transition-all shadow-md flex items-center gap-1.5 flex-shrink-0 active:scale-95"
+                                    >
+                                        {savingSlotName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                        Simpan
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-500 italic">Nama ini akan langsung tampil di bagan, live monitor, dan aplikasi pemain.</p>
+                            </div>
+
+                            {/* Opsi 2: Pilih dari daftar peserta terdaftar */}
+                            <div className="space-y-2 pt-2 border-t border-[#222]">
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    Atau Pilih Dari Peserta Terdaftar
+                                </label>
+                                <select
+                                    value={selectedSlotPlayerId}
+                                    onChange={e => {
+                                        setSelectedSlotPlayerId(e.target.value);
+                                        const found = tournaments.find(t => t.id === editingMatch.tournamentId)?.participants.find((p: any) => p.id === e.target.value);
+                                        if (found) setEditSlotName(found.name || found.member?.name || '');
+                                    }}
+                                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-yellow-500"
+                                >
+                                    <option value="">-- Kosongkan Slot (TBD) --</option>
                                     {tournaments
                                         .find(t => t.id === editingMatch.tournamentId)
                                         ?.participants.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.name || p.member?.name} {p.handicap ? `(HC: ${p.handicap})` : ''}</option>
                                         ))}
                                 </select>
+                                <button
+                                    onClick={handleAssignPlayerSlot}
+                                    className="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-lg transition-all mt-1"
+                                >
+                                    Terapkan Peserta Dari Daftar
+                                </button>
                             </div>
                         </div>
-                        <div className="p-6 border-t border-[#222222] flex space-x-3">
-                            <button onClick={() => { setIsPlayerLotModalOpen(false); setEditingMatch(null); }} className="flex-1 py-2 bg-[#0a0a0a] rounded-lg font-bold text-white border border-[#222222] hover:bg-white/5">Cancel</button>
-                            <button onClick={handleAssignPlayerSlot} className="flex-1 py-2 bg-yellow-500 rounded-lg text-black font-bold hover:bg-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.3)]">Save Slot</button>
+
+                        <div className="p-4 border-t border-[#222] bg-[#0d0d0d] flex justify-end">
+                            <button onClick={() => { setIsPlayerLotModalOpen(false); setEditingMatch(null); }} className="px-5 py-2 bg-[#1a1a1a] rounded-lg font-bold text-gray-300 border border-[#222] hover:bg-white/5 text-xs">Tutup</button>
                         </div>
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDailyRevenue, getOperationalDayRevenue, getTableUtilization, getTopPlayers, getTopProducts, getTodayUtilizationSplit, getTransactionList, getFnbHistory } from './report.controller';
+import { getDailyRevenue, getOperationalDayRevenue, getTableUtilization, getTopPlayers, getTopProducts, getTodayUtilizationSplit, getTransactionList, getFnbHistory, getFnbCogsAnalytics, getVoucherBurnReport } from './report.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
@@ -14,6 +14,8 @@ router.get('/table-utilization', getTableUtilization);
 router.get('/top-players', getTopPlayers);
 router.get('/top-products', getTopProducts);
 router.get('/fnb-history', getFnbHistory);
+router.get('/fnb-cogs-analytics', getFnbCogsAnalytics);
 router.get('/transactions', getTransactionList);
+router.get('/voucher-burn', getVoucherBurnReport);
 
 export default router;

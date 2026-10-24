@@ -1,90 +1,212 @@
 import { useState, useEffect } from 'react';
 import { api } from './api';
-import { TableCard } from './components/TableCard';
 import { useAppStore } from './store/appStore';
-import { Lock, Signal } from 'lucide-react';
+import { Clock, Calendar, ShieldCheck, ChevronRight, Crown, Flame } from 'lucide-react';
 
-export function LiveTableScreen({ member }: { member: any }) {
-  const [tables, setTables] = useState<any[]>([]);
+export function LiveTableScreen({ member: _member }: { member?: any } = {}) {
+  const { setActiveTab } = useAppStore();
+  const [loading, setLoading] = useState(true);
+  const [slots, setSlots] = useState<any[]>([]);
+  const [kings, setKings] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchTables = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const res = await api.get('/player/tables');
-        if (res.data.success) setTables(res.data.data);
-      } catch (err) { console.error(err); }
+        const todayStr = new Date().toISOString().split('T')[0];
+        const [availRes, kingRes] = await Promise.all([
+          api.get(`/player/availability?date=${todayStr}`),
+          api.get('/player/kings')
+        ]);
+
+        if (availRes.data?.success) {
+          // Hanya ambil slot yang masih memiliki meja kosong
+          const availableSlots = (availRes.data.data?.slots || []).filter((s: any) => s.isAvailable);
+          setSlots(availableSlots);
+        }
+
+        if (kingRes.data?.success) {
+          setKings(kingRes.data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch arena live data', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchTables();
-    const interval = setInterval(fetchTables, 15000);
+
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Polling setiap 30 detik
     return () => clearInterval(interval);
   }, []);
 
-  const isRestricted = member.tier === 'BRONZE' || !member.tier;
-
-  if (isRestricted) {
-    return (
-      <div className="fade-in flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
-        <div className="w-24 h-24 rounded-[40px] bg-rose-500/10 flex items-center justify-center mb-10 border-2 border-rose-500/20 shadow-[0_0_50px_rgba(244,63,94,0.2)]">
-          <Lock className="w-10 h-10 text-rose-500" />
-        </div>
-        <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-4">Akses Terbatas</h2>
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed max-w-xs">
-          Fitur <span className="text-primary italic">Live Table Monitoring</span> hanya tersedia untuk Member <span className="text-primary italic">Silver</span> dan di atasnya.
-        </p>
-        <button 
-          onClick={() => useAppStore.getState().setActiveTab('rewards')}
-          className="mt-12 py-5 px-10 fiery-btn-primary text-[10px] font-black uppercase tracking-widest rounded-3xl"
-        >
-          Upgrade Member Rank
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="fade-in space-y-10 pb-40">
-      <div className="pt-8 relative">
+    <div className="fade-in space-y-8 pb-40">
+      {/* Header */}
+      <div className="pt-6 relative">
         <div className="absolute top-0 left-0 w-32 h-16 bg-primary/10 blur-[40px] rounded-full pointer-events-none" />
         <div className="relative z-10">
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white flex items-center gap-3">
-            LIVE <span className="text-primary">ARENA</span>
+          <div className="flex items-center gap-2 mb-1">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest italic">
+              Privasi Tamu Terlindungi
+            </span>
+          </div>
+          <h1 className="text-3xl font-black italic tracking-tighter uppercase text-white flex items-center gap-3">
+            ARENA <span className="text-primary">LIVE PULSE</span>
           </h1>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-2 italic opacity-60">Real-time Table Status Surveillance</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] mt-1 italic">
+            Ketersediaan Waktu Bermain & Jadwal Arena Real-time
+          </p>
         </div>
       </div>
 
-      <div className="fiery-card p-8 bg-primary/5 border-2 border-primary/20 flex items-center justify-between overflow-hidden relative group">
-        <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-primary/10 rounded-full blur-[40px]" />
-        <div className="flex items-center gap-6 relative z-10">
-           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Signal className="w-7 h-7 text-primary animate-pulse" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-1 italic">Surveillance Status</p>
-              <h3 className="text-xl font-black text-white uppercase italic tracking-tighter leading-none">Global Arena Live</h3>
-           </div>
-        </div>
-        <div className="px-5 py-2 rounded-xl bg-white/5 border border-white/5 backdrop-blur-md">
-           <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">{tables.length} Nodes Online</span>
+      {/* Surveillance Summary Banner */}
+      <div className="fiery-card p-6 bg-primary/5 border border-primary/20 rounded-[28px] relative overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Clock className="w-6 h-6 text-primary animate-pulse" />
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] italic">Status Arena Hari Ini</p>
+              <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">
+                {slots.length > 0 ? `${slots.length} Slot Waktu Tersedia` : 'Arena Sedang Padat'}
+              </h3>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('booking')}
+            className="px-4 py-2.5 rounded-xl bg-primary text-secondary font-black text-xs uppercase tracking-wider italic flex items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+          >
+            <span>Reservasi</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {tables.map(table => (
-            <TableCard 
-              key={table.id}
-              tableId={table.id}
-              name={table.name}
-              type={table.type}
-              status={table.status}
-              isKingTable={table.isKingTable}
-              kingInfo={table.kingInfo}
-              session={table.session}
-              onClick={() => useAppStore.getState().setActiveTab('booking')}
-            />
-          ))}
+      {/* Active Kings of the Arena Section */}
+      {kings.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-yellow-500" />
+              <h3 className="text-sm font-black text-white uppercase italic tracking-wider">King of the Arena</h3>
+            </div>
+            <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest italic">Tantang di Arena</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {kings.map((king: any) => (
+              <div 
+                key={king.id || king.tableId} 
+                onClick={() => setActiveTab('play')}
+                className="fiery-card p-5 rounded-[24px] bg-yellow-500/5 border border-yellow-500/20 flex items-center justify-between cursor-pointer hover:border-yellow-500/40 transition-all"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-yellow-500/40 overflow-hidden relative flex items-center justify-center">
+                    {king.king?.photo ? (
+                      <img src={king.king.photo} alt={king.king.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Crown className="w-6 h-6 text-yellow-500" />
+                    )}
+                    <div className="absolute -bottom-1 -right-1 bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full text-white">
+                      {king.streak || 1}X
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+                      <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest italic">Juara Bertahan</span>
+                    </div>
+                    <h4 className="text-sm font-black text-white uppercase italic">{king.king?.name || 'Raja Arena'}</h4>
+                    <p className="text-[9px] font-bold text-slate-400 italic">Streak: {king.streak || 1} Kemenangan Beruntun</p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-[10px] font-black uppercase tracking-wider italic flex items-center gap-1">
+                  <span>Tantang</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* Available Time Slots Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-black text-white uppercase italic tracking-wider">Slot Jam Kosong Hari Ini</h3>
+          </div>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest italic">Pilih jam untuk main</span>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Memeriksa ketersediaan arena...</p>
+          </div>
+        ) : slots.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {slots.slice(0, 12).map((slot: any, idx: number) => {
+              const regFree = slot.availableRegular || 0;
+              const vipFree = slot.availableVip || 0;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setActiveTab('booking')}
+                  className="fiery-card p-4 rounded-[22px] bg-[#101423] border border-white/5 hover:border-primary/40 text-left transition-all active:scale-95 group relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-black text-white italic font-mono group-hover:text-primary transition-colors">
+                      {slot.time}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <div className="space-y-0.5">
+                    {regFree > 0 && (
+                      <p className="text-[9px] font-bold text-slate-400 italic">
+                        Regular: <span className="text-emerald-400 font-black">{regFree} Slot</span>
+                      </p>
+                    )}
+                    {vipFree > 0 && (
+                      <p className="text-[9px] font-bold text-slate-400 italic">
+                        VIP: <span className="text-yellow-400 font-black">{vipFree} Slot</span>
+                      </p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="fiery-card p-8 rounded-[24px] text-center border border-white/5 bg-[#101423]">
+            <p className="text-xs font-bold text-slate-400 mb-2">Slot waktu hari ini sedang terisi penuh.</p>
+            <button
+              onClick={() => setActiveTab('booking')}
+              className="text-[10px] font-black text-primary uppercase tracking-widest underline hover:text-cyan-300"
+            >
+              Lihat Jadwal Hari Esok →
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* CTA Box */}
+      <div className="fiery-card p-6 rounded-[28px] bg-gradient-to-r from-primary/10 via-[#101423] to-[#101423] border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-black text-white uppercase italic tracking-wider">Ingin Main Jam Pasti?</h4>
+          <p className="text-[10px] text-slate-400 mt-0.5">Lakukan reservasi lebih awal untuk mengamankan slot waktu favorit Anda.</p>
+        </div>
+        <button
+          onClick={() => setActiveTab('booking')}
+          className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-primary text-secondary font-black text-xs uppercase tracking-wider italic flex items-center justify-center gap-2 active:scale-95 transition-all"
+        >
+          <span>Pesan Slot Waktu</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
