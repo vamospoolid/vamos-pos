@@ -454,29 +454,44 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
   const [pricingEstimate, setPricingEstimate] = useState<number | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
 
-  useEffect(() => {
-    if (memberId) {
-      setLoadingVouchers(true);
-      api.get('/loyalty/admin/redemptions?status=PENDING')
-        .then(res => {
-          const allPending = res.data.data || [];
-          const forThisMember = allPending.filter((r: any) => 
-            r.memberId === memberId && (r.reward?.category === 'TABLE' || (r.reward?.title || '').toLowerCase().includes('meja'))
-          );
-          setMemberVouchers(forThisMember);
-          if (forThisMember.length > 0) {
-            setSelectedVoucherId(forThisMember[0].id);
-          } else {
-            setSelectedVoucherId('');
-          }
-        })
-        .catch(err => console.error('Failed to fetch vouchers', err))
-        .finally(() => setLoadingVouchers(false));
-    } else {
+  const fetchMemberVouchers = (targetMemberId: string) => {
+    if (!targetMemberId) {
       setMemberVouchers([]);
       setSelectedVoucherId('');
+      return;
     }
+    setLoadingVouchers(true);
+    api.get('/loyalty/admin/redemptions?status=PENDING')
+      .then(res => {
+        const allPending = res.data.data || [];
+        const forThisMember = allPending.filter((r: any) => {
+          if (r.memberId !== targetMemberId) return false;
+          const cat = (r.reward?.category || '').toUpperCase();
+          if (cat === 'TABLE') return true;
+          if (cat === 'FNB' || cat === 'MERCHANDISE') return false;
+          const title = (r.reward?.title || '').toLowerCase();
+          return title.includes('meja') || title.includes('table') || title.includes('jam') || title.includes('hour') || title.includes('biliar') || title.includes('billiard');
+        });
+        setMemberVouchers(forThisMember);
+        if (forThisMember.length > 0) {
+          setSelectedVoucherId(forThisMember[0].id);
+        } else {
+          setSelectedVoucherId('');
+        }
+      })
+      .catch(err => console.error('Failed to fetch vouchers', err))
+      .finally(() => setLoadingVouchers(false));
+  };
+
+  useEffect(() => {
+    fetchMemberVouchers(memberId);
   }, [memberId]);
+
+  useEffect(() => {
+    if (billingMode === 'VOUCHER' && memberId) {
+      fetchMemberVouchers(memberId);
+    }
+  }, [billingMode]);
 
   const [orderSessionId, setOrderSessionId] = useState<string | null>(null);
   const [cart, setCart] = useState<{ product: any, qty: number }[]>([]);
@@ -2716,7 +2731,19 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                           <div className="w-16 h-16 rounded-3xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-4 text-purple-400">
                             <Gift className="w-8 h-8 animate-pulse" />
                           </div>
-                          <h3 className="text-lg font-black text-white italic tracking-tight uppercase">Voucher Reward Meja</h3>
+                          <div className="flex items-center justify-center gap-2">
+                            <h3 className="text-lg font-black text-white italic tracking-tight uppercase">Voucher Reward Meja</h3>
+                            {selectedMember && (
+                              <button 
+                                type="button" 
+                                onClick={() => fetchMemberVouchers(memberId)} 
+                                className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                                title="Segarkan Voucher"
+                              >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loadingVouchers ? 'animate-spin text-purple-400' : ''}`} />
+                              </button>
+                            )}
+                          </div>
                           
                           {!selectedMember ? (
                             <p className="text-xs text-amber-400 mt-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl max-w-xs mx-auto">
@@ -2733,6 +2760,14 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                               <p className="text-[10px] text-gray-400 leading-relaxed">
                                 Member <span className="text-white font-bold">{selectedMember.name}</span> belum menukarkan poin untuk voucher sewa meja (Poin: {selectedMember.loyaltyPoints || 0} PTS).
                               </p>
+                              <button
+                                type="button"
+                                onClick={() => fetchMemberVouchers(memberId)}
+                                className="mt-3 w-full py-2 px-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-[11px] font-bold border border-purple-500/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${loadingVouchers ? 'animate-spin' : ''}`} />
+                                <span>Segarkan / Cek Voucher Baru</span>
+                              </button>
                             </div>
                           ) : (
                             <div className="mt-3 space-y-2.5 max-w-sm mx-auto text-left w-full">

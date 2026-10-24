@@ -895,13 +895,15 @@ export class ReportService {
         };
 
         const details = redemptions.map(r => {
-            const nominal = r.reward.nominalValue || (r.reward.value > 0 ? r.reward.value : (r.reward.title.toLowerCase().includes('meja') ? 50000 : 0));
+            const titleLower = (r.reward.title || '').toLowerCase();
+            const isTable = titleLower.includes('meja') || titleLower.includes('table') || titleLower.includes('jam') || titleLower.includes('hour') || titleLower.includes('biliar') || titleLower.includes('billiard');
+            const nominal = r.reward.nominalValue || (r.reward.value > 0 ? r.reward.value : (isTable ? 40000 : 0));
             const cost = r.reward.costPrice || 0;
             const points = r.pointsUsed || r.reward.pointsRequired || 0;
             const rawCat = (r.reward.category || '').toUpperCase();
             const cat = ['TABLE', 'FNB', 'MERCHANDISE'].includes(rawCat) ? rawCat : (
-                r.reward.title.toLowerCase().includes('meja') ? 'TABLE' : (
-                    r.reward.title.toLowerCase().includes('tea') || r.reward.title.toLowerCase().includes('kopi') || r.reward.title.toLowerCase().includes('snack') || r.reward.title.toLowerCase().includes('drink') ? 'FNB' : 'MERCHANDISE'
+                isTable ? 'TABLE' : (
+                    titleLower.includes('tea') || titleLower.includes('kopi') || titleLower.includes('snack') || titleLower.includes('drink') || titleLower.includes('appetizer') || titleLower.includes('food') || titleLower.includes('beverage') ? 'FNB' : 'MERCHANDISE'
                 )
             );
 
