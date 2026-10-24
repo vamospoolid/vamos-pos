@@ -61,6 +61,73 @@ export class OrderService {
         return order;
     }
 
+    static async addBatchOrders(sessionId: string, items: Array<{ productId: string; quantity: number; notes?: string }>, userId: string) {
+        const session = await prisma.session.findUnique({ where: { id: sessionId }, include: { table: true } });
+        if (!session || !['ACTIVE', 'PENDING', 'FINISHED'].includes(session.status)) {
+            throw new AppError('Cannot add orders to this session', 400);
+        }
+
+        // 1. Pre-validasi semua ketersediaan stok
+        for (const item of items) {
+            await ProductService.validateStock(item.productId, item.quantity);
+        }
+
+        const createdOrders = [];
+        const sessionDesc = session.customerName ? session.customerName : (session.table ? `Meja ${session.table.name}` : `Walk-In (${session.id.substring(0,6)})`);
+
+        // 2. Eksekusi penambahan order dan pemotongan stok berurutan (Sekuensial / Aman Race Condition)
+        for (const item of items) {
+            const product = await prisma.product.findUnique({ where: { id: item.productId } });
+            if (!product) continue;
+
+            const checkExisting = await prisma.order.findFirst({
+                where: { sessionId, productId: item.productId, notes: item.notes ? item.notes.trim() : null }
+            });
+
+            let order;
+            if (checkExisting) {
+                order = await prisma.order.update({
+                    where: { id: checkExisting.id },
+                    data: {
+                        quantity: checkExisting.quantity + item.quantity,
+                        total: (checkExisting.quantity + item.quantity) * product.price
+                    }
+                });
+            } else {
+                order = await prisma.order.create({
+                    data: {
+                        sessionId,
+                        productId: item.productId,
+                        quantity: item.quantity,
+                        price: product.price,
+                        total: product.price * item.quantity,
+                        notes: item.notes ? item.notes.trim() : null,
+                    }
+                });
+            }
+
+            const notesSuffix = item.notes ? ` [${item.notes.trim()}]` : '';
+            await ProductService.updateStock(item.productId, -item.quantity, 'SALE', `Penjualan - ${sessionDesc}${notesSuffix}`);
+            createdOrders.push(order);
+        }
+
+        const fnbTotal = await prisma.order.aggregate({
+            where: { sessionId },
+            _sum: { total: true }
+        });
+
+        await prisma.session.update({
+            where: { id: sessionId },
+            data: {
+                fnbAmount: fnbTotal._sum.total || 0,
+                totalAmount: (fnbTotal._sum.total || 0) + (session.tableAmount || 0)
+            }
+        });
+
+        await AuditService.log(userId, 'ORDER_CREATE_BATCH', 'Order', { sessionId, orderCount: createdOrders.length });
+        return createdOrders;
+    }
+
     static async removeOrder(orderId: string, userId: string) {
         const order = await prisma.order.findUnique({ where: { id: orderId }, include: { session: { include: { table: true } } } });
         if (!order) throw new AppError('Order not found', 404);

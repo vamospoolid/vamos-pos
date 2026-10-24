@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { addOrder, removeOrder, getKDSOrders, updateKDSStatus, serveSessionKDS, revertSessionKDS } from './order.controller';
+import { addOrder, addBatchOrders, removeOrder, getKDSOrders, updateKDSStatus, serveSessionKDS, revertSessionKDS } from './order.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
 const router = Router();
@@ -11,6 +11,7 @@ router.patch('/kds/:id/status', authorizeRoles('ADMIN', 'KASIR'), updateKDSStatu
 router.patch('/kds/session/:sessionId/serve-all', authorizeRoles('ADMIN', 'KASIR'), serveSessionKDS);
 router.patch('/kds/session/:sessionId/revert', authorizeRoles('ADMIN', 'KASIR'), revertSessionKDS);
 
+router.post('/sessions/:id/batch', authorizeRoles('ADMIN', 'KASIR'), addBatchOrders);
 router.post('/sessions/:id', authorizeRoles('ADMIN', 'KASIR'), addOrder);
 router.delete('/:id', authorizeRoles('ADMIN', 'KASIR'), removeOrder);
 

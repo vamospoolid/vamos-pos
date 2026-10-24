@@ -7,110 +7,115 @@ const VPS_CONFIG = {
     host: '173.212.243.240',
     port: 22,
     username: 'root',
-    password: 'Ahmad_dcc07'
+    password: 'Ahmad_dcc07',
+    readyTimeout: 30000,
 };
 
-const PROJECTS = [
-    {
-        name: 'POS Backend',
-        localDist: path.join(__dirname, 'vamos-pos-backend', 'dist'),
-        remoteDist: '/var/www/vamos/vamos-pos-backend/dist'
-    },
-    {
-        name: 'POS Frontend',
-        localDist: path.join(__dirname, 'vamos-pos-frontend', 'dist'),
-        remoteDist: '/var/www/vamos/vamos-pos-frontend/dist'
-    },
-    {
-        name: 'Player App',
-        localDist: path.join(__dirname, 'vamos-player-app', 'dist'),
-        remoteDist: '/var/www/vamos/vamos-player-app/dist'
-    }
-];
-
 const conn = new Client();
-
-console.log(`Connecting to VPS ${VPS_CONFIG.host}...`);
+console.log(`🚀 Connecting to VPS ${VPS_CONFIG.host} to push latest changes...`);
 
 conn.on('ready', async () => {
-    console.log('✅ SSH Connected to VPS 173.212.243.240!\n');
+    console.log('✅ SSH Connected to VPS!');
 
     try {
-        for (const proj of PROJECTS) {
-            console.log(`📦 Packing & Deploying ${proj.name}...`);
-            const archiveName = `${proj.name.toLowerCase().replace(/\s+/g, '_')}_dist.tar.gz`;
-            const localArchive = path.join(__dirname, archiveName);
-            const remoteArchive = `/tmp/${archiveName}`;
+        // 1. Pack Backend Source & Dist
+        console.log('📦 1. Packing Backend Source & Dist...');
+        const backendSrcArchive = path.join(__dirname, 'backend_src.tar.gz');
+        const backendDistArchive = path.join(__dirname, 'backend_dist.tar.gz');
+        execSync(`tar -czf "${backendSrcArchive}" -C "${path.join(__dirname, 'vamos-pos-backend', 'src')}" .`);
+        execSync(`tar -czf "${backendDistArchive}" -C "${path.join(__dirname, 'vamos-pos-backend', 'dist')}" .`);
 
-            console.log(`   - Compressing local ${proj.localDist}...`);
-            execSync(`tar -czf "${localArchive}" -C "${proj.localDist}" .`);
+        // 2. Pack POS Frontend
+        console.log('📦 2. Packing POS Frontend...');
+        const frontendArchive = path.join(__dirname, 'frontend_dist.tar.gz');
+        execSync(`tar -czf "${frontendArchive}" -C "${path.join(__dirname, 'vamos-pos-frontend', 'dist')}" .`);
 
-            console.log(`   - Uploading to VPS ${remoteArchive}...`);
-            await new Promise((resolve, reject) => {
-                conn.sftp((err, sftp) => {
-                    if (err) return reject(err);
-                    sftp.fastPut(localArchive, remoteArchive, (err) => {
+        // 3. Pack Staff App
+        console.log('📦 3. Packing Staff App...');
+        const staffArchive = path.join(__dirname, 'staff_dist.tar.gz');
+        execSync(`tar -czf "${staffArchive}" -C "${path.join(__dirname, 'vamos-staff-app', 'dist')}" .`);
+
+        // 4. SFTP Upload
+        console.log('📤 4. Uploading archives to VPS /tmp...');
+        await new Promise((resolve, reject) => {
+            conn.sftp((err, sftp) => {
+                if (err) return reject(err);
+
+                let completed = 0;
+                const files = [
+                    { local: backendSrcArchive, remote: '/tmp/backend_src.tar.gz' },
+                    { local: backendDistArchive, remote: '/tmp/backend_dist.tar.gz' },
+                    { local: frontendArchive, remote: '/tmp/frontend_dist.tar.gz' },
+                    { local: staffArchive, remote: '/tmp/staff_dist.tar.gz' }
+                ];
+
+                files.forEach(f => {
+                    console.log(`   Uploading ${path.basename(f.local)}...`);
+                    sftp.fastPut(f.local, f.remote, (err) => {
                         if (err) return reject(err);
-                        resolve();
+                        console.log(`   ✅ ${path.basename(f.local)} uploaded!`);
+                        completed++;
+                        if (completed === files.length) resolve();
                     });
                 });
             });
+        });
 
-            console.log(`   - Extracting to ${proj.remoteDist}...`);
-            await new Promise((resolve, reject) => {
-                const cmd = `
-                    # Backup APK if exists in POS Frontend
-                    if [ "${proj.remoteDist}" = "/var/www/vamos/vamos-pos-frontend/dist" ]; then
-                        cp /var/www/vamos/vamos-pos-frontend/dist/VamosPlayer.apk /tmp/VamosPlayer.apk 2>/dev/null || true
-                    fi
+        // 5. Remote Extraction & Restart
+        console.log('\n🚀 5. Extracting on VPS and reloading services...');
+        const remoteCmd = `
+            source ~/.bashrc 2>/dev/null || true
+            source ~/.nvm/nvm.sh 2>/dev/null || true
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
 
-                    mkdir -p ${proj.remoteDist}
-                    rm -rf ${proj.remoteDist}/*
-                    tar -xzf ${remoteArchive} -C ${proj.remoteDist}
-                    rm -f ${remoteArchive}
+            echo "--- Updating Backend Source & Dist ---"
+            mkdir -p /var/www/vamos/vamos-pos-backend/src
+            tar -xzf /tmp/backend_src.tar.gz -C /var/www/vamos/vamos-pos-backend/src
+            rm -f /tmp/backend_src.tar.gz
 
-                    if [ "${proj.remoteDist}" = "/var/www/vamos/vamos-pos-frontend/dist" ]; then
-                        cp /tmp/VamosPlayer.apk /var/www/vamos/vamos-pos-frontend/dist/VamosPlayer.apk 2>/dev/null || true
-                    fi
-                `;
-                conn.exec(cmd, (err, stream) => {
-                    if (err) return reject(err);
-                    stream.on('data', d => process.stdout.write(d.toString()));
-                    stream.stderr.on('data', d => process.stderr.write(d.toString()));
-                    stream.on('close', () => resolve());
+            mkdir -p /var/www/vamos/vamos-pos-backend/dist
+            tar -xzf /tmp/backend_dist.tar.gz -C /var/www/vamos/vamos-pos-backend/dist
+            rm -f /tmp/backend_dist.tar.gz
+
+            echo "--- Updating POS Frontend ---"
+            mkdir -p /var/www/vamos/vamos-pos-frontend/dist
+            tar -xzf /tmp/frontend_dist.tar.gz -C /var/www/vamos/vamos-pos-frontend/dist
+            rm -f /tmp/frontend_dist.tar.gz
+
+            echo "--- Updating Staff Web App ---"
+            mkdir -p /var/www/vamos/vamos-staff-app/dist
+            tar -xzf /tmp/staff_dist.tar.gz -C /var/www/vamos/vamos-staff-app/dist
+            mkdir -p /var/www/vamos/vamos-pos-frontend/dist/staff
+            cp -r /var/www/vamos/vamos-staff-app/dist/* /var/www/vamos/vamos-pos-frontend/dist/staff/
+            rm -f /tmp/staff_dist.tar.gz
+
+            echo "--- Reloading Nginx ---"
+            systemctl reload nginx || true
+
+            echo "--- Restarting PM2 Backend ---"
+            pm2 restart vamos-backend || pm2 restart vamos-pos-backend || pm2 restart all
+
+            echo "--- Checking PM2 Status ---"
+            pm2 status
+            
+            echo "🎉 VPS DEPLOYMENT COMPLETED SUCCESSFULLY!"
+        `;
+
+        conn.exec(remoteCmd, (err, stream) => {
+            if (err) throw err;
+            stream.on('data', d => process.stdout.write(d.toString()));
+            stream.stderr.on('data', d => process.stderr.write(d.toString()));
+            stream.on('close', (code) => {
+                [backendSrcArchive, backendDistArchive, frontendArchive, staffArchive].forEach(f => {
+                    if (fs.existsSync(f)) fs.unlinkSync(f);
                 });
-            });
-
-            try { fs.unlinkSync(localArchive); } catch(e){}
-            console.log(`   ✅ ${proj.name} deployed successfully!\n`);
-        }
-
-        console.log('🔄 Restarting PM2 Backend & Reloading Nginx...');
-        await new Promise((resolve, reject) => {
-            const restartCmd = `
-                source ~/.bashrc 2>/dev/null || true
-                source ~/.nvm/nvm.sh 2>/dev/null || true
-                export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
-                pm2 restart vamos-backend --update-env || pm2 restart all || true
-                systemctl reload nginx || systemctl restart nginx || true
-            `;
-            conn.exec(restartCmd, (err, stream) => {
-                if (err) return reject(err);
-                stream.on('data', d => process.stdout.write(d.toString()));
-                stream.stderr.on('data', d => process.stderr.write(d.toString()));
-                stream.on('close', () => resolve());
+                console.log(`\n✅ Remote deploy finished with code: ${code}`);
+                conn.end();
             });
         });
 
-        console.log('\n🎉 ALL DEPLOYMENTS COMPLETED SUCCESSFULLY!');
-        console.log('🌐 Backend API: https://api.vamospool.id');
-        console.log('🌐 POS: https://pos.vamospool.id');
-        console.log('📱 Player App: https://app.vamospool.id');
-        conn.end();
-    } catch (err) {
-        console.error('❌ Deployment Error:', err);
+    } catch (e) {
+        console.error('❌ Deployment error:', e);
         conn.end();
     }
-}).on('error', (err) => {
-    console.error('❌ SSH Connection Error:', err.message);
 }).connect(VPS_CONFIG);

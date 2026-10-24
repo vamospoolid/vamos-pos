@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { api } from './api';
+import { api, getSocketURL } from './api';
+import { io } from 'socket.io-client';
 import { vamosAlert } from './utils/dialog';
-import { Utensils, Search, Minus, Plus, ShoppingBag, User, DollarSign, Loader2, Clock } from 'lucide-react';
+import { Utensils, Search, Minus, Plus, ShoppingBag, User, DollarSign, Loader2, Clock, Check, ArrowRight, X } from 'lucide-react';
 
 export const getProductEmojiAndStyle = (name: string, category: string) => {
     const lowerName = name.toLowerCase();
@@ -78,18 +79,21 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
     const [payMethod, setPayMethod] = useState<'CASH' | 'QRIS' | 'DEBIT'>('CASH');
     const [receivedAmount, setReceivedAmount] = useState(0);
     const [tempSessionId, setTempSessionId] = useState<string | null>(null);
-    const [isCartVisible, setIsCartVisible] = useState(false);
+    const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+    const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
     useEffect(() => {
         fetchProducts();
         fetchMembers();
-        const cartEl = document.getElementById('fnb-cart-section');
-        if (!cartEl) return;
-        const observer = new IntersectionObserver(([entry]) => {
-            setIsCartVisible(entry.isIntersecting);
-        }, { threshold: 0.15 });
-        observer.observe(cartEl);
-        return () => observer.disconnect();
+
+        const socketUrl = getSocketURL();
+        const socket = io(socketUrl);
+        socket.on('orders:updated', () => fetchProducts());
+        socket.on('stock:updated', () => fetchProducts());
+        socket.on('products:updated', () => fetchProducts());
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     const fetchMembers = async () => {
@@ -111,6 +115,18 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
     };
 
     const handleAddToCart = (product: any) => {
+        if (product.stock <= 0) {
+            if (product.hasRecipe && product.materialShortage) {
+                vamosAlert(`Menu "${product.name}" tidak dapat dipesan: Bahan baku ${product.materialShortage} habis! Cek stok bahan baku dapur.`);
+            } else {
+                vamosAlert(`Menu "${product.name}" saat ini habis.`);
+            }
+            return;
+        }
+
+        setRecentlyAddedId(product.id);
+        setTimeout(() => setRecentlyAddedId(null), 650);
+
         setCart(prev => {
             const existing = prev.find(item => item.product.id === product.id);
             if (existing) {
@@ -150,13 +166,23 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
             });
             const newSessionId = sessionRes.data.id;
 
-            // 2. Add orders to that session 
-            await Promise.all(cart.map(item =>
-                api.post(`/orders/sessions/${newSessionId}`, {
-                    productId: item.product.id,
-                    quantity: item.qty
-                })
-            ));
+            // 2. Add orders to that session in atomic batch (with sequential fallback)
+            const batchItems = cart.map(item => ({
+                productId: item.product.id,
+                quantity: item.qty
+            }));
+
+            try {
+                await api.post(`/orders/sessions/${newSessionId}/batch`, { items: batchItems });
+            } catch (batchErr) {
+                // Sequential fallback to avoid race conditions
+                for (const item of cart) {
+                    await api.post(`/orders/sessions/${newSessionId}`, {
+                        productId: item.product.id,
+                        quantity: item.qty
+                    });
+                }
+            }
 
             if (isDirectPay) {
                 if (onOpenCheckout) {
@@ -222,6 +248,7 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
         setMemberId('');
         setMemberSearchQuery('');
         setTempSessionId(null);
+        setIsMobileCartOpen(false);
         fetchProducts();
     };
 
@@ -243,31 +270,31 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
     );
 
     return (
-        <div className="flex flex-col lg:flex-row fade-in h-full bg-[#0d0a08]">
+        <div className="flex flex-col lg:flex-row fade-in h-full bg-[#0d0a08] relative">
             {/* Left Catalog Area */}
             <div className="flex-[2] flex flex-col border-r border-[#221c17] bg-[#0d0a08]">
-                <div className="p-8 pb-4">
-                    <div className="relative mb-6">
+                <div className="p-4 sm:p-8 pb-4">
+                    <div className="relative mb-4 sm:mb-6">
                         <Search className="absolute left-3 top-3.5 w-5 h-5 text-amber-600/60" />
                         <input
                             type="text"
                             placeholder={activeCategory === 'FNB' ? "Search coffee, drinks, croissants..." : "Search cues, chalks, apparel..."}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-[#181310] border border-[#2d221b] rounded-xl pl-10 pr-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#d48c5c] focus:ring-1 focus:ring-[#d48c5c]/50 transition-all"
+                            className="w-full bg-[#181310] border border-[#2d221b] rounded-xl pl-10 pr-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#d48c5c] focus:ring-1 focus:ring-[#d48c5c]/50 transition-all text-sm"
                         />
                     </div>
                     <div className="flex space-x-2">
                         <button
                             onClick={() => setActiveCategory('FNB')}
-                            className={`flex-[1] py-3 rounded-xl font-bold text-sm transition-all text-center border flex items-center justify-center gap-2 ${activeCategory === 'FNB' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                            className={`flex-[1] py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-center border flex items-center justify-center gap-2 ${activeCategory === 'FNB' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
                         >
                             <Utensils className="w-4 h-4" />
                             Food & Beverage Menu
                         </button>
                         <button
                             onClick={() => setActiveCategory('EQUIPMENT')}
-                            className={`flex-[1] py-3 rounded-xl font-bold text-sm transition-all text-center border flex items-center justify-center gap-2 ${activeCategory === 'EQUIPMENT' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
+                            className={`flex-[1] py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-center border flex items-center justify-center gap-2 ${activeCategory === 'EQUIPMENT' ? 'bg-[#d48c5c] text-[#0d0a08] border-[#d48c5c] shadow-[0_4px_12px_rgba(212,140,92,0.25)]' : 'bg-[#181310] text-[#a08474] border-[#2d221b] hover:text-white hover:border-[#4a362b]'}`}
                         >
                             <ShoppingBag className="w-4 h-4" />
                             Store & Equipment
@@ -275,32 +302,74 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 pt-4 custom-scrollbar">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 pt-2 pb-28 lg:pb-6 custom-scrollbar">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         {filteredProducts.map(p => {
                             const style = getProductEmojiAndStyle(p.name, p.category);
+                            const cartItem = cart.find(item => item.product.id === p.id);
+                            const isRecentlyAdded = recentlyAddedId === p.id;
+
                             return (
                                 <button
                                     key={p.id}
                                     onClick={() => handleAddToCart(p)}
-                                    className={`bg-gradient-to-br ${style.gradient} border ${style.border} p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[145px]`}
+                                    className={`bg-gradient-to-br ${style.gradient} border ${
+                                        cartItem
+                                            ? 'border-[#00ff66]/80 shadow-[0_0_20px_rgba(0,255,102,0.25)] ring-1 ring-[#00ff66]/60'
+                                            : style.border
+                                    } p-3.5 sm:p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 active:scale-95 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[145px] cursor-pointer ${p.stock <= 0 ? 'opacity-40 grayscale' : ''}`}
                                 >
+                                    {/* Floating "+1" animation upon click */}
+                                    {isRecentlyAdded && (
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                                            <span className="animate-float-plus text-xs font-black text-[#00ff66] bg-black/85 px-3 py-1 rounded-full border border-[#00ff66] shadow-[0_0_15px_#00ff66]">
+                                                +1
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Glowing Corner Badge for Item Quantity */}
+                                    {cartItem && (
+                                        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-[#00ff66] text-[#0a0a0a] px-2 py-0.5 rounded-full text-[10px] font-black shadow-[0_0_12px_rgba(0,255,102,0.85)] animate-pop-badge">
+                                            <Check className="w-3 h-3 stroke-[3]" />
+                                            <span>{cartItem.qty}x</span>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between items-start">
                                         <span className={`text-[10px] font-bold ${style.badgeBg} px-2 py-0.5 rounded-md uppercase tracking-wider`}>
                                             {p.category || 'F&B'}
                                         </span>
-                                        <span className="text-2xl group-hover:scale-110 transition-transform duration-200">{style.emoji}</span>
+                                        {!cartItem && (
+                                            <span className="text-2xl group-hover:scale-110 transition-transform duration-200">{style.emoji}</span>
+                                        )}
                                     </div>
                                     
-                                    <div className="mt-4">
-                                        <h3 className="font-bold text-sm leading-snug text-gray-200 group-hover:text-white transition-colors line-clamp-2 min-h-[40px]">{p.name}</h3>
+                                    <div className="mt-3">
+                                        <h3 className={`font-bold text-sm leading-snug transition-colors line-clamp-2 min-h-[38px] ${
+                                            cartItem ? 'text-white' : 'text-gray-200 group-hover:text-white'
+                                        }`}>
+                                            {p.name}
+                                        </h3>
                                     </div>
                                     
                                     <div className="mt-2 flex justify-between items-end pt-2 border-t border-white/[0.03]">
-                                        <p className="font-mono font-bold text-[#d48c5c] text-sm">
+                                        <p className={`font-mono font-bold text-sm ${cartItem ? 'text-[#00ff66]' : 'text-[#d48c5c]'}`}>
                                             Rp {p.price.toLocaleString('id-ID')}
                                         </p>
-                                        <span className="text-[10px] text-gray-500 font-semibold">Stock: {p.stock}</span>
+                                        {p.stock <= 0 ? (
+                                            <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
+                                                {p.hasRecipe ? 'BAHAN HABIS' : 'SOLD OUT'}
+                                            </span>
+                                        ) : p.hasRecipe ? (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                p.stock <= 5 ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                            }`}>
+                                                {p.stock} Porsi
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-gray-500 font-semibold">Stock: {p.stock}</span>
+                                        )}
                                     </div>
                                 </button>
                             );
@@ -315,8 +384,8 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
                 </div>
             </div>
 
-            {/* Right Cart Area */}
-            <div id="fnb-cart-section" className="flex-1 flex flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
+            {/* Desktop Cart Sidebar (hidden lg:flex) */}
+            <div id="fnb-cart-section" className="hidden lg:flex flex-1 flex-col bg-[#120e0c] border-l border-[#271d17] relative z-10 shadow-2xl">
                 <div className="p-6 border-b border-[#271d17] bg-[#0c0908]">
                     <h2 className="text-lg font-black flex items-center text-white tracking-wide">
                         <ShoppingBag className="w-5 h-5 mr-3 text-[#d48c5c]" />
@@ -473,27 +542,203 @@ export default function FnBOrder({ onOpenCheckout, onRefresh }: { onOpenCheckout
                 </div>
             </div>
 
-            {/* Floating Mobile Cart Indicator */}
-            {cart.length > 0 && !isCartVisible && (
-                <div className="lg:hidden fixed bottom-[76px] left-3 right-3 z-40 bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0d0a08] p-3.5 rounded-2xl flex items-center justify-between shadow-[0_8px_30px_rgba(212,140,92,0.4)] border border-amber-300/30 animate-in slide-in-from-bottom-4 duration-200">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center font-black text-xs">
-                            {cart.reduce((a, c) => a + c.qty, 0)}
+            {/* Mobile Floating Cart Summary Bar ("Lihat Pesanan") - Matches Table Order exact design */}
+            {cart.length > 0 && !isMobileCartOpen && (
+                <div 
+                    onClick={() => setIsMobileCartOpen(true)}
+                    className="lg:hidden fixed bottom-[76px] left-3 right-3 bg-gradient-to-r from-[#1c140e] via-[#261b13] to-[#1c140e] border border-[#d48c5c]/60 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.95)] p-3 flex items-center justify-between z-40 cursor-pointer active:scale-[0.98] transition-all animate-fade-in-fast"
+                    style={{ backdropFilter: 'blur(12px)' }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#d48c5c]/20 border border-[#d48c5c]/40 flex items-center justify-center text-[#d48c5c] shrink-0 relative">
+                            <ShoppingBag className="w-5 h-5" />
+                            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-[#00ff66] text-black text-[9px] font-black shadow-md min-w-[18px] text-center">
+                                {cart.reduce((sum, item) => sum + item.qty, 0)}
+                            </span>
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-black/70">Order Berlangsung</p>
-                            <p className="text-sm font-black font-mono">Rp {totalAmount.toLocaleString('id-ID')}</p>
+                            <div className="text-xs font-bold text-gray-200">
+                                {cart.reduce((sum, item) => sum + item.qty, 0)} Menu Dipilih
+                            </div>
+                            <div className="text-sm font-mono font-black text-[#d48c5c]">
+                                Rp {totalAmount.toLocaleString('id-ID')}
+                            </div>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => {
-                            const cartEl = document.getElementById('fnb-cart-section');
-                            if (cartEl) cartEl.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                        className="bg-[#0d0a08] text-[#d48c5c] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow hover:bg-black transition-all active:scale-95"
+
+                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0d0a08] font-black text-xs px-3.5 py-2.5 rounded-xl shadow-md active:scale-95 transition-all">
+                        <span>Lihat Pesanan</span>
+                        <ArrowRight className="w-4 h-4" />
+                    </div>
+                </div>
+            )}
+
+            {/* Mobile Cart Drawer (Slide-up inside Screen) */}
+            {isMobileCartOpen && (
+                <div 
+                    className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/85 backdrop-blur-sm animate-fade-in-fast"
+                    onClick={() => setIsMobileCartOpen(false)}
+                >
+                    <div 
+                        className="bg-[#120e0c] border-t-2 border-[#d48c5c]/50 rounded-t-3xl shadow-2xl max-h-[85%] flex flex-col animate-slide-up overflow-hidden"
+                        onClick={e => e.stopPropagation()}
                     >
-                        Lihat Order ➔
-                    </button>
+                        {/* Drawer Header */}
+                        <div className="p-4 border-b border-[#271d17] bg-[#0c0908] flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2">
+                                <ShoppingBag className="w-5 h-5 text-[#d48c5c]" />
+                                <h2 className="text-sm font-black text-white uppercase tracking-wide">
+                                    Pesanan Cafe ({cart.reduce((sum, item) => sum + item.qty, 0)} Menu)
+                                </h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => { setCart([]); setIsMobileCartOpen(false); }}
+                                    className="text-[11px] font-bold text-red-400 hover:text-red-300 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 active:scale-95"
+                                >
+                                    Kosongkan
+                                </button>
+                                <button
+                                    onClick={() => setIsMobileCartOpen(false)}
+                                    className="w-8 h-8 rounded-full bg-[#1c140e] border border-[#2d221b] flex items-center justify-center text-gray-400 hover:text-white"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Customer Form in Drawer */}
+                        <div className="p-3.5 border-b border-[#271d17] space-y-2.5 bg-[#0c0908]/60 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 text-[#a08474]" />
+                                <span className="text-[10px] font-black text-[#a08474] uppercase tracking-wider">Data Pemesan</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Nama Walk-in (Contoh: Mr. John)"
+                                    value={customerName}
+                                    onChange={(e) => {
+                                        setCustomerName(e.target.value);
+                                        if (e.target.value) setMemberId('');
+                                    }}
+                                    className="w-full bg-[#181310] border border-[#2d221b] text-white placeholder:text-gray-600 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d48c5c]"
+                                />
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Cari Member (Nama/HP)..."
+                                        value={memberSearchQuery}
+                                        onChange={(e) => {
+                                            setMemberSearchQuery(e.target.value);
+                                            setShowMemberResults(true);
+                                            if (e.target.value) setCustomerName('');
+                                        }}
+                                        onFocus={() => setShowMemberResults(true)}
+                                        className="w-full bg-[#181310] border border-[#d48c5c]/30 rounded-lg px-3 py-1.5 text-xs text-[#e3a87c] placeholder-[#a08474]/50 focus:outline-none focus:border-[#d48c5c]"
+                                    />
+                                    {showMemberResults && memberSearchQuery && (
+                                        <div className="absolute left-0 right-0 bottom-full mb-1 bg-[#181310] border border-[#2d221b] rounded-lg shadow-2xl z-50 max-h-40 overflow-y-auto">
+                                            {filteredMembers.length > 0 ? (
+                                                filteredMembers.map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        onClick={() => {
+                                                            setMemberId(m.id);
+                                                            setMemberSearchQuery(m.name);
+                                                            setShowMemberResults(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 hover:bg-[#d48c5c]/10 border-b border-[#2d221b] last:border-0 text-xs"
+                                                    >
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="font-bold text-white">{m.name}</span>
+                                                            <span className="text-[9px] bg-[#d48c5c]/20 text-[#e3a87c] px-1.5 py-0.5 rounded">{m.tier}</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-500">{m.phone}</span>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="p-2 text-center text-gray-500 text-xs italic">Member tidak ditemukan</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            {memberId && (
+                                <div className="flex items-center justify-between bg-[#d48c5c]/10 border border-[#d48c5c]/30 px-2.5 py-1 rounded-lg">
+                                    <span className="text-[10px] font-bold text-[#e3a87c] uppercase">Member: {members.find(m => m.id === memberId)?.name}</span>
+                                    <button onClick={() => { setMemberId(''); setMemberSearchQuery(''); }} className="text-[10px] text-red-400 font-bold">HAPUS</button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Cart Items List */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar">
+                            {cart.map(item => {
+                                const style = getProductEmojiAndStyle(item.product.name, item.product.category);
+                                return (
+                                    <div key={item.product.id} className="flex items-center justify-between border border-[#2d221b] bg-[#0c0908] p-3 rounded-xl">
+                                        <div className="flex-1 pr-2 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-base">{style.emoji}</span>
+                                                <p className="font-bold text-xs text-gray-200 leading-tight truncate">{item.product.name}</p>
+                                            </div>
+                                            <p className="text-[#d48c5c] text-xs font-mono font-bold mt-1">
+                                                Rp {(item.product.price * item.qty).toLocaleString('id-ID')}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center bg-[#181310] rounded-lg border border-[#2d221b] shrink-0">
+                                            <button onClick={() => updateCartQty(item.product.id, -1)} className="p-1.5 text-gray-400 hover:text-red-400 active:scale-90">
+                                                <Minus className="w-3.5 h-3.5" />
+                                            </button>
+                                            <span className="font-mono font-bold text-xs w-6 text-center text-white">{item.qty}</span>
+                                            <button onClick={() => updateCartQty(item.product.id, 1)} className="p-1.5 text-gray-400 hover:text-[#d48c5c] active:scale-90">
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Drawer Footer Actions */}
+                        <div className="p-4 border-t border-[#271d17] bg-[#0c0908] space-y-3 shrink-0">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Grand Total</span>
+                                <span className="text-xl font-mono font-black text-[#e3a87c]">
+                                    Rp {totalAmount.toLocaleString('id-ID')}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={() => handlePlaceOrder(false)}
+                                    disabled={loading || cart.length === 0}
+                                    className={`py-3 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all ${(loading || cart.length === 0)
+                                        ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                                        : 'bg-amber-500/15 border-2 border-amber-500/50 text-amber-400 hover:text-white hover:bg-amber-500/25 active:scale-95'
+                                    }`}
+                                >
+                                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                    <span>HOLD BILL</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handlePlaceOrder(true)}
+                                    disabled={loading || cart.length === 0}
+                                    className={`py-3 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all ${(loading || cart.length === 0)
+                                        ? 'bg-[#1c1613] text-gray-600 cursor-not-allowed border border-[#2d221b]'
+                                        : 'bg-gradient-to-r from-[#d48c5c] to-[#e39c6c] text-[#0c0908] hover:brightness-110 active:scale-95 shadow-[0_6px_20px_rgba(212,140,92,0.3)]'
+                                    }`}
+                                >
+                                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <DollarSign className="w-3.5 h-3.5 shrink-0" />}
+                                    <span>BAYAR SEKARANG</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

@@ -11,6 +11,14 @@ const addOrderSchema = z.object({
     notes: z.string().optional(),
 });
 
+const addBatchOrderSchema = z.object({
+    items: z.array(z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().positive(),
+        notes: z.string().optional(),
+    })).min(1),
+});
+
 export const addOrder = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id: sessionId } = req.params;
     const { productId, quantity, notes } = addOrderSchema.parse(req.body);
@@ -18,7 +26,19 @@ export const addOrder = catchAsync(async (req: AuthRequest, res: Response) => {
     getIO().emit('orders:updated');
     getIO().emit('sessions:updated');
     getIO().emit('kds:updated');
+    getIO().emit('stock:updated');
     res.status(201).json(result);
+});
+
+export const addBatchOrders = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id: sessionId } = req.params;
+    const { items } = addBatchOrderSchema.parse(req.body);
+    const result = await OrderService.addBatchOrders(sessionId, items, req.user!.id);
+    getIO().emit('orders:updated');
+    getIO().emit('sessions:updated');
+    getIO().emit('kds:updated');
+    getIO().emit('stock:updated');
+    res.status(201).json({ success: true, data: result });
 });
 
 export const removeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -27,6 +47,7 @@ export const removeOrder = catchAsync(async (req: AuthRequest, res: Response) =>
     getIO().emit('orders:updated');
     getIO().emit('sessions:updated');
     getIO().emit('kds:updated');
+    getIO().emit('stock:updated');
     res.json(result);
 });
 

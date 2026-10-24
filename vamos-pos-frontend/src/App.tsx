@@ -634,6 +634,8 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
 
     socket.on('sessions:updated', () => fetchData());
     socket.on('orders:updated', () => fetchData());
+    socket.on('stock:updated', () => fetchData());
+    socket.on('products:updated', () => fetchData());
     socket.on('waitlist:updated', () => fetchData());
     socket.on('redemptions:updated', () => fetchData());
     socket.on('notification:new', (notif: any) => {
@@ -994,12 +996,21 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
     if (!orderSessionId || cart.length === 0) return;
     setLoading(true);
     try {
-      await Promise.all(cart.map(item =>
-        api.post(`/orders/sessions/${orderSessionId}`, {
-          productId: item.product.id,
-          quantity: item.qty
-        })
-      ));
+      const batchItems = cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.qty
+      }));
+      try {
+        await api.post(`/orders/sessions/${orderSessionId}/batch`, { items: batchItems });
+      } catch (e) {
+        // Sequential fallback
+        for (const item of cart) {
+          await api.post(`/orders/sessions/${orderSessionId}`, {
+            productId: item.product.id,
+            quantity: item.qty
+          });
+        }
+      }
       setOrderSessionId(null);
       setCart([]);
       fetchData();
@@ -2815,13 +2826,22 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                         return (
                           <button
                             key={p.id}
-                            disabled={p.stock <= 0}
-                            onClick={() => handleAddToCart(p)}
+                            onClick={() => {
+                              if (p.stock <= 0) {
+                                if (p.hasRecipe && p.materialShortage) {
+                                  vamosAlert(`Menu "${p.name}" tidak dapat dipesan: Bahan baku ${p.materialShortage} habis! Cek stok bahan baku dapur.`);
+                                } else {
+                                  vamosAlert(`Menu "${p.name}" saat ini habis.`);
+                                }
+                                return;
+                              }
+                              handleAddToCart(p);
+                            }}
                             className={`bg-gradient-to-br ${style.gradient} border ${
                               cartItem
                                 ? 'border-[#00ff66]/80 shadow-[0_0_20px_rgba(0,255,102,0.25)] ring-1 ring-[#00ff66]/60'
                                 : style.border
-                            } p-3.5 sm:p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 active:scale-95 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[145px] cursor-pointer ${p.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                            } p-3.5 sm:p-4 rounded-xl text-left hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 active:scale-95 transition-all duration-200 group relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[145px] cursor-pointer ${p.stock <= 0 ? 'opacity-40 grayscale' : ''}`}
                           >
                             {/* Floating "+1" animation upon click */}
                             {isRecentlyAdded && (
@@ -2862,7 +2882,15 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                                 Rp {p.price.toLocaleString('id-ID')}
                               </p>
                               {p.stock <= 0 ? (
-                                <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded">SOLD OUT</span>
+                                <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
+                                  {p.hasRecipe ? 'BAHAN HABIS' : 'SOLD OUT'}
+                                </span>
+                              ) : p.hasRecipe ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  p.stock <= 5 ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                }`}>
+                                  {p.stock} Porsi
+                                </span>
                               ) : (
                                 <span className="text-[10px] text-gray-500 font-semibold">Stock: {p.stock}</span>
                               )}

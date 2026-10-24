@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Layers, Sparkles, AlertTriangle, TrendingUp, ShoppingBag, ClipboardCheck, Package, ChevronDown, Check } from 'lucide-react';
-import { api } from './api';
+import { api, getSocketURL } from './api';
+import { io } from 'socket.io-client';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 import StarterPackModal from './components/StarterPackModal';
 import WasteLogModal from './components/WasteLogModal';
@@ -135,6 +136,20 @@ export default function Inventory() {
     useEffect(() => {
         fetchData();
         fetchRawMaterials();
+
+        const socketUrl = getSocketURL();
+        const socket = io(socketUrl);
+        socket.on('stock:updated', () => {
+            fetchData();
+            fetchRawMaterials();
+        });
+        socket.on('orders:updated', () => {
+            fetchData();
+            fetchRawMaterials();
+        });
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     const fetchStockLogs = async () => {
