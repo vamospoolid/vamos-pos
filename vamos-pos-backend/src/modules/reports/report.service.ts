@@ -887,14 +887,22 @@ export class ReportService {
         let totalCostBurned = 0;
         let totalPointsBurned = 0;
 
-        const categorySummary: Record<string, { count: number; rupiah: number; points: number }> = {
-            TABLE: { count: 0, rupiah: 0, points: 0 },
-            FNB: { count: 0, rupiah: 0, points: 0 },
-            MERCHANDISE: { count: 0, rupiah: 0, points: 0 },
-            OTHER: { count: 0, rupiah: 0, points: 0 }
+        const byCategory: Record<string, { count: number; points: number; nominal: number; cost: number }> = {
+            TABLE: { count: 0, points: 0, nominal: 0, cost: 0 },
+            FNB: { count: 0, points: 0, nominal: 0, cost: 0 },
+            MERCHANDISE: { count: 0, points: 0, nominal: 0, cost: 0 },
+            OTHER: { count: 0, points: 0, nominal: 0, cost: 0 }
         };
 
-        const details = redemptions.map(r => {
+        const cashierIds = [...new Set(redemptions.map(r => r.cashierId).filter(Boolean))];
+        const cashiers = cashierIds.length > 0 ? await prisma.user.findMany({
+            where: { id: { in: cashierIds as string[] } },
+            select: { id: true, name: true, email: true }
+        }) : [];
+        const cashierMap: Record<string, string> = {};
+        cashiers.forEach(c => { cashierMap[c.id] = c.name || c.email; });
+
+        const transactions = redemptions.map(r => {
             const titleLower = (r.reward.title || '').toLowerCase();
             const isTable = titleLower.includes('meja') || titleLower.includes('table') || titleLower.includes('jam') || titleLower.includes('hour') || titleLower.includes('biliar') || titleLower.includes('billiard');
             const nominal = r.reward.nominalValue || (r.reward.value > 0 ? r.reward.value : (isTable ? 40000 : 0));
@@ -911,41 +919,55 @@ export class ReportService {
             totalCostBurned += cost;
             totalPointsBurned += points;
 
-            if (!categorySummary[cat]) {
-                categorySummary[cat] = { count: 0, rupiah: 0, points: 0 };
+            if (!byCategory[cat]) {
+                byCategory[cat] = { count: 0, points: 0, nominal: 0, cost: 0 };
             }
-            categorySummary[cat].count += 1;
-            categorySummary[cat].rupiah += nominal;
-            categorySummary[cat].points += points;
+            byCategory[cat].count += 1;
+            byCategory[cat].nominal += nominal;
+            byCategory[cat].points += points;
+            byCategory[cat].cost += cost;
 
             return {
                 id: r.id,
-                date: r.deliveredAt || r.claimedAt,
-                memberName: r.member?.name || 'Unknown',
-                memberPhone: r.member?.phone || '',
                 rewardTitle: r.reward.title,
-                category: cat,
+                category: cat as 'TABLE' | 'FNB' | 'MERCHANDISE',
+                pointsCost: points,
                 pointsUsed: points,
                 nominalValue: nominal,
                 costPrice: cost,
+                memberName: r.member?.name || 'Unknown',
+                memberPhone: r.member?.phone || '',
+                status: r.status,
+                deliveredAt: r.deliveredAt ? r.deliveredAt.toISOString() : (r.claimedAt ? r.claimedAt.toISOString() : ''),
+                date: r.deliveredAt || r.claimedAt,
                 cashierId: r.cashierId,
+                cashierName: (r.cashierId && cashierMap[r.cashierId]) || 'Kasir',
                 sessionId: r.sessionId
             };
         });
 
         const burnRatio = totalRevenue > 0 ? Number(((totalRupiahBurned / totalRevenue) * 100).toFixed(2)) : 0;
 
+        const categorySummary: Record<string, { count: number; rupiah: number; points: number }> = {};
+        for (const [k, v] of Object.entries(byCategory)) {
+            categorySummary[k] = { count: v.count, rupiah: v.nominal, points: v.points };
+        }
+
         return {
             summary: {
-                totalRupiahBurned,
-                totalCostBurned,
-                totalPointsBurned,
                 totalVouchersBurned: redemptions.length,
+                totalPointsBurned,
+                totalNominalBurned: totalRupiahBurned,
+                totalCostBurned,
+                burnRatioPercent: burnRatio,
                 totalRevenue,
+                totalRupiahBurned,
                 burnRatio
             },
+            byCategory,
             categorySummary,
-            details
+            transactions,
+            details: transactions
         };
     }
 }

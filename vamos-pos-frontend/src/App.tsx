@@ -26,6 +26,7 @@ import QROrder from './QROrder';
 import ShiftHandoverModal from './components/ShiftHandoverModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // --- LICENSE MANAGEMENT COMPONENT (OWNER ONLY) ---
 function LicenseManagement() {
@@ -1843,18 +1844,20 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
             {activeTab === 'discounts' && <Discounts />}
             {activeTab === 'members' && <Members />}
             {activeTab === 'reports' && (
-              <Reports
-                user={user}
-                venue={venueConfig}
-                todayRevenue={todayRevenue}
-                todayOtherRevenue={todayOtherRevenue}
-                todayQrisRevenue={todayQrisRevenue}
-                todayCashRevenue={todayCashRevenue}
-                todayExpenses={todayExpenses}
-                pendingBillsCount={pendingBills.length}
-                pendingBillsAmount={pendingBills.reduce((acc, b) => acc + (b.totalAmount || (b.tableAmount || 0) + (b.fnbAmount || 0) || 0), 0)}
-                utilizationSplit={utilizationSplit}
-              />
+              <ErrorBoundary fallbackTitle="Laporan Kasir Bermasalah">
+                <Reports
+                  user={user}
+                  venue={venueConfig}
+                  todayRevenue={todayRevenue}
+                  todayOtherRevenue={todayOtherRevenue}
+                  todayQrisRevenue={todayQrisRevenue}
+                  todayCashRevenue={todayCashRevenue}
+                  todayExpenses={todayExpenses}
+                  pendingBillsCount={pendingBills.length}
+                  pendingBillsAmount={pendingBills.reduce((acc, b) => acc + (b.totalAmount || (b.tableAmount || 0) + (b.fnbAmount || 0) || 0), 0)}
+                  utilizationSplit={utilizationSplit}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === 'expenses' && <Expenses />}
             {activeTab === 'incomes' && <Incomes />}

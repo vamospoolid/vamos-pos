@@ -155,8 +155,60 @@ export default function Reports({
             setUtilization(utilRes.data.data || []);
             setTopPlayers(topRes.data.data || []);
             setTopProducts(prodRes.data.data || []);
-            setFnbCogsData(cogsRes.data.data || null);
-            setVoucherBurnData(burnRes.data.data || null);
+            setFnbCogsData(cogsRes.data?.data || null);
+
+            const rawBurn = burnRes?.data?.data;
+            if (rawBurn && (rawBurn.summary || rawBurn.byCategory || rawBurn.categorySummary)) {
+                const sum = rawBurn.summary || {};
+                const catSrc = rawBurn.byCategory || rawBurn.categorySummary || {};
+                const rawList = Array.isArray(rawBurn.transactions) ? rawBurn.transactions : (Array.isArray(rawBurn.details) ? rawBurn.details : []);
+
+                setVoucherBurnData({
+                    summary: {
+                        totalVouchersBurned: sum.totalVouchersBurned ?? rawList.length,
+                        totalPointsBurned: sum.totalPointsBurned ?? 0,
+                        totalNominalBurned: sum.totalNominalBurned ?? sum.totalRupiahBurned ?? 0,
+                        totalCostBurned: sum.totalCostBurned ?? 0,
+                        burnRatioPercent: sum.burnRatioPercent ?? sum.burnRatio ?? 0,
+                        totalRevenue: sum.totalRevenue ?? 0,
+                    },
+                    byCategory: {
+                        TABLE: {
+                            count: catSrc.TABLE?.count ?? 0,
+                            points: catSrc.TABLE?.points ?? 0,
+                            nominal: catSrc.TABLE?.nominal ?? catSrc.TABLE?.rupiah ?? 0,
+                            cost: catSrc.TABLE?.cost ?? 0,
+                        },
+                        FNB: {
+                            count: catSrc.FNB?.count ?? 0,
+                            points: catSrc.FNB?.points ?? 0,
+                            nominal: catSrc.FNB?.nominal ?? catSrc.FNB?.rupiah ?? 0,
+                            cost: catSrc.FNB?.cost ?? 0,
+                        },
+                        MERCHANDISE: {
+                            count: catSrc.MERCHANDISE?.count ?? 0,
+                            points: catSrc.MERCHANDISE?.points ?? 0,
+                            nominal: catSrc.MERCHANDISE?.nominal ?? catSrc.MERCHANDISE?.rupiah ?? 0,
+                            cost: catSrc.MERCHANDISE?.cost ?? 0,
+                        },
+                    },
+                    transactions: rawList.map((tx: any) => ({
+                        id: tx.id || String(Math.random()),
+                        rewardTitle: tx.rewardTitle || tx.title || 'Voucher',
+                        category: (tx.category === 'TABLE' || tx.category === 'FNB' || tx.category === 'MERCHANDISE') ? tx.category : 'TABLE',
+                        pointsCost: tx.pointsCost ?? tx.pointsUsed ?? 0,
+                        nominalValue: tx.nominalValue ?? tx.nominal ?? 0,
+                        costPrice: tx.costPrice ?? tx.cost ?? 0,
+                        memberName: tx.memberName || 'Unknown',
+                        memberPhone: tx.memberPhone || '',
+                        status: tx.status || 'DELIVERED',
+                        deliveredAt: tx.deliveredAt || tx.date || '',
+                        cashierName: tx.cashierName || 'Kasir',
+                    })),
+                });
+            } else {
+                setVoucherBurnData(null);
+            }
         } catch (err) {
             console.error('Failed to load reports', err);
         } finally {
@@ -1431,7 +1483,7 @@ export default function Reports({
                                         ⭐ STARS
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#00ff66]/15 text-[#00ff66]">
-                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'STAR').length} menu
+                                        {(fnbCogsData.menuEngineering || []).filter(m => m.classification === 'STAR').length} menu
                                     </span>
                                 </div>
                                 <p className="text-[10px] text-gray-400 leading-snug">
@@ -1451,7 +1503,7 @@ export default function Reports({
                                         🐎 PLOWHORSES
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#00aaff]/15 text-[#00aaff]">
-                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'PLOWHORSE').length} menu
+                                        {(fnbCogsData.menuEngineering || []).filter(m => m.classification === 'PLOWHORSE').length} menu
                                     </span>
                                 </div>
                                 <p className="text-[10px] text-gray-400 leading-snug">
@@ -1471,7 +1523,7 @@ export default function Reports({
                                         🧩 PUZZLES
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[#ff9900]/15 text-[#ff9900]">
-                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'PUZZLE').length} menu
+                                        {(fnbCogsData.menuEngineering || []).filter(m => m.classification === 'PUZZLE').length} menu
                                     </span>
                                 </div>
                                 <p className="text-[10px] text-gray-400 leading-snug">
@@ -1491,7 +1543,7 @@ export default function Reports({
                                         🐶 DOGS
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
-                                        {fnbCogsData.menuEngineering.filter(m => m.classification === 'DOG').length} menu
+                                        {(fnbCogsData.menuEngineering || []).filter(m => m.classification === 'DOG').length} menu
                                     </span>
                                 </div>
                                 <p className="text-[10px] text-gray-400 leading-snug">
@@ -1523,7 +1575,7 @@ export default function Reports({
                                 </div>
 
                                 <span className="text-[11px] text-gray-500 font-mono">
-                                    Menampilkan {fnbCogsData.menuEngineering.filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length} item
+                                    Menampilkan {(fnbCogsData.menuEngineering || []).filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length} item
                                 </span>
                             </div>
 
@@ -1544,7 +1596,7 @@ export default function Reports({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {fnbCogsData.menuEngineering
+                                        {(fnbCogsData.menuEngineering || [])
                                             .filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter)
                                             .map((item, idx) => {
                                                 const badgeColor =
@@ -1590,7 +1642,7 @@ export default function Reports({
                                                 );
                                             })}
 
-                                        {fnbCogsData.menuEngineering.filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length === 0 && (
+                                        {(fnbCogsData.menuEngineering || []).filter(m => menuEngFilter === 'ALL' || m.classification === menuEngFilter).length === 0 && (
                                             <tr>
                                                 <td colSpan={7} className="px-5 py-10 text-center text-gray-500 text-xs">
                                                     Tidak ada menu dalam kategori kuadran ini.
@@ -1801,16 +1853,16 @@ export default function Reports({
                                         🎱 Meja Biliar (Free Sesi)
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
-                                        {voucherBurnData.byCategory.TABLE.count} x
+                                        {voucherBurnData.byCategory?.TABLE?.count ?? 0} x
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-2 text-gray-400">
                                     <span>Nominal Omzet:</span>
-                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.TABLE.nominal).toLocaleString('id-ID')}</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory?.TABLE?.nominal ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-1 text-gray-400">
                                     <span>Poin Terbakar:</span>
-                                    <span className="font-mono text-amber-400">{voucherBurnData.byCategory.TABLE.points.toLocaleString('id-ID')} PTS</span>
+                                    <span className="font-mono text-amber-400">{(voucherBurnData.byCategory?.TABLE?.points ?? 0).toLocaleString('id-ID')} PTS</span>
                                 </div>
                             </div>
 
@@ -1826,16 +1878,16 @@ export default function Reports({
                                         ☕ Food &amp; Beverage
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
-                                        {voucherBurnData.byCategory.FNB.count} x
+                                        {voucherBurnData.byCategory?.FNB?.count ?? 0} x
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-2 text-gray-400">
                                     <span>Nominal Omzet:</span>
-                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.FNB.nominal).toLocaleString('id-ID')}</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory?.FNB?.nominal ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-1 text-gray-400">
                                     <span>HPP Bahan Keluar:</span>
-                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory.FNB.cost).toLocaleString('id-ID')}</span>
+                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory?.FNB?.cost ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
 
@@ -1851,16 +1903,16 @@ export default function Reports({
                                         👕 Jersey &amp; Merchandise
                                     </span>
                                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                                        {voucherBurnData.byCategory.MERCHANDISE.count} x
+                                        {voucherBurnData.byCategory?.MERCHANDISE?.count ?? 0} x
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-2 text-gray-400">
                                     <span>Nominal Nilai:</span>
-                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory.MERCHANDISE.nominal).toLocaleString('id-ID')}</span>
+                                    <span className="font-mono font-bold text-white">Rp {Math.round(voucherBurnData.byCategory?.MERCHANDISE?.nominal ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex justify-between text-xs mt-1 text-gray-400">
                                     <span>HPP Pengadaan:</span>
-                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory.MERCHANDISE.cost).toLocaleString('id-ID')}</span>
+                                    <span className="font-mono text-blue-300">Rp {Math.round(voucherBurnData.byCategory?.MERCHANDISE?.cost ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
                         </div>
@@ -1884,7 +1936,7 @@ export default function Reports({
                                     ))}
                                 </div>
                                 <span className="text-xs text-gray-500 font-mono">
-                                    {voucherBurnData.transactions.filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length} riwayat voucher
+                                    {(voucherBurnData.transactions || []).filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length} riwayat voucher
                                 </span>
                             </div>
 
@@ -1903,7 +1955,7 @@ export default function Reports({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[#1e152d]">
-                                        {voucherBurnData.transactions
+                                        {(voucherBurnData.transactions || [])
                                             .filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter)
                                             .map((tx) => (
                                                 <tr key={tx.id} className="hover:bg-purple-950/20 transition-colors">
@@ -1946,7 +1998,7 @@ export default function Reports({
                                                 </tr>
                                             ))}
 
-                                        {voucherBurnData.transactions.filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length === 0 && (
+                                        {(voucherBurnData.transactions || []).filter(t => voucherCategoryFilter === 'ALL' || t.category === voucherCategoryFilter).length === 0 && (
                                             <tr>
                                                 <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-xs">
                                                     Belum ada voucher yang digunakan / diserahkan pada periode ini.
