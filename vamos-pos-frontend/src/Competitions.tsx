@@ -7,7 +7,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { LiveDrawDisplay } from './components/LiveDrawDisplay';
 import { FlyerBuilder } from './components/FlyerBuilder';
-import { Image as ImageIcon } from 'lucide-react';
+import { TournamentFullscreenBracket } from './components/TournamentFullscreenBracket';
+import { Image as ImageIcon, Maximize } from 'lucide-react';
 
 export default function Competitions() {
     const [tournaments, setTournaments] = useState<any[]>([]);
@@ -16,6 +17,7 @@ export default function Competitions() {
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [createModeTab, setCreateModeTab] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
+    const [fullscreenTournament, setFullscreenTournament] = useState<any | null>(null);
     const [form, setForm] = useState({ 
         name: '', 
         description: '', 
@@ -1347,13 +1349,23 @@ export default function Competitions() {
                                     <span className="text-xs text-green-500 font-bold tracking-widest uppercase"><Check className="w-3 h-3 inline mr-1" /> Finished</span>
                                 )}
                                 {t.matches && t.matches.length > 0 && !isTeamTournament && (
-                                    <button 
-                                        onClick={() => handleExportPDF(t)} 
-                                        className="ml-1.5 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-xs font-bold rounded transition-colors text-white flex items-center"
-                                        title="Export PDF"
-                                    >
-                                        PDF
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => setFullscreenTournament(t)}
+                                            className="ml-1.5 px-3 py-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                                            title="Buka Bagan Fullscreen untuk Layar TV / Proyektor"
+                                        >
+                                            <Maximize className="w-3 h-3" />
+                                            <span>Fullscreen</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => handleExportPDF(t)} 
+                                            className="ml-1.5 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-xs font-bold rounded transition-colors text-white flex items-center"
+                                            title="Export PDF"
+                                        >
+                                            PDF
+                                        </button>
+                                    </>
                                 )}
                                 <button 
                                     onClick={() => setFlyerTournament(t)} 
@@ -1549,7 +1561,20 @@ export default function Competitions() {
                                         </h3>
                                         {t.startDate && <p className="text-xs text-gray-400 mt-1 flex items-center ml-6"><Calendar className="w-3 h-3 mr-1" />{new Date(t.startDate).toLocaleDateString()}</p>}
                                     </div>
-                                    {expandedBrackets[t.id] === false ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronUp className="w-4 h-4 text-gray-500" />}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFullscreenTournament(t);
+                                            }}
+                                            className="px-2.5 py-1 bg-yellow-500/15 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                                            title="Buka Layar Penuh TV"
+                                        >
+                                            <Maximize className="w-3.5 h-3.5" />
+                                            <span>Layar Penuh TV</span>
+                                        </button>
+                                        {expandedBrackets[t.id] === false ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronUp className="w-4 h-4 text-gray-500" />}
+                                    </div>
                                 </div>
 
                                 {expandedBrackets[t.id] !== false && (
@@ -2783,8 +2808,12 @@ export default function Competitions() {
             )}
             {activeLiveDraw && (
                 <LiveDrawDisplay 
-                    tournament={activeLiveDraw} 
+                    tournament={tournaments.find(t => t.id === activeLiveDraw.id) || activeLiveDraw} 
                     onClose={() => setActiveLiveDraw(null)} 
+                    onTournamentUpdated={(updated) => {
+                        setTournaments(prev => prev.map(t => t.id === updated.id ? updated : t));
+                        setActiveLiveDraw(updated);
+                    }}
                 />
             )}
 
@@ -2907,6 +2936,16 @@ export default function Competitions() {
                     <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-black" />
                     <span>{copyToast}</span>
                 </div>
+            )}
+
+            {/* ─── FULLSCREEN TOURNAMENT BRACKET / TV ARENA VIEWER ─── */}
+            {fullscreenTournament && (
+                <TournamentFullscreenBracket
+                    tournament={tournaments.find(t => t.id === fullscreenTournament.id) || fullscreenTournament}
+                    onClose={() => setFullscreenTournament(null)}
+                    onScoreClick={(m, p1, p2) => openScoreModal(m, p1, p2)}
+                    onSlotClick={(mId, slot, p) => openEditSlotModal(mId, fullscreenTournament.id, slot, p)}
+                />
             )}
         </div>
     );
