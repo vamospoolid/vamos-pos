@@ -35,6 +35,8 @@ interface Match {
   score1: number;
   score2: number;
   status: string;
+  tableId?: string | null;
+  table?: { id: string; name: string; status?: string } | null;
   player1Id?: string | null;
   player2Id?: string | null;
   winnerId?: string | null;
@@ -57,6 +59,9 @@ export default function ScoreboardPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMatchId, setSelectedMatchId] = useState<string>("CUSTOM");
+  const [tournamentTables, setTournamentTables] = useState<any[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>("table-1");
+  const [isAssigningMatchToTable, setIsAssigningMatchToTable] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -160,8 +165,8 @@ export default function ScoreboardPage() {
     } catch (e) {}
   };
 
-  // Fetch active tournament data
-  const fetchTournament = async () => {
+  // Fetch active tournament data & return for chaining
+  const fetchTournament = async (): Promise<Tournament | null> => {
     try {
       setLoading(true);
       const res = await fetch("https://api.vamospool.id/api/tournaments");
@@ -175,14 +180,7 @@ export default function ScoreboardPage() {
           const detailJson = await detailRes.json();
           const fullData = detailJson.data || detailJson;
           setTournament(fullData);
-
-          // If query has match, load it
-          if (fullData.matches && fullData.matches.length > 0) {
-            const firstActiveMatch = fullData.matches.find((m: Match) => m.status !== "COMPLETED") || fullData.matches[0];
-            if (firstActiveMatch) {
-              loadMatchData(firstActiveMatch, fullData);
-            }
-          }
+          return fullData;
         }
       }
     } catch (e) {
@@ -190,17 +188,120 @@ export default function ScoreboardPage() {
     } finally {
       setLoading(false);
     }
+    return null;
+  };
+
+  // Fetch tables and handle ?table= query
+  const fetchTables = async (tour?: Tournament | null) => {
+    try {
+      const res = await fetch("https://api.vamospool.id/api/tournaments/public/tables");
+      let tablesData: any[] = [];
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          tablesData = json.data;
+        }
+      }
+      if (!tablesData || tablesData.length === 0) {
+        tablesData = Array.from({ length: 10 }, (_, i) => ({
+          id: `table-${i + 1}`,
+          name: `Table ${String(i + 1).padStart(2, '0')}`,
+          relayChannel: i + 1,
+          status: 'AVAILABLE'
+        }));
+      }
+      setTournamentTables(tablesData);
+
+      // Check URL query param e.g. ?table=1 or ?table=table-1 or ?table=Table 01
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qTable = urlParams.get("table");
+        if (qTable) {
+          const matched = tablesData.find((t: any) => 
+            t.id === qTable || 
+            t.name.toLowerCase() === qTable.toLowerCase() ||
+            t.name.toLowerCase().endsWith(qTable.toLowerCase()) ||
+            t.name.toLowerCase().includes(qTable.toLowerCase())
+          );
+          if (matched) {
+            handleSelectTable(matched.id, tablesData, tour);
+            return;
+          }
+        }
+      }
+
+      // Default to first table if none selected yet
+      if (tablesData.length > 0) {
+        handleSelectTable(tablesData[0].id, tablesData, tour);
+      }
+    } catch (e) {
+      console.error("fetchTables error:", e);
+    }
+  };
+
+  const handleSelectTable = (tableId: string, currentTables?: any[], currentTour?: Tournament | null) => {
+    setSelectedTableId(tableId);
+    const tbls = currentTables || tournamentTables;
+    const tour = currentTour !== undefined ? currentTour : tournament;
+    const selTable = tbls.find((t: any) => t.id === tableId);
+    const tableName = selTable?.name?.toUpperCase() || "MEJA";
+    setTableNumber(tableName);
+
+    // Find active match assigned to this table
+    const tableMatch = tour?.matches?.find((m: Match) => m.tableId === tableId && m.status !== "COMPLETED") ||
+                       selTable?.currentMatch;
+
+    if (tableMatch) {
+      loadMatchData(tableMatch, tour || undefined);
+    } else {
+      // Table is empty, switch to custom or unselected
+      setSelectedMatchId("CUSTOM");
+      setP1Name("Pemain 1");
+      setP1Hc("3");
+      setP1Score(0);
+      setP2Name("Pemain 2");
+      setP2Hc("3");
+      setP2Score(0);
+    }
+  };
+
+  const handleAssignMatchToCurrentTable = async (matchId: string) => {
+    if (!matchId || matchId === "CUSTOM") return;
+    try {
+      setIsAssigningMatchToTable(true);
+      const res = await fetch(`https://api.vamospool.id/api/tournaments/matches/${matchId}/table`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${staffToken || ''}`
+        },
+        body: JSON.stringify({ tableId: selectedTableId })
+      });
+      if (!res.ok) throw new Error("Gagal mengalokasikan meja");
+      const updatedTour = await fetchTournament();
+      await fetchTables(updatedTour);
+    } catch (e: any) {
+      alert(e.message || "Gagal mengalokasikan meja");
+    } finally {
+      setIsAssigningMatchToTable(false);
+    }
   };
 
   useEffect(() => {
-    fetchTournament();
+    fetchTournament().then((tour) => {
+      fetchTables(tour);
+    });
   }, []);
 
   // Load a match from the tournament
   const loadMatchData = (m: Match, currentTournament?: Tournament) => {
     const tour = currentTournament || tournament;
     setSelectedMatchId(m.id);
-    setTableNumber(`MATCH #${m.matchNumber}`);
+    if (m.table?.name) {
+      setTableNumber(m.table.name.toUpperCase());
+    } else {
+      setTableNumber(`MATCH #${m.matchNumber}`);
+    }
 
     let p1 = m.player1;
     let p2 = m.player2;
@@ -635,6 +736,153 @@ export default function ScoreboardPage() {
           </div>
         </div>
       </header>
+
+      {/* ─── 10 TOURNAMENT TABLE SELECTOR BAR ─── */}
+      {displayMode !== "STREAM_HUD" && (
+        <div style={{
+          background: "rgba(5, 10, 22, 0.95)",
+          borderBottom: "1px solid rgba(0, 240, 255, 0.2)",
+          padding: "8px 18px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          overflowX: "auto",
+          backdropFilter: "blur(12px)",
+          position: "sticky",
+          top: "55px",
+          zIndex: 45
+        }}>
+          <span style={{
+            fontSize: "10px",
+            fontWeight: 800,
+            color: "#64748B",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            whiteSpace: "nowrap",
+            marginRight: "4px"
+          }}>
+            STASIUN MEJA:
+          </span>
+
+          {tournamentTables.map((t) => {
+            const isSelected = selectedTableId === t.id;
+            const liveMatch = tournament?.matches?.find(m => m.tableId === t.id && m.status !== "COMPLETED") || t.currentMatch;
+            const p1 = liveMatch?.player1?.name || (liveMatch?.player1 as any)?.member?.name;
+            const p2 = liveMatch?.player2?.name || (liveMatch?.player2 as any)?.member?.name;
+
+            return (
+              <button
+                key={t.id}
+                onClick={() => handleSelectTable(t.id)}
+                style={{
+                  background: isSelected 
+                    ? "linear-gradient(135deg, #00F0FF, #0066FF)" 
+                    : liveMatch 
+                      ? "rgba(16, 185, 129, 0.12)" 
+                      : "rgba(255, 255, 255, 0.05)",
+                  border: isSelected 
+                    ? "1px solid #00F0FF" 
+                    : liveMatch 
+                      ? "1px solid rgba(16, 185, 129, 0.4)" 
+                      : "1px solid rgba(255, 255, 255, 0.1)",
+                  color: isSelected ? "#040811" : liveMatch ? "#10B981" : "#94A3B8",
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.2s ease",
+                  boxShadow: isSelected ? "0 0 15px rgba(0, 240, 255, 0.4)" : "none"
+                }}
+              >
+                <span>{t.name.toUpperCase()}</span>
+                {liveMatch && (
+                  <span style={{
+                    display: "inline-block",
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: isSelected ? "#040811" : "#10B981",
+                    boxShadow: isSelected ? "none" : "0 0 8px #10B981"
+                  }} />
+                )}
+                {liveMatch && p1 && p2 && (
+                  <span style={{ fontSize: "9px", opacity: 0.8, maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    ({p1} vs {p2})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty Table Quick Assignment Banner */}
+      {selectedMatchId === "CUSTOM" && displayMode !== "STREAM_HUD" && (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(0, 240, 255, 0.08), rgba(6, 12, 24, 0.95))",
+          border: "1px solid rgba(0, 240, 255, 0.25)",
+          borderRadius: "14px",
+          padding: "12px 20px",
+          margin: "12px 18px 0 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "18px" }}>🎮</span>
+            <div>
+              <div style={{ fontFamily: "Montserrat", fontSize: "13px", fontWeight: 800, color: "#00F0FF" }}>
+                {tableNumber.toUpperCase()} SEDANG KOSONG / SIAP DIMAINKAN
+              </div>
+              <div style={{ fontSize: "11px", color: "#94A3B8" }}>
+                Pilih laga turnamen di bawah ini untuk langsung dimainkan di {tableNumber}, atau gunakan papan skor manual.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleAssignMatchToCurrentTable(e.target.value);
+                }
+              }}
+              disabled={isAssigningMatchToTable}
+              style={{
+                background: "rgba(10, 20, 40, 0.95)",
+                border: "1px solid rgba(0, 240, 255, 0.4)",
+                color: "#00F0FF",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                outline: "none"
+              }}
+            >
+              <option value="">-- Masukkan Laga ke {tableNumber} --</option>
+              {(tournament?.matches || [])
+                .filter(m => m.status !== "COMPLETED" && !m.tableId)
+                .map(m => {
+                  const p1 = m.player1?.name || (m.player1 as any)?.member?.name || "P1";
+                  const p2 = m.player2?.name || (m.player2 as any)?.member?.name || "P2";
+                  return (
+                    <option key={m.id} value={m.id}>
+                      Match #{m.matchNumber} (R{m.round}): {p1} vs {p2}
+                    </option>
+                  );
+                })}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Sync notification toast */}
       {syncStatusMsg && (

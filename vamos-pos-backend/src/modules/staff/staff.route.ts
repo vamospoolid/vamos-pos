@@ -9,13 +9,17 @@ router.post('/login', StaffController.login);
 // Venue GPS & Geofencing config
 router.get('/venue', StaffController.getVenueLocation);
 router.put('/venue', StaffController.updateVenueLocation);
+router.post('/venue/resolve-maps', StaffController.resolveGoogleMapsUrl);
 
 // Employee Approval & Jobdesk update
 router.put('/employee/:employeeId/approval', StaffController.updateApprovalStatus);
 
-// Attendance operations (Selfie + GPS)
+// Attendance operations (Selfie + GPS + PIN Terminal + Admin Adjust + Auto Cutoff)
 router.post('/attendance/checkin', StaffController.checkIn);
 router.post('/attendance/checkout', StaffController.checkOut);
+router.post('/attendance/clock-pin', StaffController.clockWithPin);
+router.put('/attendance/:id/adjust', StaffController.adjustAttendance);
+router.post('/attendance/auto-cutoff', StaffController.runAutoCutoff);
 router.get('/attendance/history/:employeeId', StaffController.getAttendanceHistory);
 
 // KPI, Leaderboard, Target Omzet Harian & Pengaturan Bonus

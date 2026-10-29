@@ -109,6 +109,44 @@ export class StaffController {
         }
     }
 
+    static async resolveGoogleMapsUrl(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { url } = req.body;
+            const result = await StaffService.resolveGoogleMapsUrl(url);
+            res.json({ success: true, data: result, message: 'Titik koordinat berhasil diekstrak dari Google Maps' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async clockWithPin(req: Request, res: Response, next: NextFunction) {
+        try {
+            const result = await StaffService.clockWithPin(req.body);
+            res.json({ success: true, data: result, message: result.message });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async adjustAttendance(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = req.params;
+            const result = await StaffService.adjustAttendance(id, req.body);
+            res.json({ success: true, data: result, message: 'Presensi staf berhasil dikoreksi' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async runAutoCutoff(req: Request, res: Response, next: NextFunction) {
+        try {
+            const result = await StaffService.runAttendanceAutoCutoff();
+            res.json({ success: true, data: result, message: result.message });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     static async updateApprovalStatus(req: Request, res: Response, next: NextFunction) {
         try {
             const { employeeId } = req.params;

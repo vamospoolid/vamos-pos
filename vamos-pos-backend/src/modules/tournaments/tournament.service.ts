@@ -980,17 +980,86 @@ export class TournamentService {
         return this.generateBracket(tournamentId);
     }
 
-    static async updateMatchResult(matchId: string, data: { score1: number, score2: number, winnerId: string }) {
+    static async getTournamentTables(tournamentId: string) {
+        const tables = await prisma.table.findMany({
+            where: {
+                name: { startsWith: 'Table' }
+            },
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                relayChannel: true
+            },
+            orderBy: { name: 'asc' }
+        });
+
+        const activeMatches = await prisma.tournamentMatch.findMany({
+            where: {
+                tournamentId,
+                status: 'ONGOING',
+                tableId: { not: null }
+            },
+            include: {
+                player1: { include: { member: true } },
+                player2: { include: { member: true } },
+                table: true
+            }
+        });
+
+        return tables.map(t => {
+            const activeMatch = activeMatches.find(m => m.tableId === t.id);
+            return {
+                ...t,
+                activeMatch: activeMatch || null
+            };
+        });
+    }
+
+    static async assignMatchTable(matchId: string, data: { tableId?: string | null, status?: string }) {
         const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
         if (!match) throw new AppError('Match not found', 404);
+
+        const tableId = data.tableId !== undefined ? data.tableId : match.tableId;
+        const newStatus = data.status || (tableId ? 'ONGOING' : 'PENDING');
 
         const updatedMatch = await prisma.tournamentMatch.update({
             where: { id: matchId },
             data: {
-                score1: data.score1,
-                score2: data.score2,
-                winnerId: data.winnerId,
-                status: 'COMPLETED'
+                tableId: tableId,
+                status: newStatus
+            },
+            include: {
+                table: true,
+                player1: { include: { member: true } },
+                player2: { include: { member: true } },
+                winner: true
+            }
+        });
+
+        return updatedMatch;
+    }
+
+    static async updateMatchResult(matchId: string, data: { score1: number, score2: number, winnerId?: string | null, tableId?: string | null, status?: string }) {
+        const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
+        if (!match) throw new AppError('Match not found', 404);
+
+        const newStatus = data.status || (data.winnerId ? 'COMPLETED' : 'ONGOING');
+
+        const updatedMatch = await prisma.tournamentMatch.update({
+            where: { id: matchId },
+            data: {
+                score1: data.score1 !== undefined ? data.score1 : match.score1,
+                score2: data.score2 !== undefined ? data.score2 : match.score2,
+                winnerId: data.winnerId !== undefined ? data.winnerId : match.winnerId,
+                status: newStatus,
+                ...(data.tableId !== undefined ? { tableId: data.tableId } : {})
+            },
+            include: {
+                table: true,
+                player1: true,
+                player2: true,
+                winner: true
             }
         });
 

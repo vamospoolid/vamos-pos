@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Trash2, Clock, Trophy, Camera, Star, MapPin, UserCheck, Navigation, Settings as SettingsIcon, FileText, Save, BookOpen, Flame } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, Clock, Trophy, Camera, Star, MapPin, UserCheck, Navigation, Settings as SettingsIcon, FileText, Save, BookOpen, Flame, Fingerprint, Timer, Compass, Sparkles, ShieldAlert, LogIn, LogOut, Delete, X } from 'lucide-react';
 import { api } from './api';
 import { vamosAlert, vamosConfirm } from './utils/dialog';
 
@@ -37,14 +37,37 @@ export default function Employees() {
         graceLateMinutes: 15
     });
 
-    // Form Venue GPS
+    // Form Venue GPS & Hardware Validation Toggles (Standar POOOS)
     const [venueGpsForm, setVenueGpsForm] = useState({
         latitude: -8.6500,
         longitude: 115.2166,
-        radiusMeters: 100
+        radiusMeters: 100,
+        enableGpsValidation: true,
+        enableCameraPhoto: true,
+        googleMapsUrl: ''
     });
     const [gpsSaving, setGpsSaving] = useState(false);
     const [gpsSuccess, setGpsSuccess] = useState(false);
+    const [resolvingMaps, setResolvingMaps] = useState(false);
+
+    // Terminal PIN Absensi Staf (Standar POOOS ClockInModal)
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinLoading, setPinLoading] = useState(false);
+    const [pinStatusMsg, setPinStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    // Koreksi Presensi Staf & Auto Cut-Off EOD (Standar POOOS)
+    const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+    const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
+    const [adjustForm, setAdjustForm] = useState({
+        checkInTime: '09:00',
+        checkOutTime: '',
+        status: 'PRESENT',
+        lateMinutes: 0,
+        notes: ''
+    });
+    const [savingAdjust, setSavingAdjust] = useState(false);
+    const [runningAutoCutoff, setRunningAutoCutoff] = useState(false);
 
     const getTodayIso = () => {
         const d = new Date();
@@ -195,11 +218,133 @@ export default function Employees() {
                 setVenueGpsForm({
                     latitude: res.data.data.latitude || -8.6500,
                     longitude: res.data.data.longitude || 115.2166,
-                    radiusMeters: res.data.data.radiusMeters || 100
+                    radiusMeters: res.data.data.radiusMeters || 100,
+                    enableGpsValidation: res.data.data.enableGpsValidation ?? true,
+                    enableCameraPhoto: res.data.data.enableCameraPhoto ?? true,
+                    googleMapsUrl: res.data.data.googleMapsUrl || ''
                 });
             }
         } catch (err) {
             console.error('Failed to fetch venue location');
+        }
+    };
+
+    const handleResolveMaps = async () => {
+        if (!venueGpsForm.googleMapsUrl.trim()) {
+            vamosAlert('Masukkan tautan Google Maps terlebih dahulu');
+            return;
+        }
+        setResolvingMaps(true);
+        try {
+            const res = await api.post('/staff/venue/resolve-maps', { url: venueGpsForm.googleMapsUrl });
+            if (res.data?.success && res.data.data) {
+                setVenueGpsForm(prev => ({
+                    ...prev,
+                    latitude: Number(res.data.data.latitude.toFixed(6)),
+                    longitude: Number(res.data.data.longitude.toFixed(6))
+                }));
+                vamosAlert(`Koordinat berhasil dideteksi dari Google Maps: ${res.data.data.latitude.toFixed(6)}, ${res.data.data.longitude.toFixed(6)}`);
+            }
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal mengekstrak koordinat dari tautan Google Maps');
+        } finally {
+            setResolvingMaps(false);
+        }
+    };
+
+    const handlePinClock = async (type: 'IN' | 'OUT') => {
+        if (pinInput.length < 4) {
+            setPinStatusMsg({ type: 'error', text: 'PIN minimal 4 digit!' });
+            return;
+        }
+        setPinLoading(true);
+        setPinStatusMsg(null);
+        try {
+            const res = await api.post('/staff/attendance/clock-pin', {
+                pinCode: pinInput,
+                type
+            });
+            if (res.data?.success) {
+                setPinStatusMsg({ type: 'success', text: res.data.message || 'Absensi berhasil!' });
+                fetchAttendance();
+                setTimeout(() => {
+                    setPinInput('');
+                    setPinStatusMsg(null);
+                    setIsPinModalOpen(false);
+                }, 1400);
+            }
+        } catch (err: any) {
+            setPinStatusMsg({ type: 'error', text: err.response?.data?.message || 'Gagal memproses PIN absensi' });
+            setPinInput('');
+        } finally {
+            setPinLoading(false);
+        }
+    };
+
+    const handleOpenAdjustModal = (att: any) => {
+        setEditingAttendance(att);
+        const inTime = att.checkIn
+            ? new Date(att.checkIn).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':')
+            : '09:00';
+        const outTime = att.checkOut
+            ? new Date(att.checkOut).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':')
+            : '';
+
+        setAdjustForm({
+            checkInTime: inTime,
+            checkOutTime: outTime,
+            status: att.status || 'PRESENT',
+            lateMinutes: att.lateMinutes || 0,
+            notes: att.notes || ''
+        });
+        setIsAdjustModalOpen(true);
+    };
+
+    const handleSaveAdjust = async () => {
+        if (!editingAttendance) return;
+        setSavingAdjust(true);
+        try {
+            const baseDate = selectedDate || getTodayIso();
+            const newCheckIn = adjustForm.checkInTime
+                ? new Date(`${baseDate}T${adjustForm.checkInTime}:00`).toISOString()
+                : editingAttendance.checkIn;
+            const newCheckOut = adjustForm.checkOutTime
+                ? new Date(`${baseDate}T${adjustForm.checkOutTime}:00`).toISOString()
+                : null;
+
+            const res = await api.put(`/staff/attendance/${editingAttendance.id}/adjust`, {
+                checkIn: newCheckIn,
+                checkOut: newCheckOut,
+                status: adjustForm.status,
+                lateMinutes: Number(adjustForm.lateMinutes) || 0,
+                notes: adjustForm.notes
+            });
+
+            if (res.data?.success) {
+                vamosAlert('Presensi staf berhasil dikoreksi!');
+                setIsAdjustModalOpen(false);
+                setEditingAttendance(null);
+                fetchAttendance();
+            }
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal menyimpan koreksi presensi');
+        } finally {
+            setSavingAdjust(false);
+        }
+    };
+
+    const handleRunAutoCutoff = async () => {
+        setRunningAutoCutoff(true);
+        try {
+            const res = await api.post('/staff/attendance/auto-cutoff', {});
+            if (res.data?.success) {
+                vamosAlert(res.data.message || 'Auto Cut-off EOD selesai!');
+                fetchAttendance();
+            }
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal menjalankan Auto Cut-off EOD');
+        } finally {
+            setRunningAutoCutoff(false);
         }
     };
 
@@ -682,7 +827,26 @@ export default function Employees() {
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    setPinInput('');
+                                    setPinStatusMsg(null);
+                                    setIsPinModalOpen(true);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#00aaff] to-[#0066ff] text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md hover:opacity-90 transition-all cursor-pointer"
+                            >
+                                <Fingerprint className="w-4 h-4" /> Terminal Absensi PIN
+                            </button>
+                            <button
+                                onClick={handleRunAutoCutoff}
+                                disabled={runningAutoCutoff}
+                                className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                title="Tutup otomatis presensi yang lupa clock-out kemarin"
+                            >
+                                <Timer className="w-4 h-4" />
+                                {runningAutoCutoff ? 'Memproses...' : 'Auto Cut-off EOD'}
+                            </button>
                             <input
                                 type="date"
                                 value={selectedDate}
@@ -774,14 +938,23 @@ export default function Employees() {
                                                 </span>
                                             </td>
                                             <td className="p-4 text-right">
-                                                {!att.checkOut && (
+                                                <div className="flex items-center justify-end gap-2">
                                                     <button
-                                                        onClick={() => clockOut(att.id)}
-                                                        className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white text-xs font-bold transition-all"
+                                                        onClick={() => handleOpenAdjustModal(att)}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-[#222222] hover:bg-[#333333] border border-[#333333] text-gray-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                        title="Koreksi Jam Masuk / Pulang / Status"
                                                     >
-                                                        Clock Out
+                                                        <Edit2 className="w-3 h-3 text-[#00e5ff]" /> Koreksi
                                                     </button>
-                                                )}
+                                                    {!att.checkOut && (
+                                                        <button
+                                                            onClick={() => clockOut(att.id)}
+                                                            className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                                                        >
+                                                            Clock Out
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -859,6 +1032,34 @@ export default function Employees() {
                     </div>
 
                     <div className="p-4 rounded-2xl bg-[#0a0a0a] border border-[#222222] space-y-4">
+                        {/* GOOGLE MAPS AUTO-SYNC INPUT (Standar POOOS) */}
+                        <div className="p-3.5 bg-[#141414] rounded-xl border border-[#222222] space-y-2">
+                            <label className="text-[10px] font-bold text-[#00e5ff] uppercase tracking-wider flex items-center gap-1.5">
+                                <Compass className="w-3.5 h-3.5" /> Link Google Maps Outlet (Deteksi Otomatis)
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="url"
+                                    value={venueGpsForm.googleMapsUrl}
+                                    onChange={e => setVenueGpsForm(prev => ({ ...prev, googleMapsUrl: e.target.value }))}
+                                    placeholder="https://maps.app.goo.gl/... atau tautan Google Maps"
+                                    className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#00e5ff]"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleResolveMaps}
+                                    disabled={resolvingMaps || !venueGpsForm.googleMapsUrl}
+                                    className="px-3.5 py-2 rounded-xl bg-[#00e5ff] text-black font-extrabold text-xs flex items-center gap-1.5 disabled:opacity-40 hover:opacity-90 transition-all whitespace-nowrap cursor-pointer"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    <span>{resolvingMaps ? 'Mengurai...' : 'Deteksi Otomatis'}</span>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-500">
+                                💡 Tempel tautan dari Google Maps (termasuk link pendek <code>maps.app.goo.gl</code>) untuk mengisi Latitude & Longitude secara otomatis.
+                            </p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Latitude</label>
@@ -895,6 +1096,41 @@ export default function Employees() {
                             </span>
                         </div>
 
+                        {/* SAKELAR VALIDASI HARDWARE (Standar POOOS) */}
+                        <div className="pt-2 border-t border-[#1a1a1a] space-y-2.5">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <ShieldAlert className="w-3.5 h-3.5 text-[#00ff66]" /> Sakelar Validasi Hardware & Keamanan Absensi
+                            </h4>
+                            <label className="flex items-start gap-3 p-3 rounded-xl bg-[#141414] border border-[#222222] cursor-pointer hover:border-[#333333] transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={venueGpsForm.enableGpsValidation}
+                                    onChange={e => setVenueGpsForm(prev => ({ ...prev, enableGpsValidation: e.target.checked }))}
+                                    className="w-4 h-4 accent-[#00ff66] rounded mt-0.5"
+                                />
+                                <div>
+                                    <span className="text-xs font-bold text-white block">Wajibkan Validasi Radius GPS</span>
+                                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                                        Tolak Clock-In jika karyawan berada di luar radius meter outlet yang ditentukan.
+                                    </span>
+                                </div>
+                            </label>
+                            <label className="flex items-start gap-3 p-3 rounded-xl bg-[#141414] border border-[#222222] cursor-pointer hover:border-[#333333] transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={venueGpsForm.enableCameraPhoto}
+                                    onChange={e => setVenueGpsForm(prev => ({ ...prev, enableCameraPhoto: e.target.checked }))}
+                                    className="w-4 h-4 accent-[#00ff66] rounded mt-0.5"
+                                />
+                                <div>
+                                    <span className="text-xs font-bold text-white block">Wajibkan Foto Selfie Kamera</span>
+                                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                                        Karyawan wajib mengambil foto selfie kamera saat melakukan absensi dari aplikasi HP.
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+
                         <div className="flex gap-3 pt-2">
                             <button
                                 onClick={handleDetectCurrentLocation}
@@ -907,7 +1143,7 @@ export default function Employees() {
                                 disabled={gpsSaving}
                                 className="flex-1 py-2.5 rounded-xl bg-[#00ff66] text-black font-extrabold text-xs hover:opacity-90 transition-all glow-neon shadow-lg"
                             >
-                                {gpsSaving ? 'Menyimpan...' : gpsSuccess ? 'Tersimpan!' : 'Simpan Koordinat GPS'}
+                                {gpsSaving ? 'Menyimpan...' : gpsSuccess ? 'Tersimpan!' : 'Simpan Pengaturan Lokasi & Hardware'}
                             </button>
                         </div>
                     </div>
@@ -1506,6 +1742,217 @@ export default function Employees() {
                             >
                                 {isSavingJobdesk ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                                 <span>Simpan SOP Staf</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Terminal PIN Absensi Kasir (Standar POOOS ClockInModal) */}
+            {isPinModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#141414] border border-[#222222] rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl">
+                        <div className="bg-gradient-to-br from-[#0066ff] to-[#003399] text-white p-5 relative flex flex-col items-center text-center">
+                            <button
+                                type="button"
+                                onClick={() => setIsPinModalOpen(false)}
+                                disabled={pinLoading}
+                                className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center mb-2">
+                                <Fingerprint className="w-7 h-7 text-white" />
+                            </div>
+                            <h3 className="text-base font-extrabold">Terminal Absensi Staf</h3>
+                            <p className="text-[11px] text-blue-100 mt-0.5">Masukkan PIN Akses Anda untuk Masuk / Pulang</p>
+                        </div>
+
+                        <div className="p-5 space-y-4 flex flex-col items-center">
+                            <div className="flex gap-2.5 justify-center py-1">
+                                {[...Array(6)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className={`w-3.5 h-3.5 rounded-full transition-all ${
+                                            i < pinInput.length ? 'bg-[#00ff66] scale-110 shadow-md shadow-[#00ff66]/40' : 'bg-[#2a2a2a]'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+
+                            {pinStatusMsg && (
+                                <div className={`w-full p-2.5 rounded-xl text-xs font-bold text-center border ${
+                                    pinStatusMsg.type === 'success'
+                                        ? 'bg-[#00ff66]/10 border-[#00ff66]/30 text-[#00ff66]'
+                                        : 'bg-red-500/10 border-red-500/30 text-red-400'
+                                }`}>
+                                    {pinStatusMsg.text}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-2.5 w-full max-w-[240px]">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                                    <button
+                                        key={num}
+                                        type="button"
+                                        disabled={pinLoading}
+                                        onClick={() => {
+                                            if (pinInput.length < 6) {
+                                                setPinInput(prev => prev + String(num));
+                                                setPinStatusMsg(null);
+                                            }
+                                        }}
+                                        className="h-12 rounded-2xl bg-[#0a0a0a] border border-[#222222] hover:border-[#00e5ff] text-white font-black text-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                                    >
+                                        {num}
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    disabled={pinLoading}
+                                    onClick={() => {
+                                        setPinInput(prev => prev.slice(0, -1));
+                                        setPinStatusMsg(null);
+                                    }}
+                                    className="h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 font-bold flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <Delete className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={pinLoading}
+                                    onClick={() => {
+                                        if (pinInput.length < 6) {
+                                            setPinInput(prev => prev + '0');
+                                            setPinStatusMsg(null);
+                                        }
+                                    }}
+                                    className="h-12 rounded-2xl bg-[#0a0a0a] border border-[#222222] hover:border-[#00e5ff] text-white font-black text-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                                >
+                                    0
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={pinLoading}
+                                    onClick={() => setPinInput('')}
+                                    className="h-12 rounded-2xl bg-[#222222] text-gray-400 font-bold text-xs uppercase flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                                >
+                                    C
+                                </button>
+                            </div>
+
+                            <div className="flex w-full gap-2.5 pt-1">
+                                <button
+                                    type="button"
+                                    disabled={pinInput.length < 4 || pinLoading}
+                                    onClick={() => handlePinClock('IN')}
+                                    className="flex-1 py-3 rounded-xl bg-[#00ff66] text-black font-black text-xs flex items-center justify-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <LogIn className="w-4 h-4" /> MASUK (IN)
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={pinInput.length < 4 || pinLoading}
+                                    onClick={() => handlePinClock('OUT')}
+                                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-xs flex items-center justify-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <LogOut className="w-4 h-4" /> PULANG (OUT)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Koreksi Presensi Staf oleh Admin (Standar POOOS) */}
+            {isAdjustModalOpen && editingAttendance && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#141414] border border-[#222222] p-6 rounded-3xl max-w-md w-full space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-[#222222] pb-3">
+                            <div>
+                                <h3 className="font-extrabold text-white text-base">Koreksi Presensi Staf</h3>
+                                <p className="text-xs text-gray-400">
+                                    {editingAttendance.employee?.name || editingAttendance.employeeName} • {selectedDate}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsAdjustModalOpen(false)}
+                                className="w-8 h-8 rounded-full bg-[#222222] text-gray-400 hover:text-white flex items-center justify-center"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Jam Masuk (IN)</label>
+                                <input
+                                    type="time"
+                                    value={adjustForm.checkInTime}
+                                    onChange={e => setAdjustForm(prev => ({ ...prev, checkInTime: e.target.value }))}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Jam Pulang (OUT)</label>
+                                <input
+                                    type="time"
+                                    value={adjustForm.checkOutTime}
+                                    onChange={e => setAdjustForm(prev => ({ ...prev, checkOutTime: e.target.value }))}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Status Kehadiran</label>
+                                <select
+                                    value={adjustForm.status}
+                                    onChange={e => setAdjustForm(prev => ({ ...prev, status: e.target.value }))}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white"
+                                >
+                                    <option value="PRESENT">Tepat Waktu (PRESENT)</option>
+                                    <option value="LATE">Terlambat (LATE)</option>
+                                    <option value="SICK">Sakit (SICK)</option>
+                                    <option value="LEAVE">Izin / Cuti (LEAVE)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Menit Terlambat</label>
+                                <input
+                                    type="number"
+                                    value={adjustForm.lateMinutes}
+                                    onChange={e => setAdjustForm(prev => ({ ...prev, lateMinutes: parseInt(e.target.value) || 0 }))}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Catatan Koreksi</label>
+                            <input
+                                type="text"
+                                value={adjustForm.notes}
+                                onChange={e => setAdjustForm(prev => ({ ...prev, notes: e.target.value }))}
+                                placeholder="Alasan koreksi jam/status..."
+                                className="w-full bg-[#0a0a0a] border border-[#222222] rounded-xl px-3.5 py-2.5 text-xs text-white"
+                            />
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={() => setIsAdjustModalOpen(false)}
+                                className="flex-1 py-2.5 rounded-xl bg-[#222222] text-xs font-bold text-gray-300 hover:bg-[#333333]"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleSaveAdjust}
+                                disabled={savingAdjust}
+                                className="flex-1 py-2.5 rounded-xl bg-[#00ff66] text-black font-extrabold text-xs hover:opacity-90 transition-all"
+                            >
+                                {savingAdjust ? 'Menyimpan...' : 'Simpan Koreksi'}
                             </button>
                         </div>
                     </div>

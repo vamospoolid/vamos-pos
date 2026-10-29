@@ -43,6 +43,9 @@ export default function BracketPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [bracketFilter, setBracketFilter] = useState<"ALL" | "Q1" | "Q2" | "Q3" | "Q4" | "R16" | "FINALS">("ALL");
+  const [tournamentTables, setTournamentTables] = useState<any[]>([]);
+  const [isAssigningTable, setIsAssigningTable] = useState(false);
   const [bracketMode, setBracketMode] = useState<"DUAL_WING" | "LINEAR" | "LIST">("DUAL_WING");
   const [activeBracketType, setActiveBracketType] = useState<"WINNERS" | "LOSERS">("WINNERS");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -456,27 +459,53 @@ export default function BracketPage() {
     );
   };
 
-  // Prepare rounds for Dual-Wing representation
-  const r1 = roundMap[1] || [];
-  const r2 = roundMap[2] || [];
-  const r3 = roundMap[3] || [];
-  const r4 = roundMap[4] || [];
-  const r5 = roundMap[5] || [];
+  // Dynamic rounds calculation
+  const maxRound = Math.max(1, ...roundsList);
+  const qfRoundNum = Math.max(1, maxRound - 2);
+  const r16RoundNum = Math.max(1, maxRound - 3);
 
-  // Left Wing
-  const leftR1 = r1.slice(0, Math.ceil(r1.length / 2));
-  const leftR2 = r2.slice(0, Math.ceil(r2.length / 2));
-  const leftR3 = r3.slice(0, Math.ceil(r3.length / 2));
-  const leftSF = r4[0];
+  // Helper filter function
+  const filterMatch = (m: Match) => {
+    if (bracketFilter === "ALL") return true;
+    const totalR1 = (roundMap[1] || []).length;
+    const qSize = Math.max(1, Math.floor(totalR1 / 4));
 
-  // Center (Grand Final)
-  const finalMatch = r5[0];
+    if (bracketFilter === "FINALS") {
+      return m.round >= qfRoundNum;
+    }
+    if (bracketFilter === "R16") {
+      return m.round >= r16RoundNum;
+    }
 
-  // Right Wing
-  const rightSF = r4[1];
-  const rightR3 = r3.slice(Math.ceil(r3.length / 2));
-  const rightR2 = r2.slice(Math.ceil(r2.length / 2));
-  const rightR1 = r1.slice(Math.ceil(r1.length / 2));
+    const matchIdx = Number(m.matchNumber) - 1;
+    if (bracketFilter === "Q1") return matchIdx < qSize * 2;
+    if (bracketFilter === "Q2") return matchIdx >= qSize * 2 && matchIdx < qSize * 4;
+    if (bracketFilter === "Q3") return matchIdx >= qSize * 4 && matchIdx < qSize * 6;
+    if (bracketFilter === "Q4") return matchIdx >= qSize * 6 && matchIdx < qSize * 8;
+    return true;
+  };
+
+  // Base rounds
+  const finalMatch = (roundMap[maxRound] || [])[0];
+  const sfMatches = roundMap[maxRound - 1] || [];
+  const leftSF = sfMatches[0];
+  const rightSF = sfMatches[1];
+
+  const qfMatches = roundMap[qfRoundNum] || [];
+  const leftQF = qfMatches.slice(0, Math.ceil(qfMatches.length / 2));
+  const rightQF = qfMatches.slice(Math.ceil(qfMatches.length / 2));
+
+  const r16Matches = roundMap[r16RoundNum] || [];
+  const leftR16 = r16Matches.slice(0, Math.ceil(r16Matches.length / 2));
+  const rightR16 = r16Matches.slice(Math.ceil(r16Matches.length / 2));
+
+  // Early rounds
+  const r1All = roundMap[1] || [];
+  const r2All = roundMap[2] || [];
+  const leftR1 = r1All.slice(0, Math.ceil(r1All.length / 2)).filter(filterMatch);
+  const rightR1 = r1All.slice(Math.ceil(r1All.length / 2)).filter(filterMatch);
+  const leftR2 = r2All.slice(0, Math.ceil(r2All.length / 2)).filter(filterMatch);
+  const rightR2 = r2All.slice(Math.ceil(r2All.length / 2)).filter(filterMatch);
 
   return (
     <div style={{
@@ -778,6 +807,89 @@ export default function BracketPage() {
         </div>
       </header>
 
+      {/* ─── BRACKET STAGE & QUADRANT FILTER TABS ─── */}
+      <div style={{
+        background: "rgba(6, 12, 24, 0.95)",
+        borderBottom: "1px solid rgba(0, 240, 255, 0.2)",
+        padding: "8px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "10px",
+        position: "sticky",
+        top: "61px",
+        zIndex: 40,
+        backdropFilter: "blur(12px)"
+      }}>
+        {/* Left: Filter Buttons */}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "10px", fontWeight: 800, color: "#64748B", textTransform: "uppercase", marginRight: "4px", letterSpacing: "0.05em" }}>
+            FILTER BAGAN:
+          </span>
+          {[
+            { id: "ALL", label: "Semua Bagan" },
+            { id: "Q1", label: "Kuadran 1 (Laga 1-16)" },
+            { id: "Q2", label: "Kuadran 2 (Laga 17-32)" },
+            { id: "Q3", label: "Kuadran 3 (Laga 33-48)" },
+            { id: "Q4", label: "Kuadran 4 (Laga 49-64)" },
+            { id: "R16", label: "🔥 16 Besar" },
+            { id: "FINALS", label: "🏆 8 Besar & Final" },
+          ].map((tab) => {
+            const isActive = bracketFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setBracketFilter(tab.id as any)}
+                style={{
+                  background: isActive
+                    ? (tab.id === "FINALS" ? "linear-gradient(135deg, #F59E0B, #D97706)" : tab.id === "R16" ? "linear-gradient(135deg, #EF4444, #DC2626)" : "linear-gradient(135deg, #00F0FF, #0066FF)")
+                    : "rgba(255, 255, 255, 0.05)",
+                  color: isActive ? (tab.id === "FINALS" || tab.id === "R16" ? "#FFFFFF" : "#040811") : "#94A3B8",
+                  border: isActive ? "none" : "1px solid rgba(255, 255, 255, 0.1)",
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: isActive ? (tab.id === "FINALS" ? "0 0 15px rgba(245, 158, 11, 0.4)" : "0 0 15px rgba(0, 240, 255, 0.35)") : "none"
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: 10 Tables Monitor Link */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 800, color: "#10B981", display: "flex", alignItems: "center", gap: "5px" }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px #10B981" }} />
+            10 MEJA TURNAMEN READY
+          </span>
+          <Link
+            href="/scoreboard"
+            style={{
+              background: "rgba(0, 240, 255, 0.15)",
+              border: "1px solid rgba(0, 240, 255, 0.4)",
+              color: "#00F0FF",
+              padding: "4px 10px",
+              borderRadius: "6px",
+              fontSize: "10px",
+              fontWeight: 800,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px"
+            }}
+          >
+            <Tv size={11} />
+            <span>Scoreboard Meja</span>
+          </Link>
+        </div>
+      </div>
+
       {/* Double Elimination Bracket Switcher Tabs */}
       {isDoubleElimination && (
         <div style={{
@@ -849,110 +961,212 @@ export default function BracketPage() {
         {/* 1. DUAL WING TREE VIEW (BAGAN POHON 2 SAYAP) */}
         {bracketMode === "DUAL_WING" && (
           <div style={{
-            minWidth: "1600px",
+            minWidth: bracketFilter === "FINALS" ? "1200px" : bracketFilter === "R16" ? "1500px" : "1800px",
             margin: "0 auto",
             display: "flex",
             flexDirection: "column",
             gap: "24px"
           }}>
-            {/* Headers Bar for Dual Wing */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "240px 240px 240px 240px 280px 240px 240px 240px 240px",
-              gap: "24px",
-              textAlign: "center",
-              fontSize: "11px",
-              fontWeight: 800,
-              fontFamily: "Montserrat",
-              color: activeBracketType === "LOSERS" ? "#F59E0B" : "#00F0FF",
-              textTransform: "uppercase"
-            }}>
-              <div>🔵 Pool A (Round 1)</div>
-              <div>Round 2 (16 Besar)</div>
-              <div>Quarter Final</div>
-              <div>Semi Final 1</div>
-              <div style={{ color: "#F59E0B" }}>🏆 Grand Final</div>
-              <div>Semi Final 2</div>
-              <div>Quarter Final</div>
-              <div>Round 2 (16 Besar)</div>
-              <div style={{ color: "#F43F5E" }}>🔴 Pool B (Round 1)</div>
-            </div>
-
-            {/* Tree Grid Row */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "240px 240px 240px 240px 280px 240px 240px 240px 240px",
-              gap: "24px",
-              alignItems: "stretch",
-            }}>
-              {/* Left Wing Column 1: Round 1 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {leftR1.map((m) => renderMatchNode(m))}
-              </div>
-
-              {/* Left Wing Column 2: Round 2 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {leftR2.map((m) => renderMatchNode(m))}
-              </div>
-
-              {/* Left Wing Column 3: Quarter Final */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {leftR3.map((m) => renderMatchNode(m))}
-              </div>
-
-              {/* Left Wing Column 4: Semi Final 1 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {renderMatchNode(leftSF)}
-              </div>
-
-              {/* CENTER COLUMN: GRAND FINAL & TROPHY */}
-              <div style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: "20px"
-              }}>
+            {/* ─── FINALS ONLY VIEW (8 BESAR, SEMIFINAL & GRAND FINAL) ─── */}
+            {bracketFilter === "FINALS" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 <div style={{
-                  background: "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(10, 20, 40, 0.95))",
-                  border: "2px solid #F59E0B",
-                  borderRadius: "20px",
-                  padding: "20px 16px",
+                  display: "grid",
+                  gridTemplateColumns: "280px 260px 340px 260px 280px",
+                  gap: "24px",
                   textAlign: "center",
-                  boxShadow: "0 0 40px rgba(245, 158, 11, 0.35)",
-                  width: "100%",
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  fontFamily: "Montserrat",
+                  color: "#F59E0B",
+                  textTransform: "uppercase"
                 }}>
-                  <Trophy size={36} style={{ color: "#F59E0B", margin: "0 auto 8px auto" }} />
-                  <div style={{ fontFamily: "Montserrat", fontSize: "14px", fontWeight: 900, color: "#F59E0B", letterSpacing: "0.05em" }}>
-                    CHAMPIONSHIP STAGE
+                  <div>⚔️ Quarter Final (Pool A)</div>
+                  <div>🔥 Semi Final 1</div>
+                  <div style={{ color: "#F59E0B", fontSize: "13px" }}>🏆 GRAND FINAL</div>
+                  <div>🔥 Semi Final 2</div>
+                  <div style={{ color: "#F43F5E" }}>⚔️ Quarter Final (Pool B)</div>
+                </div>
+
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "280px 260px 340px 260px 280px",
+                  gap: "24px",
+                  alignItems: "stretch"
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "20px" }}>
+                    {leftQF.map((m) => renderMatchNode(m))}
                   </div>
-                  <div style={{ fontSize: "11px", color: "#94A3B8", marginBottom: "16px" }}>
-                    Total Hadiah: Rp {(tournament?.prizePool || 4200000).toLocaleString('id-ID')}
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "20px" }}>
+                    {renderMatchNode(leftSF)}
                   </div>
-                  {renderMatchNode(finalMatch, true)}
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(10, 20, 40, 0.98))",
+                      border: "2px solid #F59E0B",
+                      borderRadius: "24px",
+                      padding: "24px 20px",
+                      textAlign: "center",
+                      boxShadow: "0 0 50px rgba(245, 158, 11, 0.4)",
+                      width: "100%"
+                    }}>
+                      <Trophy size={42} style={{ color: "#F59E0B", margin: "0 auto 10px auto" }} />
+                      <div style={{ fontFamily: "Montserrat", fontSize: "16px", fontWeight: 900, color: "#F59E0B", letterSpacing: "0.05em", marginBottom: "4px" }}>
+                        CHAMPIONSHIP STAGE
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#94A3B8", marginBottom: "18px" }}>
+                        Total Hadiah: Rp {(tournament?.prizePool || 3000000).toLocaleString('id-ID')}
+                      </div>
+                      {renderMatchNode(finalMatch, true)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "20px" }}>
+                    {renderMatchNode(rightSF)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "20px" }}>
+                    {rightQF.map((m) => renderMatchNode(m))}
+                  </div>
                 </div>
               </div>
+            ) : bracketFilter === "R16" ? (
+              /* ─── 16 BESAR & FINALS VIEW ─── */
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "250px 250px 240px 300px 240px 250px 250px",
+                  gap: "20px",
+                  textAlign: "center",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  fontFamily: "Montserrat",
+                  color: "#00F0FF",
+                  textTransform: "uppercase"
+                }}>
+                  <div>🔵 16 Besar (A)</div>
+                  <div>Quarter Final</div>
+                  <div>Semi Final 1</div>
+                  <div style={{ color: "#F59E0B" }}>🏆 Grand Final</div>
+                  <div>Semi Final 2</div>
+                  <div>Quarter Final</div>
+                  <div style={{ color: "#F43F5E" }}>🔴 16 Besar (B)</div>
+                </div>
 
-              {/* Right Wing Column 4: Semi Final 2 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {renderMatchNode(rightSF)}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "250px 250px 240px 300px 240px 250px 250px",
+                  gap: "20px",
+                  alignItems: "stretch"
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {leftR16.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {leftQF.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    {renderMatchNode(leftSF)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(10, 20, 40, 0.95))",
+                      border: "2px solid #F59E0B",
+                      borderRadius: "20px",
+                      padding: "20px 16px",
+                      textAlign: "center",
+                      width: "100%"
+                    }}>
+                      <Trophy size={36} style={{ color: "#F59E0B", margin: "0 auto 8px auto" }} />
+                      <div style={{ fontFamily: "Montserrat", fontSize: "14px", fontWeight: 900, color: "#F59E0B", marginBottom: "12px" }}>
+                        GRAND FINAL
+                      </div>
+                      {renderMatchNode(finalMatch, true)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    {renderMatchNode(rightSF)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {rightQF.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {rightR16.map((m) => renderMatchNode(m))}
+                  </div>
+                </div>
               </div>
+            ) : (
+              /* ─── FULL DUAL WING OR QUADRANT VIEW ─── */
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "240px 240px 240px 240px 280px 240px 240px 240px 240px",
+                  gap: "24px",
+                  textAlign: "center",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  fontFamily: "Montserrat",
+                  color: activeBracketType === "LOSERS" ? "#F59E0B" : "#00F0FF",
+                  textTransform: "uppercase"
+                }}>
+                  <div>🔵 Pool A (Round 1)</div>
+                  <div>Round 2</div>
+                  <div>Quarter Final</div>
+                  <div>Semi Final 1</div>
+                  <div style={{ color: "#F59E0B" }}>🏆 Grand Final</div>
+                  <div>Semi Final 2</div>
+                  <div>Quarter Final</div>
+                  <div>Round 2</div>
+                  <div style={{ color: "#F43F5E" }}>🔴 Pool B (Round 1)</div>
+                </div>
 
-              {/* Right Wing Column 3: Quarter Final */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {rightR3.map((m) => renderMatchNode(m))}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "240px 240px 240px 240px 280px 240px 240px 240px 240px",
+                  gap: "24px",
+                  alignItems: "stretch"
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {leftR1.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {leftR2.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {leftQF.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    {renderMatchNode(leftSF)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(10, 20, 40, 0.95))",
+                      border: "2px solid #F59E0B",
+                      borderRadius: "20px",
+                      padding: "20px 16px",
+                      textAlign: "center",
+                      width: "100%"
+                    }}>
+                      <Trophy size={36} style={{ color: "#F59E0B", margin: "0 auto 8px auto" }} />
+                      <div style={{ fontFamily: "Montserrat", fontSize: "14px", fontWeight: 900, color: "#F59E0B", marginBottom: "12px" }}>
+                        CHAMPIONSHIP STAGE
+                      </div>
+                      {renderMatchNode(finalMatch, true)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    {renderMatchNode(rightSF)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {rightQF.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {rightR2.map((m) => renderMatchNode(m))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
+                    {rightR1.map((m) => renderMatchNode(m))}
+                  </div>
+                </div>
               </div>
-
-              {/* Right Wing Column 2: Round 2 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {rightR2.map((m) => renderMatchNode(m))}
-              </div>
-
-              {/* Right Wing Column 1: Round 1 */}
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", gap: "16px" }}>
-                {rightR1.map((m) => renderMatchNode(m))}
-              </div>
-            </div>
+            )}
           </div>
         )}
 

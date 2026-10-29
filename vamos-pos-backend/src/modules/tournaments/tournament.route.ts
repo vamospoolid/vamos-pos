@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { createTournament, getTournaments, getTournamentById, registerParticipant, importParticipants, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, reshuffleBracket, updateParticipant } from './tournament.controller';
+import { createTournament, getTournaments, getTournamentById, getTournamentTables, assignMatchTable, registerParticipant, importParticipants, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, reshuffleBracket, updateParticipant } from './tournament.controller';
 import { generateTournamentPromo, analyzePromoImage } from './tournament.creative.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
@@ -10,6 +10,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 // Public tournament viewing (Read-Only for spectators and live audience)
 router.get('/', getTournaments);
 router.get('/:id', getTournamentById);
+router.get('/:id/tables', getTournamentTables);
+
+// Match table assignment & score update from scoreboard/bracket
+router.put('/matches/:matchId/table', assignMatchTable);
+router.put('/matches/:matchId', updateMatchResult);
 
 router.use(authenticate);
 

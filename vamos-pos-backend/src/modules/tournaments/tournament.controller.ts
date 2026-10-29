@@ -81,6 +81,19 @@ export const updateMatchResult = catchAsync(async (req: AuthRequest, res: Respon
     res.json({ success: true, data: dt });
 });
 
+export const assignMatchTable = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { matchId } = req.params;
+    const dt = await TournamentService.assignMatchTable(matchId, req.body as any);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: dt });
+});
+
+export const getTournamentTables = catchAsync(async (req: any, res: Response) => {
+    const { id } = req.params;
+    const dt = await TournamentService.getTournamentTables(id);
+    res.json({ success: true, data: dt });
+});
+
 export const updateMatchPlayers = catchAsync(async (req: AuthRequest, res: Response) => {
     const { matchId } = req.params;
     const dt = await TournamentService.updateMatchPlayers(matchId, req.body as any);

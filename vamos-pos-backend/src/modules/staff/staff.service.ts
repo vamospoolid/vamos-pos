@@ -28,6 +28,11 @@ export class StaffService {
                 targetDays: 30,
                 bonusAmount: 150000,
                 allowedAbsenceQuota: 2
+            },
+            attendanceHardware: {
+                enableGpsValidation: true,
+                enableCameraPhoto: true,
+                googleMapsUrl: ''
             }
         };
 
@@ -37,7 +42,8 @@ export class StaffService {
                 const parsed = JSON.parse(content);
                 return {
                     dailyOmzetTiers: parsed.dailyOmzetTiers || defaultConfig.dailyOmzetTiers,
-                    disciplineBonus: parsed.disciplineBonus || defaultConfig.disciplineBonus
+                    disciplineBonus: parsed.disciplineBonus || defaultConfig.disciplineBonus,
+                    attendanceHardware: parsed.attendanceHardware ? { ...defaultConfig.attendanceHardware, ...parsed.attendanceHardware } : defaultConfig.attendanceHardware
                 };
             }
         } catch (e) {
@@ -59,7 +65,8 @@ export class StaffService {
         const current = this.getBonusConfig();
         const updated = {
             dailyOmzetTiers: Array.isArray(config.dailyOmzetTiers) ? config.dailyOmzetTiers : current.dailyOmzetTiers,
-            disciplineBonus: config.disciplineBonus ? { ...current.disciplineBonus, ...config.disciplineBonus } : current.disciplineBonus
+            disciplineBonus: config.disciplineBonus ? { ...current.disciplineBonus, ...config.disciplineBonus } : current.disciplineBonus,
+            attendanceHardware: config.attendanceHardware ? { ...current.attendanceHardware, ...config.attendanceHardware } : current.attendanceHardware
         };
         fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
         return updated;
@@ -135,13 +142,33 @@ export class StaffService {
     }
 
     /**
-     * Update Venue Coordinates & Geofencing Radius dari POS Kasir
+     * Update Venue Coordinates, Geofencing Radius & Hardware Validation Toggles dari POS Kasir
      */
-    static async updateVenueLocation(data: { latitude: number; longitude: number; radiusMeters?: number }) {
+    static async updateVenueLocation(data: {
+        latitude: number;
+        longitude: number;
+        radiusMeters?: number;
+        enableGpsValidation?: boolean;
+        enableCameraPhoto?: boolean;
+        googleMapsUrl?: string;
+    }) {
         const venue = await prisma.venue.findFirst({ where: { deletedAt: null } });
         if (!venue) throw new AppError('Venue tidak ditemukan', 404);
 
-        return prisma.venue.update({
+        // Simpan juga toggle hardware di bonus-config.json agar non-destruktif terhadap skema DB
+        if (data.enableGpsValidation !== undefined || data.enableCameraPhoto !== undefined || data.googleMapsUrl !== undefined) {
+            const currentConfig = this.getBonusConfig();
+            this.updateBonusConfig({
+                ...currentConfig,
+                attendanceHardware: {
+                    enableGpsValidation: data.enableGpsValidation !== undefined ? Boolean(data.enableGpsValidation) : currentConfig.attendanceHardware.enableGpsValidation,
+                    enableCameraPhoto: data.enableCameraPhoto !== undefined ? Boolean(data.enableCameraPhoto) : currentConfig.attendanceHardware.enableCameraPhoto,
+                    googleMapsUrl: data.googleMapsUrl !== undefined ? String(data.googleMapsUrl) : currentConfig.attendanceHardware.googleMapsUrl
+                }
+            });
+        }
+
+        const updatedVenue = await prisma.venue.update({
             where: { id: venue.id },
             data: {
                 latitude: data.latitude,
@@ -149,21 +176,76 @@ export class StaffService {
                 attendanceRadiusMeters: data.radiusMeters || venue.attendanceRadiusMeters
             }
         });
+
+        const hw = this.getBonusConfig().attendanceHardware;
+        return {
+            ...updatedVenue,
+            radiusMeters: updatedVenue.attendanceRadiusMeters,
+            enableGpsValidation: hw.enableGpsValidation,
+            enableCameraPhoto: hw.enableCameraPhoto,
+            googleMapsUrl: hw.googleMapsUrl
+        };
     }
 
     /**
-     * Get Venue info for GPS Geofencing
+     * Resolve Koordinat Latitude & Longitude dari Link Google Maps (termasuk maps.app.goo.gl)
+     */
+    static async resolveGoogleMapsUrl(url: string) {
+        if (!url || !url.trim()) {
+            throw new AppError('Tautan Google Maps wajib diisi', 400);
+        }
+
+        let targetUrl = url.trim();
+        try {
+            // Ikuti redirect jika menggunakan shortlink maps.app.goo.gl / goo.gl
+            if (targetUrl.includes('goo.gl') || targetUrl.includes('bit.ly')) {
+                const response = await fetch(targetUrl, { method: 'GET', redirect: 'follow' });
+                if (response.url) {
+                    targetUrl = response.url;
+                }
+            }
+        } catch (e) {
+            console.warn('Redirect resolution warning:', e);
+        }
+
+        // Pattern 1: @lat,lng (e.g. @-3.4028794,119.213115)
+        const atMatch = targetUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (atMatch) {
+            return { latitude: parseFloat(atMatch[1]), longitude: parseFloat(atMatch[2]), resolvedUrl: targetUrl };
+        }
+
+        // Pattern 2: !3dlat!4dlng
+        const bangMatch = targetUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+        if (bangMatch) {
+            return { latitude: parseFloat(bangMatch[1]), longitude: parseFloat(bangMatch[2]), resolvedUrl: targetUrl };
+        }
+
+        // Pattern 3: ?q=lat,lng atau query=lat,lng
+        const queryMatch = targetUrl.match(/[?&](?:q|query|ll)=(-?\d+\.\d+)(?:%2C|,)(-?\d+\.\d+)/i);
+        if (queryMatch) {
+            return { latitude: parseFloat(queryMatch[1]), longitude: parseFloat(queryMatch[2]), resolvedUrl: targetUrl };
+        }
+
+        throw new AppError('Tidak dapat menemukan titik koordinat dari tautan tersebut. Pastikan tautan berasal dari Google Maps.', 400);
+    }
+
+    /**
+     * Get Venue info for GPS Geofencing & Hardware Toggles
      */
     static async getVenueLocation() {
         const venue = await prisma.venue.findFirst({
             where: { deletedAt: null }
         });
+        const hw = this.getBonusConfig().attendanceHardware;
 
         return {
             name: venue?.name || 'Vamos Arena',
             latitude: venue?.latitude || -8.6500,
             longitude: venue?.longitude || 115.2166,
-            radiusMeters: venue?.attendanceRadiusMeters || 100
+            radiusMeters: venue?.attendanceRadiusMeters || 100,
+            enableGpsValidation: hw?.enableGpsValidation ?? true,
+            enableCameraPhoto: hw?.enableCameraPhoto ?? true,
+            googleMapsUrl: hw?.googleMapsUrl || ''
         };
     }
 
@@ -186,14 +268,16 @@ export class StaffService {
     }
 
     /**
-     * Check-in Attendance dengan Foto Selfie WebP & Validasi GPS
+     * Check-in Attendance dengan Foto Selfie WebP, Validasi GPS, Pilihan Shift & Atomic Transaction (Standar POOOS)
      */
     static async checkIn(data: {
         employeeId: string;
+        shiftId?: string;
         photoBase64?: string;
         lat?: number;
         lng?: number;
         notes?: string;
+        channel?: string;
     }) {
         const employee = await prisma.employee.findFirst({
             where: { id: data.employeeId, deletedAt: null },
@@ -202,57 +286,48 @@ export class StaffService {
 
         if (!employee) throw new AppError('Karyawan tidak ditemukan', 404);
 
-        // Verifikasi GPS Radius jika venue memiliki konfigurasi lokasi
         const venue = await this.getVenueLocation();
+        const isPosTerminal = data.channel === 'POS_TERMINAL';
+        const enableGps = venue.enableGpsValidation ?? true;
+        const enableCamera = venue.enableCameraPhoto ?? true;
+
+        // Validasi Kamera (Bypass untuk Terminal Kasir fisik seperti di POOOS)
+        if (enableCamera && !data.photoBase64 && !isPosTerminal) {
+            throw new AppError('Wajib menyertakan foto selfie bukti kehadiran.', 400);
+        }
+
+        // Verifikasi GPS Radius jika venue memiliki konfigurasi lokasi
+        let distanceIn: number | null = null;
+        let isWithinRadius = true;
+
         if (venue.latitude && venue.longitude) {
-            if (!data.lat || !data.lng) {
+            if (data.lat !== undefined && data.lng !== undefined && data.lat !== null && data.lng !== null) {
+                distanceIn = this.calculateDistanceMeters(Number(data.lat), Number(data.lng), venue.latitude, venue.longitude);
+                isWithinRadius = distanceIn <= venue.radiusMeters;
+            } else if (enableGps && !isPosTerminal) {
                 throw new AppError('Koordinat GPS wajib dikirim untuk verifikasi lokasi absensi.', 400);
             }
-            const distance = this.calculateDistanceMeters(data.lat, data.lng, venue.latitude, venue.longitude);
-            if (distance > venue.radiusMeters) {
+
+            if (enableGps && !isWithinRadius && !isPosTerminal) {
                 throw new AppError(
-                    `Anda berada ${distance}m dari venue. Absen hanya diizinkan dalam radius ${venue.radiusMeters}m.`,
+                    `Anda berada ${distanceIn}m dari venue. Absen hanya diizinkan dalam radius ${venue.radiusMeters}m.`,
                     403
                 );
             }
         }
 
-        // Cek apakah ada sesi absensi aktif yang belum checkout dalam 24 jam terakhir
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const activeAttendance = await prisma.attendance.findFirst({
-            where: {
-                employeeId: data.employeeId,
-                checkIn: { gte: twentyFourHoursAgo },
-                checkOut: null
-            }
-        });
-
-        if (activeAttendance) {
-            throw new AppError('Anda masih memiliki sesi absensi aktif yang belum checkout. Silakan lakukan absen pulang (Clock-Out) terlebih dahulu.', 400);
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const existingToday = await prisma.attendance.findFirst({
-            where: {
-                employeeId: data.employeeId,
-                date: {
-                    gte: today,
-                    lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-                }
-            }
-        });
-
-        if (existingToday && existingToday.checkOut) {
-            throw new AppError('Anda sudah menyelesaikan absensi shift hari ini', 400);
+        // Resolusi Shift (Mendukung pemilihan shift saat Clock-In atau fallback ke shift profil karyawan)
+        let activeShift = employee.shift;
+        if (data.shiftId && data.shiftId !== employee.shiftId) {
+            const customShift = await prisma.workShift.findUnique({ where: { id: data.shiftId } });
+            if (customShift) activeShift = customShift;
         }
 
         // Kalkulasi Keterlambatan berbasis Zona Waktu Lokal Outlet (Asia/Jakarta / WIB)
         let status = 'PRESENT';
         let lateMinutes = 0;
 
-        if (employee.shift) {
+        if (activeShift) {
             const venueTz = 'Asia/Jakarta';
             const localTimeStr = new Intl.DateTimeFormat('en-US', {
                 timeZone: venueTz,
@@ -264,11 +339,11 @@ export class StaffService {
             const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
             const currentTotalMinutes = currentHour * 60 + currentMinute;
 
-            const [shiftHour, shiftMinute] = employee.shift.startTime.split(':').map(Number);
+            const [shiftHour, shiftMinute] = activeShift.startTime.split(':').map(Number);
             const shiftTotalMinutes = shiftHour * 60 + shiftMinute;
 
             let diffMinutes = currentTotalMinutes - shiftTotalMinutes;
-            
+
             // Penanganan Shift Malam (Lintas Tengah Malam)
             if (diffMinutes < -720) {
                 diffMinutes += 1440;
@@ -276,7 +351,7 @@ export class StaffService {
                 diffMinutes -= 1440;
             }
 
-            if (diffMinutes > employee.shift.graceLateMinutes) {
+            if (diffMinutes > activeShift.graceLateMinutes) {
                 status = 'LATE';
                 lateMinutes = diffMinutes;
             } else {
@@ -285,24 +360,78 @@ export class StaffService {
             }
         }
 
-        return prisma.attendance.create({
-            data: {
-                employeeId: data.employeeId,
-                shiftId: employee.shiftId,
-                date: new Date(),
-                checkIn: new Date(),
-                checkInPhoto: data.photoBase64 || null,
-                checkInLat: data.lat || null,
-                checkInLng: data.lng || null,
-                status,
-                lateMinutes,
-                notes: data.notes || null
+        // Catatan tambahan jarak GPS atau Terminal POS (seperti di POOOS)
+        const noteParts: string[] = [];
+        if (data.notes) noteParts.push(data.notes);
+        if (isPosTerminal) noteParts.push('[Terminal POS]');
+        if (distanceIn !== null) {
+            noteParts.push(`[GPS: ${distanceIn}m${!isWithinRadius ? ' - Luar Radius' : ''}]`);
+        }
+        const finalNotes = noteParts.length > 0 ? noteParts.join(' ') : null;
+
+        // Atomic Clock-In dengan prisma.$transaction untuk mencegah race condition double-insert (Standar POOOS)
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const created = await prisma.$transaction(async (tx) => {
+            const activeAttendance = await tx.attendance.findFirst({
+                where: {
+                    employeeId: data.employeeId,
+                    checkIn: { gte: twentyFourHoursAgo },
+                    checkOut: null
+                },
+                orderBy: { checkIn: 'desc' }
+            });
+
+            if (activeAttendance) {
+                throw new AppError('Anda masih memiliki sesi absensi aktif yang belum checkout. Silakan lakukan absen pulang (Clock-Out) terlebih dahulu.', 400);
             }
+
+            const existingToday = await tx.attendance.findFirst({
+                where: {
+                    employeeId: data.employeeId,
+                    date: {
+                        gte: today,
+                        lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+                    }
+                },
+                orderBy: { checkIn: 'desc' }
+            });
+
+            if (existingToday && existingToday.checkOut) {
+                throw new AppError('Anda sudah menyelesaikan absensi shift hari ini', 400);
+            }
+
+            return tx.attendance.create({
+                data: {
+                    employeeId: data.employeeId,
+                    shiftId: activeShift?.id || employee.shiftId,
+                    date: new Date(),
+                    checkIn: new Date(),
+                    checkInPhoto: data.photoBase64 || null,
+                    checkInLat: data.lat || null,
+                    checkInLng: data.lng || null,
+                    status,
+                    lateMinutes,
+                    notes: finalNotes
+                },
+                include: {
+                    employee: { select: { id: true, name: true, position: true } },
+                    shift: true
+                }
+            });
         });
+
+        return {
+            ...created,
+            distanceIn,
+            isWithinRadius
+        };
     }
 
     /**
-     * Check-out Attendance
+     * Check-out Attendance (dengan Atomic Lookup Lintas Tengah Malam 24 Jam)
      */
     static async checkOut(data: {
         attendanceId?: string;
@@ -310,29 +439,187 @@ export class StaffService {
         photoBase64?: string;
         notes?: string;
     }) {
-        let attendanceId = data.attendanceId;
-        if (!attendanceId && data.employeeId) {
-            const active = await prisma.attendance.findFirst({
-                where: { employeeId: data.employeeId, checkOut: null },
-                orderBy: { checkIn: 'desc' }
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        return prisma.$transaction(async (tx) => {
+            let attendanceId = data.attendanceId;
+            if (!attendanceId && data.employeeId) {
+                const active = await tx.attendance.findFirst({
+                    where: {
+                        employeeId: data.employeeId,
+                        checkOut: null,
+                        checkIn: { gte: twentyFourHoursAgo }
+                    },
+                    orderBy: { checkIn: 'desc' }
+                });
+                if (active) attendanceId = active.id;
+            }
+
+            if (!attendanceId) throw new AppError('Anda belum melakukan Clock-In atau sesi absensi tidak ditemukan', 400);
+
+            const existing = await tx.attendance.findUnique({ where: { id: attendanceId } });
+            if (!existing) throw new AppError('Data absensi tidak ditemukan', 404);
+            if (existing.checkOut) throw new AppError('Anda sudah check-out hari ini', 400);
+
+            return tx.attendance.update({
+                where: { id: attendanceId },
+                data: {
+                    checkOut: new Date(),
+                    checkOutPhoto: data.photoBase64 || null,
+                    notes: data.notes ? `${existing.notes ? existing.notes + ' | ' : ''}Out: ${data.notes}` : existing.notes
+                },
+                include: {
+                    employee: { select: { id: true, name: true, position: true } },
+                    shift: true
+                }
             });
-            if (active) attendanceId = active.id;
+        });
+    }
+
+    /**
+     * Terminal Absensi Kasir via PIN (Standar POOOS ClockInModal - Bypass GPS & Kamera HP)
+     */
+    static async clockWithPin(data: {
+        pinCode: string;
+        type: 'IN' | 'OUT';
+        shiftId?: string;
+        notes?: string;
+    }) {
+        if (!data.pinCode || data.pinCode.trim().length < 4) {
+            throw new AppError('PIN absensi minimal 4 digit', 400);
+        }
+        if (!['IN', 'OUT'].includes(data.type)) {
+            throw new AppError('Tipe absensi tidak valid (harus IN atau OUT)', 400);
         }
 
-        if (!attendanceId) throw new AppError('ID absensi tidak ditemukan', 400);
+        const matchingEmployees = await prisma.employee.findMany({
+            where: {
+                deletedAt: null,
+                status: 'ACTIVE',
+                pinCode: data.pinCode.trim()
+            },
+            include: { shift: true }
+        });
 
-        const existing = await prisma.attendance.findUnique({ where: { id: attendanceId } });
+        if (matchingEmployees.length === 0) {
+            throw new AppError('PIN salah atau karyawan tidak ditemukan/aktif', 401);
+        }
+
+        if (matchingEmployees.length > 1) {
+            throw new AppError(
+                `PIN digunakan oleh lebih dari 1 karyawan (${matchingEmployees.map(e => e.name).join(', ')}). Harap atur PIN unik di menu Daftar Staf.`,
+                409
+            );
+        }
+
+        const emp = matchingEmployees[0];
+
+        if (data.type === 'IN') {
+            const attendance = await this.checkIn({
+                employeeId: emp.id,
+                shiftId: data.shiftId,
+                notes: data.notes,
+                channel: 'POS_TERMINAL'
+            });
+            return {
+                type: 'IN',
+                message: `Clock In Berhasil: ${emp.name} (${attendance.status === 'LATE' ? `Terlambat ${attendance.lateMinutes}m` : 'Tepat Waktu'})`,
+                attendance,
+                employee: emp
+            };
+        } else {
+            const attendance = await this.checkOut({
+                employeeId: emp.id,
+                notes: data.notes || '[Terminal POS]'
+            });
+            return {
+                type: 'OUT',
+                message: `Clock Out Berhasil: ${emp.name}`,
+                attendance,
+                employee: emp
+            };
+        }
+    }
+
+    /**
+     * Koreksi Presensi Staf oleh Admin / Owner (Standar POOOS PUT /:id/adjust)
+     */
+    static async adjustAttendance(
+        id: string,
+        data: {
+            checkIn?: string;
+            checkOut?: string | null;
+            status?: string;
+            lateMinutes?: number;
+            notes?: string;
+        }
+    ) {
+        const existing = await prisma.attendance.findUnique({ where: { id } });
         if (!existing) throw new AppError('Data absensi tidak ditemukan', 404);
-        if (existing.checkOut) throw new AppError('Anda sudah check-out hari ini', 400);
+
+        const updateData: any = {};
+        if (data.checkIn) updateData.checkIn = new Date(data.checkIn);
+        if (data.checkOut !== undefined) {
+            updateData.checkOut = data.checkOut ? new Date(data.checkOut) : null;
+        }
+        if (data.status) updateData.status = data.status;
+        if (data.lateMinutes !== undefined) updateData.lateMinutes = Number(data.lateMinutes) || 0;
+        if (data.notes !== undefined) updateData.notes = data.notes;
 
         return prisma.attendance.update({
-            where: { id: attendanceId },
-            data: {
-                checkOut: new Date(),
-                checkOutPhoto: data.photoBase64 || null,
-                notes: data.notes ? `${existing.notes ? existing.notes + ' | ' : ''}Out: ${data.notes}` : existing.notes
+            where: { id },
+            data: updateData,
+            include: {
+                employee: { select: { id: true, name: true, position: true } },
+                shift: true
             }
         });
+    }
+
+    /**
+     * Auto Cut-Off EOD: Menutup Otomatis Presensi Kemarin yang Lupa Clock-Out (Standar POOOS)
+     */
+    static async runAttendanceAutoCutoff() {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const unclosed = await prisma.attendance.findMany({
+            where: {
+                checkOut: null,
+                checkIn: { lt: todayStart }
+            }
+        });
+
+        if (unclosed.length === 0) {
+            return { count: 0, message: 'Tidak ada presensi menggantung dari hari sebelumnya.' };
+        }
+
+        for (const att of unclosed) {
+            const clockInDate = att.checkIn ? new Date(att.checkIn) : new Date(att.date);
+            const autoClockOut = new Date(clockInDate);
+            autoClockOut.setHours(22, 0, 0, 0);
+
+            if (autoClockOut <= clockInDate) {
+                autoClockOut.setTime(clockInDate.getTime() + 8 * 60 * 60 * 1000);
+            }
+
+            const autoNote = att.notes
+                ? `${att.notes} | [Auto Clock-Out: Lupa Absen Pulang]`
+                : '[Auto Clock-Out: Lupa Absen Pulang]';
+
+            await prisma.attendance.update({
+                where: { id: att.id },
+                data: {
+                    checkOut: autoClockOut,
+                    notes: autoNote
+                }
+            });
+        }
+
+        return {
+            count: unclosed.length,
+            message: `Auto Cut-off selesai. ${unclosed.length} presensi tertutup otomatis.`
+        };
     }
 
     /**
