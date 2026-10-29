@@ -1984,7 +1984,9 @@ function Dashboard({ user, onLogout }: { user: AuthUser | null, onLogout: () => 
                           <span className="font-bold font-mono text-white text-base bg-[#1a1a1a] px-3 py-1 rounded-lg border border-[#333]">Rp {(checkoutBill.tableAmount || 0).toLocaleString()}</span>
                           {checkoutBill.isVoucher && (
                             <p className="text-[9px] font-black text-purple-400 mt-1 uppercase tracking-wider">
-                              🎟️ 1 Jam Dicover Voucher Poin
+                              {(checkoutBill.tableAmount || 0) > 0
+                                ? '🎟️ 1 Jam Pertama Free (Voucher) + Tambah Jam'
+                                : '🎟️ 1 Jam Dicover Voucher Poin'}
                             </p>
                           )}
                         </div>
@@ -4185,15 +4187,17 @@ function TableCard({ table, venue, tick, onStart, onEnd, onOrderFnB, onMove, onA
               {formatDuration(table.activeSession, tick)}
               {table.activeSession.isVoucher && (
                 <div className="text-[10px] text-purple-300 text-center uppercase font-black tracking-widest mt-2 bg-purple-500/20 py-1 px-3 rounded-full border border-purple-500/40 w-full">
-                  Voucher 1 Jam Free
+                  {(table.activeSession.durationOpts || 60) > 60
+                    ? `Voucher 1 Jam + Extend (${table.activeSession.durationOpts - 60}m)`
+                    : 'Voucher 1 Jam Free'}
                 </div>
               )}
-              {isTimeUp && !table.activeSession.isVoucher && (
+              {isTimeUp && (
                 <div className="text-[10px] text-yellow-500 text-center uppercase font-black tracking-widest mt-2 bg-yellow-500/20 py-1 px-3 rounded-full border border-yellow-500/50 w-full animate-bounce">
                   Ready To Pay
                 </div>
               )}
-              {isTimeBlinking && !isTimeUp && !table.activeSession.isVoucher && (
+              {isTimeBlinking && !isTimeUp && (
                 <div className="text-[10px] text-[#00aaff] text-center uppercase font-black tracking-widest mt-2 bg-[#00aaff]/20 py-1 px-3 rounded-full border border-[#00aaff]/50 w-full animate-pulse">
                   Waktu Hampir Habis
                 </div>

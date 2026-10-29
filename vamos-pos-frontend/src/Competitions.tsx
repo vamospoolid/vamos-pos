@@ -55,6 +55,8 @@ export default function Competitions() {
     const [guestName, setGuestName] = useState('');
     const [aliasName, setAliasName] = useState('');
     const [handicap, setHandicap] = useState('');
+    const [registerSlotCount, setRegisterSlotCount] = useState<number>(1);
+    const [registerTeamTag, setRegisterTeamTag] = useState<string>('');
 
     // Team Registration Modal State
     const [isTeamRegisterModalOpen, setIsTeamRegisterModalOpen] = useState(false);
@@ -373,20 +375,46 @@ export default function Competitions() {
         setGuestName('');
         setAliasName('');
         setHandicap('');
+        setRegisterSlotCount(1);
+        setRegisterTeamTag('');
         setIsRegisterModalOpen(true);
     };
 
     const confirmRegistration = async () => {
         if (!registerTournamentId) return;
         if (registerType === 'member' && !selectedMemberId) return;
-        if (registerType === 'guest' && !guestName) return;
+        if (registerType === 'guest' && !guestName.trim()) return;
+
+        const selectedMember = members.find(m => m.id === selectedMemberId);
+        const rawBaseName = registerType === 'member'
+            ? (aliasName.trim() || selectedMember?.name || 'Member')
+            : guestName.trim();
+
+        const cleanTeam = registerTeamTag.trim().toUpperCase();
+        const hasBracketTeam = /\(.*?\)|\[.*?\]/.test(rawBaseName);
 
         try {
-            await api.post(`/tournaments/${registerTournamentId}/register`, {
-                memberId: registerType === 'member' ? selectedMemberId : undefined,
-                name: registerType === 'member' ? aliasName : guestName,
-                handicap: handicap || undefined
-            });
+            const count = Math.max(1, Math.min(4, registerSlotCount));
+            for (let i = 1; i <= count; i++) {
+                let finalName = rawBaseName;
+                if (count > 1) {
+                    // Insert slot number before any existing (TEAM) tag, or at the end
+                    if (hasBracketTeam) {
+                        finalName = rawBaseName.replace(/\s*(\(|\[)/, ` ${i} $1`);
+                    } else {
+                        finalName = `${rawBaseName} ${i}`;
+                    }
+                }
+                if (cleanTeam && !hasBracketTeam) {
+                    finalName = `${finalName} (${cleanTeam})`;
+                }
+
+                await api.post(`/tournaments/${registerTournamentId}/register`, {
+                    memberId: registerType === 'member' ? selectedMemberId : undefined,
+                    name: finalName,
+                    handicap: handicap || undefined
+                });
+            }
             setIsRegisterModalOpen(false);
             fetchData();
         } catch (err: any) {
@@ -732,37 +760,6 @@ export default function Competitions() {
             goldBorder: [250, 204, 21]
         };
 
-        // ─── 1. HEADER ───
-        doc.setFillColor(255, 255, 255);
-        doc.rect(0, 0, pageWidth, 24, 'F');
-
-        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.setLineWidth(0.8);
-        doc.line(12, 22, pageWidth - 12, 22);
-
-        // Left: Brand
-        doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text("VAMOS", 12, 14);
-
-        doc.setFontSize(8);
-        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.text("SMART ARENA POOL & CAFE", 42, 14);
-
-        // Right: Tournament Info
-        doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.text(tournament.name.toUpperCase(), pageWidth - 12, 12, { align: 'right' });
-
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-        const dateStr = tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'UNDEFINED';
-        doc.text(`${tournament.venue?.toUpperCase() || 'VAMOS SMART ARENA'} • ${dateStr.toUpperCase()} • ${tournament.participants?.length || 32} PLAYERS`, pageWidth - 12, 18, { align: 'right' });
-
-        // ─── 2. SEPARATE MATCHES INTO POOL A (LEFT) & POOL B (RIGHT) ───
         const round1Matches = (tournament.matches || [])
             .filter((m: any) => Number(m.round) === 1)
             .sort((a: any, b: any) => Number(a.matchNumber) - Number(b.matchNumber));
@@ -772,255 +769,312 @@ export default function Competitions() {
             return;
         }
 
-        const totalR1 = round1Matches.length;
-        const halfR1 = Math.ceil(totalR1 / 2);
-
-        const startY = 32;
-        const availableHeight = pageHeight - startY - 14; // ~164mm
-        const cardHeight = totalR1 <= 8 ? 14 : 12;
-        const cardWidth = totalR1 <= 8 ? 48 : 42;
-
-        // Pool A Header (Left)
-        doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.roundedRect(12, startY - 6, 88, 4.5, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text("POOL A • BAGAN ATAS", 56, startY - 3, { align: 'center' });
-
-        // Pool B Header (Right)
-        doc.setFillColor(225, 29, 72); // Rose/Red
-        doc.roundedRect(pageWidth - 100, startY - 6, 88, 4.5, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text("POOL B • BAGAN BAWAH", pageWidth - 56, startY - 3, { align: 'center' });
-
-        // Center Grand Final Header
-        doc.setFillColor(234, 179, 8); // Gold
-        doc.roundedRect(pageWidth / 2 - 22, startY - 6, 44, 4.5, 1, 1, 'F');
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text("🏆 GRAND FINAL", pageWidth / 2, startY - 3, { align: 'center' });
-
         const getParticipant = (pId: string | undefined) => {
             if (!pId) return null;
             return (tournament.participants || []).find((pt: any) => pt.id === pId) || null;
         };
 
-        const drawMatchBox = (m: any, x: number, y: number, width = cardWidth, height = cardHeight, isFinal = false) => {
-            doc.setDrawColor(isFinal ? colors.goldBorder[0] : colors.border[0], isFinal ? colors.goldBorder[1] : colors.border[1], isFinal ? colors.goldBorder[2] : colors.border[2]);
-            doc.setLineWidth(isFinal ? 0.4 : 0.2);
-            doc.setFillColor(isFinal ? colors.goldBg[0] : 255, isFinal ? colors.goldBg[1] : 255, isFinal ? colors.goldBg[2] : 255);
-            doc.roundedRect(x, y, width, height, 0.8, 0.8, 'FD');
-
-            const p1 = getParticipant(m?.player1Id);
-            const p2 = getParticipant(m?.player2Id);
-            const p1Name = p1 ? (p1.name || p1.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
-            const p2Name = p2 ? (p2.name || p2.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
-            const p1HC = p1?.handicap ? `[${p1.handicap}]` : '';
-            const p2HC = p2?.handicap ? `[${p2.handicap}]` : '';
-
-            const p1Score = m?.score1 ?? 0;
-            const p2Score = m?.score2 ?? 0;
-            const p1Winner = m?.winnerId && m?.winnerId === m?.player1Id;
-            const p2Winner = m?.winnerId && m?.winnerId === m?.player2Id;
-
-            // Player 1 line
-            doc.setFontSize(6.5);
-            doc.setFont('helvetica', p1Winner ? 'bold' : 'normal');
-            doc.setTextColor(p1Winner ? colors.winner[0] : colors.secondary[0], p1Winner ? colors.winner[1] : colors.secondary[1], p1Winner ? colors.winner[2] : colors.secondary[2]);
-            let d1 = p1Name.toUpperCase();
-            if (d1.length > 17) d1 = d1.substring(0, 15) + '..';
-            doc.text(d1, x + 2, y + 4.2);
-            if (p1HC) {
-                doc.setFontSize(5);
-                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                doc.text(p1HC, x + width - 6.5, y + 4.2, { align: 'right' });
-            }
-            doc.setFontSize(6.5);
-            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-            doc.text(String(p1Score), x + width - 2, y + 4.2, { align: 'right' });
-
-            // Divider
-            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-            doc.setLineWidth(0.15);
-            doc.line(x + 1.5, y + 6, x + width - 1.5, y + 6);
-
-            // Player 2 line
-            doc.setFontSize(6.5);
-            doc.setFont('helvetica', p2Winner ? 'bold' : 'normal');
-            doc.setTextColor(p2Winner ? colors.winner[0] : colors.secondary[0], p2Winner ? colors.winner[1] : colors.secondary[1], p2Winner ? colors.winner[2] : colors.secondary[2]);
-            let d2 = p2Name.toUpperCase();
-            if (d2.length > 17) d2 = d2.substring(0, 15) + '..';
-            doc.text(d2, x + 2, y + 10);
-            if (p2HC) {
-                doc.setFontSize(5);
-                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                doc.text(p2HC, x + width - 6.5, y + 10, { align: 'right' });
-            }
-            doc.setFontSize(6.5);
-            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-            doc.text(String(p2Score), x + width - 2, y + 10, { align: 'right' });
-
-            // Match number badge
-            if (m?.matchNumber) {
-                doc.setFillColor(colors.cardHeader[0], colors.cardHeader[1], colors.cardHeader[2]);
-                doc.rect(x + width - 7, y, 7, 2.5, 'F');
-                doc.setFontSize(4);
-                doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                doc.text(`#${m.matchNumber}`, x + width - 3.5, y + 1.8, { align: 'center' });
-            }
-        };
-
-        const leftMatches = round1Matches.slice(0, halfR1);
-        const rightMatches = round1Matches.slice(halfR1);
-        const r1Spacing = availableHeight / halfR1;
-
-        const leftPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
-        const rightPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
-
-        // 1. Left Wing - Round 1 (x=12)
-        leftMatches.forEach((m: any, idx: number) => {
-            const x = 12;
-            const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
-            leftPos[`1_${idx}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
-            drawMatchBox(m, x, y);
-        });
-
-        // 2. Left Wing - Round 2 (x=52, 4 matches if 32 players, 2 if 16 players)
-        const leftR2Count = Math.max(1, Math.floor(halfR1 / 2));
-        for (let i = 0; i < leftR2Count; i++) {
-            const x = 52;
-            const m1Y = leftPos[`1_${i * 2}`].cy;
-            const m2Y = leftPos[`1_${i * 2 + 1}`].cy;
-            const y = (m1Y + m2Y) / 2 - cardHeight / 2;
-            leftPos[`2_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
-            drawMatchBox(null, x, y);
-
-            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-            doc.setLineWidth(0.3);
-            const midX = (leftPos[`1_${i * 2}`].cx + x) / 2;
-            doc.line(leftPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
-            doc.line(leftPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
-            doc.line(midX, m1Y, midX, m2Y);
-            doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
+        const dateStr = tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'UNDEFINED';
+        const totalR1All = round1Matches.length;
+        // Split into chunks of at most 16 Round-1 matches (32 players) per page so 64 & 128-slot brackets print clearly
+        const chunkSize = 16;
+        const chunks: any[][] = [];
+        for (let c = 0; c < totalR1All; c += chunkSize) {
+            chunks.push(round1Matches.slice(c, c + chunkSize));
         }
 
-        // 3. Left Wing - Quarter Final (x=92, 2 matches if 32 players)
-        const leftQFCount = Math.max(1, Math.floor(leftR2Count / 2));
-        if (halfR1 >= 8) {
-            for (let i = 0; i < leftQFCount; i++) {
-                const x = 92;
-                const m1Y = leftPos[`2_${i * 2}`].cy;
-                const m2Y = leftPos[`2_${i * 2 + 1}`].cy;
+        chunks.forEach((chunkMatches, pageIdx) => {
+            if (pageIdx > 0) {
+                doc.addPage('a4', 'landscape');
+            }
+
+            // ─── 1. HEADER ───
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, pageWidth, 24, 'F');
+
+            doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+            doc.setLineWidth(0.8);
+            doc.line(12, 22, pageWidth - 12, 22);
+
+            // Left: Brand
+            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text("VAMOS", 12, 14);
+
+            doc.setFontSize(8);
+            doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+            doc.text("SMART ARENA POOL & CAFE", 42, 14);
+
+            // Right: Tournament Info
+            doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            const pageSuffix = chunks.length > 1 ? ` — KUADRAN ${pageIdx + 1}/${chunks.length}` : '';
+            doc.text(`${tournament.name.toUpperCase()}${pageSuffix}`, pageWidth - 12, 12, { align: 'right' });
+
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+            doc.text(`${tournament.venue?.toUpperCase() || 'VAMOS SMART ARENA'} • ${dateStr.toUpperCase()} • ${tournament.participants?.length || totalR1All * 2} PLAYERS`, pageWidth - 12, 18, { align: 'right' });
+
+            const totalR1 = chunkMatches.length;
+            const halfR1 = Math.max(1, Math.ceil(totalR1 / 2));
+
+            const startY = 32;
+            const availableHeight = pageHeight - startY - 14; // ~164mm
+            const cardHeight = totalR1 <= 8 ? 14 : 12;
+            const cardWidth = totalR1 <= 8 ? 48 : 42;
+
+            const leftHeaderLabel = chunks.length > 1
+                ? `KUADRAN ${pageIdx + 1} • BLOK ATAS (MATCH #${chunkMatches[0]?.matchNumber || 1}–#${chunkMatches[halfR1 - 1]?.matchNumber || halfR1})`
+                : "POOL A • BAGAN ATAS";
+            const rightHeaderLabel = chunks.length > 1
+                ? `KUADRAN ${pageIdx + 1} • BLOK BAWAH (MATCH #${chunkMatches[halfR1]?.matchNumber || halfR1 + 1}–#${chunkMatches[totalR1 - 1]?.matchNumber || totalR1})`
+                : "POOL B • BAGAN BAWAH";
+            const centerHeaderLabel = chunks.length === 4
+                ? `⚔️ 8 BESAR (QF #${pageIdx + 1})`
+                : chunks.length === 2
+                    ? `⚔️ SEMIFINAL #${pageIdx + 1}`
+                    : "🏆 GRAND FINAL";
+
+            // Left Wing Header
+            doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+            doc.roundedRect(12, startY - 6, 88, 4.5, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text(leftHeaderLabel, 56, startY - 3, { align: 'center' });
+
+            // Right Wing Header
+            doc.setFillColor(225, 29, 72); // Rose/Red
+            doc.roundedRect(pageWidth - 100, startY - 6, 88, 4.5, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text(rightHeaderLabel, pageWidth - 56, startY - 3, { align: 'center' });
+
+            // Center Stage Header
+            doc.setFillColor(234, 179, 8); // Gold
+            doc.roundedRect(pageWidth / 2 - 24, startY - 6, 48, 4.5, 1, 1, 'F');
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text(centerHeaderLabel, pageWidth / 2, startY - 3, { align: 'center' });
+
+            const drawMatchBox = (m: any, x: number, y: number, width = cardWidth, height = cardHeight, isFinal = false) => {
+                doc.setDrawColor(isFinal ? colors.goldBorder[0] : colors.border[0], isFinal ? colors.goldBorder[1] : colors.border[1], isFinal ? colors.goldBorder[2] : colors.border[2]);
+                doc.setLineWidth(isFinal ? 0.4 : 0.2);
+                doc.setFillColor(isFinal ? colors.goldBg[0] : 255, isFinal ? colors.goldBg[1] : 255, isFinal ? colors.goldBg[2] : 255);
+                doc.roundedRect(x, y, width, height, 0.8, 0.8, 'FD');
+
+                const p1 = getParticipant(m?.player1Id);
+                const p2 = getParticipant(m?.player2Id);
+                const p1Name = p1 ? (p1.name || p1.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
+                const p2Name = p2 ? (p2.name || p2.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
+                const p1HC = p1?.handicap ? `[${p1.handicap}]` : '';
+                const p2HC = p2?.handicap ? `[${p2.handicap}]` : '';
+
+                const p1Score = m?.score1 ?? 0;
+                const p2Score = m?.score2 ?? 0;
+                const p1Winner = m?.winnerId && m?.winnerId === m?.player1Id;
+                const p2Winner = m?.winnerId && m?.winnerId === m?.player2Id;
+
+                // Player 1 line
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', p1Winner ? 'bold' : 'normal');
+                doc.setTextColor(p1Winner ? colors.winner[0] : colors.secondary[0], p1Winner ? colors.winner[1] : colors.secondary[1], p1Winner ? colors.winner[2] : colors.secondary[2]);
+                let d1 = p1Name.toUpperCase();
+                if (d1.length > 17) d1 = d1.substring(0, 15) + '..';
+                doc.text(d1, x + 2, y + 4.2);
+                if (p1HC) {
+                    doc.setFontSize(5);
+                    doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                    doc.text(p1HC, x + width - 6.5, y + 4.2, { align: 'right' });
+                }
+                doc.setFontSize(6.5);
+                doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+                doc.text(String(p1Score), x + width - 2, y + 4.2, { align: 'right' });
+
+                // Divider
+                doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                doc.setLineWidth(0.15);
+                doc.line(x + 1.5, y + 6, x + width - 1.5, y + 6);
+
+                // Player 2 line
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', p2Winner ? 'bold' : 'normal');
+                doc.setTextColor(p2Winner ? colors.winner[0] : colors.secondary[0], p2Winner ? colors.winner[1] : colors.secondary[1], p2Winner ? colors.winner[2] : colors.secondary[2]);
+                let d2 = p2Name.toUpperCase();
+                if (d2.length > 17) d2 = d2.substring(0, 15) + '..';
+                doc.text(d2, x + 2, y + 10);
+                if (p2HC) {
+                    doc.setFontSize(5);
+                    doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                    doc.text(p2HC, x + width - 6.5, y + 10, { align: 'right' });
+                }
+                doc.setFontSize(6.5);
+                doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
+                doc.text(String(p2Score), x + width - 2, y + 10, { align: 'right' });
+
+                // Match number badge
+                if (m?.matchNumber) {
+                    doc.setFillColor(colors.cardHeader[0], colors.cardHeader[1], colors.cardHeader[2]);
+                    doc.rect(x + width - 7, y, 7, 2.5, 'F');
+                    doc.setFontSize(4);
+                    doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+                    doc.text(`#${m.matchNumber}`, x + width - 3.5, y + 1.8, { align: 'center' });
+                }
+            };
+
+            const leftMatches = chunkMatches.slice(0, halfR1);
+            const rightMatches = chunkMatches.slice(halfR1);
+            const r1Spacing = availableHeight / halfR1;
+
+            const leftPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
+            const rightPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
+
+            // 1. Left Wing - Round 1 (x=12)
+            leftMatches.forEach((m: any, idx: number) => {
+                const x = 12;
+                const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
+                leftPos[`1_${idx}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+                drawMatchBox(m, x, y);
+            });
+
+            // 2. Left Wing - Round 2 (x=52)
+            const leftR2Count = Math.max(1, Math.floor(halfR1 / 2));
+            for (let i = 0; i < leftR2Count; i++) {
+                const x = 52;
+                const m1Y = leftPos[`1_${i * 2}`].cy;
+                const m2Y = leftPos[`1_${i * 2 + 1}`].cy;
                 const y = (m1Y + m2Y) / 2 - cardHeight / 2;
-                leftPos[`3_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+                leftPos[`2_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
                 drawMatchBox(null, x, y);
 
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                 doc.setLineWidth(0.3);
-                const midX = (leftPos[`2_${i * 2}`].cx + x) / 2;
-                doc.line(leftPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
-                doc.line(leftPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                const midX = (leftPos[`1_${i * 2}`].cx + x) / 2;
+                doc.line(leftPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
+                doc.line(leftPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
                 doc.line(midX, m1Y, midX, m2Y);
                 doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
             }
-        }
 
-        // 4. Right Wing - Round 1 (x = pageWidth - 12 - cardWidth = 243)
-        const rightX = pageWidth - 12 - cardWidth;
-        rightMatches.forEach((m: any, idx: number) => {
-            const x = rightX;
-            const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
-            rightPos[`1_${idx}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
-            drawMatchBox(m, x, y);
-        });
+            // 3. Left Wing - Next Round (x=92)
+            const leftQFCount = Math.max(1, Math.floor(leftR2Count / 2));
+            if (halfR1 >= 8) {
+                for (let i = 0; i < leftQFCount; i++) {
+                    const x = 92;
+                    const m1Y = leftPos[`2_${i * 2}`].cy;
+                    const m2Y = leftPos[`2_${i * 2 + 1}`].cy;
+                    const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+                    leftPos[`3_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
+                    drawMatchBox(null, x, y);
 
-        // 5. Right Wing - Round 2 (x = rightX - 40 = 203)
-        for (let i = 0; i < leftR2Count; i++) {
-            const x = rightX - 40;
-            const m1Y = rightPos[`1_${i * 2}`].cy;
-            const m2Y = rightPos[`1_${i * 2 + 1}`].cy;
-            const y = (m1Y + m2Y) / 2 - cardHeight / 2;
-            rightPos[`2_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
-            drawMatchBox(null, x, y);
+                    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                    doc.setLineWidth(0.3);
+                    const midX = (leftPos[`2_${i * 2}`].cx + x) / 2;
+                    doc.line(leftPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
+                    doc.line(leftPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                    doc.line(midX, m1Y, midX, m2Y);
+                    doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
+                }
+            }
 
-            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-            doc.setLineWidth(0.3);
-            const midX = (rightPos[`1_${i * 2}`].cx + x + cardWidth) / 2;
-            doc.line(rightPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
-            doc.line(rightPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
-            doc.line(midX, m1Y, midX, m2Y);
-            doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
-        }
+            // 4. Right Wing - Round 1
+            const rightX = pageWidth - 12 - cardWidth;
+            rightMatches.forEach((m: any, idx: number) => {
+                const x = rightX;
+                const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
+                rightPos[`1_${idx}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+                drawMatchBox(m, x, y);
+            });
 
-        // 6. Right Wing - Quarter Final (x = rightX - 80 = 163)
-        if (halfR1 >= 8) {
-            for (let i = 0; i < leftQFCount; i++) {
-                const x = rightX - 80;
-                const m1Y = rightPos[`2_${i * 2}`].cy;
-                const m2Y = rightPos[`2_${i * 2 + 1}`].cy;
+            // 5. Right Wing - Round 2
+            for (let i = 0; i < leftR2Count; i++) {
+                const x = rightX - 40;
+                const m1Y = rightPos[`1_${i * 2}`].cy;
+                const m2Y = rightPos[`1_${i * 2 + 1}`].cy;
                 const y = (m1Y + m2Y) / 2 - cardHeight / 2;
-                rightPos[`3_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+                rightPos[`2_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
                 drawMatchBox(null, x, y);
 
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                 doc.setLineWidth(0.3);
-                const midX = (rightPos[`2_${i * 2}`].cx + x + cardWidth) / 2;
-                doc.line(rightPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
-                doc.line(rightPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                const midX = (rightPos[`1_${i * 2}`].cx + x + cardWidth) / 2;
+                doc.line(rightPos[`1_${i * 2}`].cx, m1Y, midX, m1Y);
+                doc.line(rightPos[`1_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
                 doc.line(midX, m1Y, midX, m2Y);
                 doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
             }
-        }
 
-        // 7. Center Grand Final
-        const lastLeftKey = halfR1 >= 8 ? '3' : '2';
-        const leftSF_Y = halfR1 >= 8 
-            ? (leftPos['3_0'].cy + leftPos['3_1'].cy) / 2
-            : (leftPos['2_0'].cy + leftPos['2_1'].cy) / 2;
+            // 6. Right Wing - Next Round
+            if (halfR1 >= 8) {
+                for (let i = 0; i < leftQFCount; i++) {
+                    const x = rightX - 80;
+                    const m1Y = rightPos[`2_${i * 2}`].cy;
+                    const m2Y = rightPos[`2_${i * 2 + 1}`].cy;
+                    const y = (m1Y + m2Y) / 2 - cardHeight / 2;
+                    rightPos[`3_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
+                    drawMatchBox(null, x, y);
 
-        const rightSF_Y = halfR1 >= 8 
-            ? (rightPos['3_0'].cy + rightPos['3_1'].cy) / 2
-            : (rightPos['2_0'].cy + rightPos['2_1'].cy) / 2;
+                    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+                    doc.setLineWidth(0.3);
+                    const midX = (rightPos[`2_${i * 2}`].cx + x + cardWidth) / 2;
+                    doc.line(rightPos[`2_${i * 2}`].cx, m1Y, midX, m1Y);
+                    doc.line(rightPos[`2_${i * 2 + 1}`].cx, m2Y, midX, m2Y);
+                    doc.line(midX, m1Y, midX, m2Y);
+                    doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
+                }
+            }
 
-        const finalWidth = 46;
-        const finalHeight = 15;
-        const finalX = (pageWidth - finalWidth) / 2;
-        const finalY = (leftSF_Y + rightSF_Y) / 2 - finalHeight / 2;
+            // 7. Center Convergence Match (Grand Final on 32-slot, or 8 Besar / Semifinal on 128/64-slot)
+            const lastLeftKey = halfR1 >= 8 ? '3' : '2';
+            const leftSF_Y = halfR1 >= 8 
+                ? (leftPos['3_0'].cy + leftPos['3_1'].cy) / 2
+                : (leftPos['2_0'].cy + leftPos['2_1'].cy) / 2;
 
-        drawMatchBox(null, finalX, finalY, finalWidth, finalHeight, true);
+            const rightSF_Y = halfR1 >= 8 
+                ? (rightPos['3_0'].cy + rightPos['3_1'].cy) / 2
+                : (rightPos['2_0'].cy + rightPos['2_1'].cy) / 2;
 
-        // Connectors to Final
-        const leftMidX = ((halfR1 >= 8 ? leftPos['3_0'].cx : leftPos['2_0'].cx) + finalX) / 2;
-        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-        doc.setLineWidth(0.4);
-        const lKey0 = `${lastLeftKey}_0`;
-        const lKey1 = `${lastLeftKey}_1`;
-        doc.line(leftPos[lKey0].cx, leftPos[lKey0].cy, leftMidX, leftPos[lKey0].cy);
-        doc.line(leftPos[lKey1].cx, leftPos[lKey1].cy, leftMidX, leftPos[lKey1].cy);
-        doc.line(leftMidX, leftPos[lKey0].cy, leftMidX, leftPos[lKey1].cy);
-        doc.line(leftMidX, leftSF_Y, finalX, leftSF_Y);
+            const finalWidth = 46;
+            const finalHeight = 15;
+            const finalX = (pageWidth - finalWidth) / 2;
+            const finalY = (leftSF_Y + rightSF_Y) / 2 - finalHeight / 2;
 
-        const rightMidX = ((halfR1 >= 8 ? rightPos['3_0'].cx : rightPos['2_0'].cx) + finalX + finalWidth) / 2;
-        doc.setDrawColor(225, 29, 72);
-        doc.setLineWidth(0.4);
-        const rKey0 = `${lastLeftKey}_0`;
-        const rKey1 = `${lastLeftKey}_1`;
-        doc.line(rightPos[rKey0].cx, rightPos[rKey0].cy, rightMidX, rightPos[rKey0].cy);
-        doc.line(rightPos[rKey1].cx, rightPos[rKey1].cy, rightMidX, rightPos[rKey1].cy);
-        doc.line(rightMidX, rightPos[rKey0].cy, rightMidX, rightPos[rKey1].cy);
-        doc.line(rightMidX, rightSF_Y, finalX + finalWidth, rightSF_Y);
+            drawMatchBox(null, finalX, finalY, finalWidth, finalHeight, true);
 
-        // ─── 3. FOOTER ───
-        doc.setFillColor(248, 250, 252);
-        doc.rect(0, pageHeight - 9, pageWidth, 9, 'F');
-        doc.setFontSize(6.5);
-        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-        doc.text(`TOTAL PARTICIPANTS: ${tournament.participants?.length || 32} SLOTS | FORMAT: ${tournament.format || 'SINGLE ELIMINATION (8-BALL)'}`, 12, pageHeight - 3.5);
-        doc.text(`VAMOS SMART ARENA - OFFICIAL BRACKET SHEET | GENERATED: ${new Date().toLocaleString('id-ID')}`, pageWidth - 12, pageHeight - 3.5, { align: 'right' });
+            // Connectors to Center
+            const leftMidX = ((halfR1 >= 8 ? leftPos['3_0'].cx : leftPos['2_0'].cx) + finalX) / 2;
+            doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+            doc.setLineWidth(0.4);
+            const lKey0 = `${lastLeftKey}_0`;
+            const lKey1 = `${lastLeftKey}_1`;
+            doc.line(leftPos[lKey0].cx, leftPos[lKey0].cy, leftMidX, leftPos[lKey0].cy);
+            doc.line(leftPos[lKey1].cx, leftPos[lKey1].cy, leftMidX, leftPos[lKey1].cy);
+            doc.line(leftMidX, leftPos[lKey0].cy, leftMidX, leftPos[lKey1].cy);
+            doc.line(leftMidX, leftSF_Y, finalX, leftSF_Y);
+
+            const rightMidX = ((halfR1 >= 8 ? rightPos['3_0'].cx : rightPos['2_0'].cx) + finalX + finalWidth) / 2;
+            doc.setDrawColor(225, 29, 72);
+            doc.setLineWidth(0.4);
+            const rKey0 = `${lastLeftKey}_0`;
+            const rKey1 = `${lastLeftKey}_1`;
+            doc.line(rightPos[rKey0].cx, rightPos[rKey0].cy, rightMidX, rightPos[rKey0].cy);
+            doc.line(rightPos[rKey1].cx, rightPos[rKey1].cy, rightMidX, rightPos[rKey1].cy);
+            doc.line(rightMidX, rightPos[rKey0].cy, rightMidX, rightPos[rKey1].cy);
+            doc.line(rightMidX, rightSF_Y, finalX + finalWidth, rightSF_Y);
+
+            // ─── 3. FOOTER ───
+            doc.setFillColor(248, 250, 252);
+            doc.rect(0, pageHeight - 9, pageWidth, 9, 'F');
+            doc.setFontSize(6.5);
+            doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+            doc.text(`TOTAL PARTICIPANTS: ${tournament.participants?.length || totalR1All * 2} SLOTS | FORMAT: ${tournament.format || 'SINGLE ELIMINATION'} | PAGE ${pageIdx + 1}/${chunks.length}`, 12, pageHeight - 3.5);
+            doc.text(`VAMOS SMART ARENA - OFFICIAL BRACKET SHEET | GENERATED: ${new Date().toLocaleString('id-ID')}`, pageWidth - 12, pageHeight - 3.5, { align: 'right' });
+        });
 
         doc.save(`BRACKET-${tournament.name.toUpperCase().replace(/\s+/g, '-')}.pdf`);
     };
@@ -1744,8 +1798,24 @@ export default function Competitions() {
                                             <input type="text" value={form.entryFee ? form.entryFee.toLocaleString('id-ID') : ''} onChange={e => setForm({ ...form, entryFee: parseInt(e.target.value.replace(/\D/g, '')) || 0 })} placeholder="0" className="w-full bg-[#121212] border border-[#262626] rounded-xl px-3.5 py-2.5 focus:border-yellow-500 font-mono text-xs focus:outline-none text-white" />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold text-gray-400 mb-1.5">Max Players</label>
-                                            <input type="number" value={form.maxPlayers} onChange={e => setForm({ ...form, maxPlayers: parseInt(e.target.value) || 32 })} className="w-full bg-[#121212] border border-[#262626] rounded-xl px-3.5 py-2.5 focus:border-yellow-500 font-mono text-xs focus:outline-none text-white" />
+                                            <label className="block text-xs font-semibold text-gray-400 mb-1.5">Max Players / Slot Bagan</label>
+                                            <div className="flex gap-1.5 mb-1.5">
+                                                {[16, 32, 64, 128].map(sz => (
+                                                    <button
+                                                        key={sz}
+                                                        type="button"
+                                                        onClick={() => setForm({ ...form, maxPlayers: sz })}
+                                                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold font-mono border transition-all ${
+                                                            form.maxPlayers === sz
+                                                                ? 'bg-yellow-500 text-black border-yellow-400 shadow-sm'
+                                                                : 'bg-[#121212] text-gray-400 border-[#262626] hover:border-gray-600 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        {sz}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <input type="number" value={form.maxPlayers} onChange={e => setForm({ ...form, maxPlayers: parseInt(e.target.value) || 32 })} className="w-full bg-[#121212] border border-[#262626] rounded-xl px-3.5 py-2 focus:border-yellow-500 font-mono text-xs focus:outline-none text-white" />
                                         </div>
                                     </div>
 
@@ -2089,26 +2159,66 @@ export default function Competitions() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-400 mb-2">Tournament Alias / Team <span className="text-gray-600 font-normal">(Optional)</span></label>
+                                        <label className="block text-xs font-semibold text-gray-400 mb-2">Nama Panggilan / Alias <span className="text-gray-600 font-normal">(Opsional)</span></label>
                                         <input 
                                             type="text" 
                                             value={aliasName} 
                                             onChange={e => setAliasName(e.target.value)} 
-                                            placeholder="e.g. Arif Vamos, Akil 55" 
-                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:border-yellow-500 focus:outline-none text-sm" 
+                                            placeholder="Kosongkan jika pakai nama asli member" 
+                                            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-2.5 focus:border-yellow-500 focus:outline-none text-sm" 
                                         />
                                     </div>
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Guest Player Name</label>
-                                    <input type="text" value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="e.g. John Doe" className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:border-yellow-500 focus:outline-none text-sm" />
+                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Nama Pemain (Guest)</label>
+                                    <input type="text" value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="e.g. FADLY" className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-2.5 focus:border-yellow-500 focus:outline-none text-sm" />
                                 </div>
                             )}
 
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Nama Tim / Club <span className="text-gray-600 font-normal">(Opsional)</span></label>
+                                    <input
+                                        type="text"
+                                        value={registerTeamTag}
+                                        onChange={e => setRegisterTeamTag(e.target.value)}
+                                        placeholder="e.g. GARUDA"
+                                        className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3.5 py-2.5 focus:border-cyan-400 focus:outline-none text-sm uppercase"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Handicap (HC) <span className="text-gray-600 font-normal">(Opsional)</span></label>
+                                    <input type="text" value={handicap} onChange={e => setHandicap(e.target.value)} placeholder="e.g. 4, 5, Open" className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3.5 py-2.5 focus:border-[#00ff66] focus:outline-none font-mono text-sm" />
+                                </div>
+                            </div>
+
                             <div>
-                                <label className="block text-xs font-semibold text-gray-400 mb-2">Handicap (HC) <span className="text-gray-600 font-normal">- Optional</span></label>
-                                <input type="text" value={handicap} onChange={e => setHandicap(e.target.value)} placeholder="e.g. 4, 4+, 5" className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-4 py-3 focus:border-[#00ff66] focus:outline-none font-mono text-sm" />
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-semibold text-gray-400">Jumlah Slot / Nama Diambil</label>
+                                    <span className="text-[10px] font-bold text-[#00ff66] uppercase tracking-wider">Maks 4 Slot / Orang</span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {[1, 2, 3, 4].map(cnt => (
+                                        <button
+                                            key={cnt}
+                                            type="button"
+                                            onClick={() => setRegisterSlotCount(cnt)}
+                                            className={`py-2 rounded-lg text-xs font-bold border transition-all ${
+                                                registerSlotCount === cnt
+                                                    ? 'bg-[#00ff66]/15 border-[#00ff66] text-[#00ff66]'
+                                                    : 'bg-[#0a0a0a] border-[#222222] text-gray-400 hover:border-gray-600'
+                                            }`}
+                                        >
+                                            {cnt} Slot
+                                        </button>
+                                    ))}
+                                </div>
+                                {registerSlotCount > 1 && (
+                                    <p className="text-[11px] text-gray-400 mt-2 bg-white/[0.03] border border-white/10 rounded-lg p-2.5 leading-relaxed">
+                                        💡 Sistem otomatis mendaftarkan <strong className="text-white">{registerSlotCount} nama</strong> berurutan (1 s/d {registerSlotCount}) dan memisahkan bagan antar nama sendiri (saling bunuh di <strong className="text-yellow-400">8 Besar</strong> untuk 4 slot) serta memisahkan dari rekan satu tim.
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="p-6 border-t border-[#222222] flex space-x-3">

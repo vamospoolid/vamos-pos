@@ -290,6 +290,24 @@ export class LoyaltyService {
             throw new AppError('Reward ini tidak dapat diklaim pada hari ini (Hari Sibuk)', 400);
         }
 
+        // CHECK DAILY LIMIT (Max 1x redemption per day per member)
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const existingRedemptionToday = await prisma.redemption.findFirst({
+            where: {
+                memberId,
+                claimedAt: { gte: startOfDay, lte: endOfDay },
+                status: { notIn: ['CANCELLED', 'REJECTED'] }
+            }
+        });
+
+        if (existingRedemptionToday) {
+            throw new AppError('Penukaran voucher dibatasi maksimal 1x per hari. Silakan tukarkan kembali besok.', 400);
+        }
+
         if (member.loyaltyPoints < reward.pointsRequired) {
             throw new AppError(`Poin tidak cukup. Butuh ${reward.pointsRequired}, kamu punya ${member.loyaltyPoints}`, 400);
         }

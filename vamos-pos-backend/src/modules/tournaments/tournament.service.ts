@@ -125,7 +125,7 @@ export class TournamentService {
             const registeredCount = await prisma.tournamentParticipant.count({
                 where: { tournamentId, memberId }
             });
-            if (registeredCount >= 2) throw new AppError('Member sudah terdaftar maksimal (2 slot) di turnamen ini', 400);
+            if (registeredCount >= 4) throw new AppError('Member sudah terdaftar maksimal (4 slot) di turnamen ini', 400);
         }
 
         const finalStatus = status || (tournament.entryFee > 0 ? 'UNPAID' : 'PAID');
@@ -315,64 +315,102 @@ export class TournamentService {
         if (!raw) return '';
         return raw
             .replace(/\[.*?\]|\(.*?\)/g, '')
+            .replace(/\s+-\s+.*$/, '') // strip " - TEAM" suffix
             .replace(/[^\w\s-]/g, '')
+            .replace(/\s+(?:#?\d+|[IVX]+)$/i, '') // strip trailing slot number: "FADLY 1", "FADLY #2", "FADLY II"
+            .replace(/\s+/g, ' ')
             .trim();
     }
 
     private static detectTeamsAndPersons(participants: any[]) {
         const cleanedList = participants.map((p, idx) => {
             const rawName = p.name || p.member?.name || `Player ${idx + 1}`;
-            const cleaned = this.cleanParticipantName(rawName);
+            const withoutBrackets = rawName
+                .replace(/\[.*?\]|\(.*?\)/g, '')
+                .replace(/\s+-\s+.*$/, '')
+                .replace(/[^\w\s-]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const baseClean = this.cleanParticipantName(rawName);
             return {
                 id: p.id,
                 raw: rawName,
-                clean: cleaned,
+                withoutBrackets,
+                clean: baseClean,
                 memberId: p.memberId || null,
                 original: p
             };
         });
 
-        const suffixCounts = new Map<string, number>();
-        const prefixCounts = new Map<string, number>();
+        // Count prefix/suffix across UNIQUE base names so 1 player taking 4 slots ("ANDI SAPUTRA 1..4")
+        // doesn't falsely trigger "SAPUTRA" as a team unless another distinct player shares it.
+        const suffixOwners = new Map<string, Set<string>>();
+        const prefixOwners = new Map<string, Set<string>>();
 
         cleanedList.forEach(p => {
             const words = p.clean.split(/\s+/).filter((w: string) => w.length > 0);
             if (words.length > 1) {
+                const baseKey = p.clean.toUpperCase();
                 const lastWord = words[words.length - 1].toUpperCase();
                 const firstWord = words[0].toUpperCase();
-                suffixCounts.set(lastWord, (suffixCounts.get(lastWord) || 0) + 1);
-                prefixCounts.set(firstWord, (prefixCounts.get(firstWord) || 0) + 1);
+
+                if (lastWord.length >= 2 && !/^\d+$/.test(lastWord)) {
+                    if (!suffixOwners.has(lastWord)) suffixOwners.set(lastWord, new Set());
+                    suffixOwners.get(lastWord)!.add(baseKey);
+                }
+                if (firstWord.length >= 2 && !/^\d+$/.test(firstWord)) {
+                    if (!prefixOwners.has(firstWord)) prefixOwners.set(firstWord, new Set());
+                    prefixOwners.get(firstWord)!.add(baseKey);
+                }
             }
         });
 
         return cleanedList.map(p => {
             const words = p.clean.split(/\s+/).filter((w: string) => w.length > 0);
             let team: string | null = null;
+            let corePersonName = p.clean.toUpperCase();
 
-            // Check bracket tag in raw name (e.g. "ARIF (VAMOS)")
-            const tagMatch = p.raw.match(/\(([a-zA-Z0-9_\s]+)\)|\[([a-zA-Z0-9_\s]+)\]/);
+            // 1. Check bracket tag in raw name: "FADLY 1 (GARUDA)" or "FADLY [GARUDA]"
+            const tagMatch = p.raw.match(/\(([a-zA-Z0-9_\s-]+)\)|\[([a-zA-Z0-9_\s-]+)\]/);
             if (tagMatch) {
                 const tag = (tagMatch[1] || tagMatch[2]).trim().toUpperCase();
-                if (!tag.startsWith('HC') && !tag.startsWith('HANDICAP') && tag.length >= 2) {
+                if (!tag.startsWith('HC') && !tag.startsWith('HANDICAP') && !/^\d+$/.test(tag) && tag.length >= 2) {
                     team = tag;
                 }
             }
 
+            // 2. Check dash separator: "FADLY 1 - GARUDA"
+            if (!team) {
+                const dashMatch = p.raw.match(/\s+-\s+([a-zA-Z0-9_\s]+)$/);
+                if (dashMatch) {
+                    const tag = dashMatch[1].trim().toUpperCase();
+                    if (!tag.startsWith('HC') && tag.length >= 2) {
+                        team = tag;
+                    }
+                }
+            }
+
+            // 3. Check shared prefix/suffix across at least 2 distinct player names
             if (!team && words.length > 1) {
                 const lastWord = words[words.length - 1].toUpperCase();
                 const firstWord = words[0].toUpperCase();
 
-                if ((suffixCounts.get(lastWord) || 0) >= 2) {
+                if ((suffixOwners.get(lastWord)?.size || 0) >= 2) {
                     team = lastWord;
-                } else if ((prefixCounts.get(firstWord) || 0) >= 2) {
+                    corePersonName = words.slice(0, -1).join(' ').toUpperCase();
+                } else if ((prefixOwners.get(firstWord)?.size || 0) >= 2) {
                     team = firstWord;
+                    corePersonName = words.slice(1).join(' ').toUpperCase();
                 }
             }
 
-            // Person Identifier (for 2-slot twin separation)
-            const personKey = p.memberId 
-                ? `MEM_${p.memberId}` 
-                : `NAME_${p.clean.toUpperCase()}`;
+            // Strip any trailing slot number still left in corePersonName (e.g. "GARUDA FADLY 1" -> "FADLY")
+            corePersonName = corePersonName.replace(/\s+(?:#?\d+|[IVX]+)$/i, '').trim() || p.clean.toUpperCase();
+
+            // Person Identifier (groups 2, 3, or 4 slots belonging to the same human player)
+            const personKey = p.memberId
+                ? `MEM_${p.memberId}`
+                : `NAME_${corePersonName}`;
 
             return {
                 ...p,
@@ -385,7 +423,7 @@ export class TournamentService {
     private static smartShuffleAndSeed(participants: any[], bracketSize: number) {
         const annotated = this.detectTeamsAndPersons(participants);
 
-        // 1. Group by person to find twin slots (same player taking 2 slots)
+        // Group by personKey to detect players taking 4, 3, 2, or 1 slot(s)
         const personGroups = new Map<string, any[]>();
         annotated.forEach(p => {
             const list = personGroups.get(p.personKey) || [];
@@ -393,14 +431,20 @@ export class TournamentService {
             personGroups.set(p.personKey, list);
         });
 
+        const quadPlayers: any[][] = [];
+        const triplePlayers: any[][] = [];
         const twinPairs: any[][] = [];
         const singlePlayers: any[] = [];
 
         personGroups.forEach(list => {
-            if (list.length >= 2) {
-                twinPairs.push([list[0], list[1]]);
-                for (let i = 2; i < list.length; i++) singlePlayers.push(list[i]);
-            } else {
+            if (list.length >= 4) {
+                quadPlayers.push(list.slice(0, 4));
+                for (let i = 4; i < list.length; i++) singlePlayers.push(list[i]);
+            } else if (list.length === 3) {
+                triplePlayers.push(list);
+            } else if (list.length === 2) {
+                twinPairs.push(list);
+            } else if (list.length === 1) {
                 singlePlayers.push(list[0]);
             }
         });
@@ -408,25 +452,115 @@ export class TournamentService {
         const matchCount = Math.floor(bracketSize / 2);
         const quadrantSize = Math.max(1, Math.floor(matchCount / 4));
 
-        // Convergence Block Configuration:
-        // - 32 bracket: converge in SEMIFINAL (Block size = 8 matches, Q1 vs Q2, Q3 vs Q4)
-        // - 64 bracket: converge in 8 BESAR / QUARTER FINAL (Block size = 8 matches, Blok 1 vs Blok 2)
-        // - 128 bracket: converge in 16 BESAR (Block size = 8 matches, Sub-blok 1 vs Sub-blok 2)
-        // - <= 16 bracket: converge in FINAL
-        const convergenceBlockSize = 8;
+        // Hierarchical Binary Tree Distance Conflict Evaluator
+        // Ensures teammates & same-person entries are separated as far as possible across the bracket tree
+        const evaluateSlotConflict = (
+            matches: Array<{ matchIndex: number; p1: any; p2: any; quadrant: number }>,
+            player: any,
+            targetMatchIdx: number,
+            isSameZoneAllowedForQuadSelf = false
+        ): number => {
+            let penalty = 0;
+            for (let m = 0; m < matchCount; m++) {
+                const occupants = [matches[m].p1, matches[m].p2].filter(Boolean);
+                for (const occ of occupants) {
+                    const samePerson = occ.personKey === player.personKey;
+                    const sameTeam = player.team !== 'INDIVIDUAL' && occ.team === player.team;
+                    if (!samePerson && !sameTeam) continue;
 
-        const blocks: Array<{ start: number; end: number }> = [];
-        for (let b = 0; b < matchCount; b += convergenceBlockSize) {
-            const end = Math.min(matchCount, b + convergenceBlockSize);
-            if (end - b >= 2) {
-                blocks.push({ start: b, end });
+                    if (m === targetMatchIdx) {
+                        // Round 1 (128 Besar): direct clash in the exact same match
+                        if (samePerson) penalty += 100_000_000;
+                        if (sameTeam) penalty += 50_000_000;
+                    } else if (Math.floor(m / 2) === Math.floor(targetMatchIdx / 2)) {
+                        // Round 2 (64 Besar): adjacent match
+                        if (samePerson) penalty += 20_000_000;
+                        if (sameTeam) penalty += 5_000_000;
+                    } else if (Math.floor(m / 4) === Math.floor(targetMatchIdx / 4)) {
+                        // Round 3 (32 Besar): same 4-match sector (8 slots)
+                        if (samePerson) penalty += 5_000_000;
+                        if (sameTeam) penalty += 500_000;
+                    } else if (Math.floor(m / 8) === Math.floor(targetMatchIdx / 8)) {
+                        // Round 4 (16 Besar): same 8-match block (16 slots)
+                        if (samePerson) penalty += 1_000_000;
+                        if (sameTeam) penalty += 50_000;
+                    } else if (Math.floor(m / 16) === Math.floor(targetMatchIdx / 16)) {
+                        // Round 5 (8 Besar / Quarter Final): same 16-match quadrant (32 slots)
+                        if (samePerson && !isSameZoneAllowedForQuadSelf) penalty += 100_000;
+                        if (sameTeam && !samePerson) penalty += 5_000;
+                    } else if (Math.floor(m / 32) === Math.floor(targetMatchIdx / 32)) {
+                        // Round 6 (Semifinal): same 32-match pool (64 slots)
+                        if (sameTeam && !samePerson) penalty += 500;
+                    }
+                }
             }
-        }
-        if (blocks.length === 0) {
-            blocks.push({ start: 0, end: matchCount });
-        }
+            return penalty;
+        };
 
-        for (let attempt = 0; attempt < 20; attempt++) {
+        // Helper to pick best match & slot inside a range [startMatch, endMatch)
+        const placeInRange = (
+            matches: Array<{ matchIndex: number; p1: any; p2: any; quadrant: number }>,
+            player: any,
+            startMatch: number,
+            endMatch: number,
+            preferredSlot?: 'p1' | 'p2',
+            allowQuadSelf = false
+        ) => {
+            const clampedStart = Math.max(0, Math.min(matchCount - 1, startMatch));
+            const clampedEnd = Math.max(clampedStart + 1, Math.min(matchCount, endMatch));
+
+            const candidates: Array<{ matchIdx: number; slot: 'p1' | 'p2'; score: number }> = [];
+            for (let m = clampedStart; m < clampedEnd; m++) {
+                const slotsToCheck: Array<'p1' | 'p2'> = preferredSlot ? [preferredSlot, preferredSlot === 'p1' ? 'p2' : 'p1'] : ['p1', 'p2'];
+                for (const s of slotsToCheck) {
+                    if (!matches[m][s]) {
+                        const slotPrefPenalty = preferredSlot && s !== preferredSlot ? 10 : 0;
+                        const score = evaluateSlotConflict(matches, player, m, allowQuadSelf) + slotPrefPenalty + Math.random() * 5;
+                        candidates.push({ matchIdx: m, slot: s, score });
+                    }
+                }
+            }
+
+            // Fallback to any open slot in the entire bracket if the target sub-range is completely full
+            if (candidates.length === 0) {
+                for (let m = 0; m < matchCount; m++) {
+                    for (const s of ['p1', 'p2'] as const) {
+                        if (!matches[m][s]) {
+                            const score = evaluateSlotConflict(matches, player, m, allowQuadSelf) + Math.random() * 5;
+                            candidates.push({ matchIdx: m, slot: s, score });
+                        }
+                    }
+                }
+            }
+
+            if (candidates.length > 0) {
+                candidates.sort((a, b) => a.score - b.score);
+                const chosen = candidates[0];
+                matches[chosen.matchIdx][chosen.slot] = player;
+            }
+        };
+
+        // Helper to place a pair into a Quadrant so they converge at 8 Besar (on 128-slot bracket)
+        // or Quadrant Final (on smaller brackets):
+        // First half of Quadrant = Block A [qStart .. qMid), Second half of Quadrant = Block B [qMid .. qEnd)
+        const placePairInQuadrant8Besar = (
+            matches: Array<{ matchIndex: number; p1: any; p2: any; quadrant: number }>,
+            pA: any,
+            pB: any,
+            quadIdx: number
+        ) => {
+            const qStart = quadIdx * quadrantSize;
+            const qEnd = Math.min(matchCount, (quadIdx + 1) * quadrantSize);
+            const qMid = qStart + Math.max(1, Math.floor((qEnd - qStart) / 2));
+
+            placeInRange(matches, pA, qStart, qMid, 'p1', true);
+            placeInRange(matches, pB, qMid, qEnd, 'p2', true);
+        };
+
+        let bestResult: any[] | null = null;
+        let lowestTotalPenalty = Infinity;
+
+        for (let attempt = 0; attempt < 25; attempt++) {
             const matches: Array<{
                 matchIndex: number;
                 p1: any;
@@ -436,139 +570,136 @@ export class TournamentService {
                 matchIndex: i,
                 p1: null,
                 p2: null,
-                quadrant: Math.floor(i / quadrantSize)
+                quadrant: Math.min(3, Math.floor(i / quadrantSize))
             }));
 
-            // Shuffle single players by team
-            const teamGroups = new Map<string, any[]>();
-            singlePlayers.forEach(p => {
-                const list = teamGroups.get(p.team) || [];
-                list.push(p);
-                teamGroups.set(p.team, list);
-            });
-            teamGroups.forEach(list => list.sort(() => Math.random() - 0.5));
-
-            const shuffledTwinPairs = [...twinPairs].sort(() => Math.random() - 0.5);
-
-            // Keep track of team counts per block so twins from same team don't stack in 1 block
-            const teamBlockCounts = new Map<string, number>();
-            const getTeamBlockCount = (team: string, bIdx: number) => teamBlockCounts.get(`${team}_${bIdx}`) || 0;
-            const incTeamBlockCount = (team: string, bIdx: number) => teamBlockCounts.set(`${team}_${bIdx}`, getTeamBlockCount(team, bIdx) + 1);
-
-            for (const pair of shuffledTwinPairs) {
-                const team = pair[0].team;
-                let bestBlockIdx = 0;
-                let minScore = Infinity;
-                for (let b = 0; b < blocks.length; b++) {
-                    const score = (team !== 'INDIVIDUAL' ? getTeamBlockCount(team, b) * 10 : 0) + Math.random();
-                    if (score < minScore) {
-                        minScore = score;
-                        bestBlockIdx = b;
+            // Helper to score a Quadrant for placing a pair of a given team
+            const getQuadrantLoadScore = (qIdx: number, team: string) => {
+                const qStart = qIdx * quadrantSize;
+                const qEnd = Math.min(matchCount, (qIdx + 1) * quadrantSize);
+                let teamCount = 0;
+                let totalOccupied = 0;
+                for (let m = qStart; m < qEnd; m++) {
+                    for (const occ of [matches[m].p1, matches[m].p2]) {
+                        if (occ) {
+                            totalOccupied++;
+                            if (team !== 'INDIVIDUAL' && occ.team === team) {
+                                teamCount++;
+                            }
+                        }
                     }
                 }
+                return teamCount * 10_000 + totalOccupied * 10 + Math.random() * 5;
+            };
 
-                if (team !== 'INDIVIDUAL') {
-                    incTeamBlockCount(team, bestBlockIdx);
+            // 1. Place 4-Slot Players (Saling Bunuh di 8 Besar):
+            // Pair 1 (Slot 1 & 2) -> Pool A (Quadrant 0 or 1), Block A vs Block B -> Meet in 8 Besar!
+            // Pair 2 (Slot 3 & 4) -> Pool B (Quadrant 2 or 3), Block A vs Block B -> Meet in 8 Besar!
+            const shuffledQuads = [...quadPlayers].sort(() => Math.random() - 0.5);
+            for (const qGroup of shuffledQuads) {
+                const team = qGroup[0].team;
+                if (matchCount >= 4) {
+                    const poolAQuads = [0, 1].sort((a, b) => getQuadrantLoadScore(a, team) - getQuadrantLoadScore(b, team));
+                    const poolBQuads = [2, 3].sort((a, b) => getQuadrantLoadScore(a, team) - getQuadrantLoadScore(b, team));
+
+                    placePairInQuadrant8Besar(matches, qGroup[0], qGroup[1], poolAQuads[0]);
+                    placePairInQuadrant8Besar(matches, qGroup[2], qGroup[3], poolBQuads[0]);
+                } else {
+                    for (const p of qGroup) placeInRange(matches, p, 0, matchCount);
                 }
-
-                const block = blocks[bestBlockIdx];
-                const blockSize = block.end - block.start;
-                const halfBlock = Math.floor(blockSize / 2);
-
-                const availableFirstHalf: number[] = [];
-                for (let m = block.start; m < block.start + halfBlock; m++) {
-                    if (!matches[m].p1) availableFirstHalf.push(m);
-                }
-                availableFirstHalf.sort(() => Math.random() - 0.5);
-                const m1 = availableFirstHalf.length > 0 ? availableFirstHalf[0] : block.start;
-                const m2 = block.start + (blockSize - 1 - (m1 - block.start));
-
-                matches[m1].p1 = pair[0];
-                matches[m2].p2 = pair[1];
             }
 
-            // Pool remaining players
+            // 2. Place 3-Slot Players:
+            // Pair 1 (Slot 1 & 2) -> Best Quadrant in Pool A or B (Block A vs Block B -> Meet in 8 Besar)
+            // Slot 3 -> Best Quadrant in the opposite Pool (can only meet in Final)
+            const shuffledTriples = [...triplePlayers].sort(() => Math.random() - 0.5);
+            for (const tGroup of shuffledTriples) {
+                const team = tGroup[0].team;
+                if (matchCount >= 4) {
+                    const allQuads = [0, 1, 2, 3].sort((a, b) => getQuadrantLoadScore(a, team) - getQuadrantLoadScore(b, team));
+                    const pairQuad = allQuads[0];
+                    const oppositePoolQuads = (pairQuad < 2 ? [2, 3] : [0, 1]).sort(
+                        (a, b) => getQuadrantLoadScore(a, team) - getQuadrantLoadScore(b, team)
+                    );
+                    const singleQuad = oppositePoolQuads[0];
+
+                    placePairInQuadrant8Besar(matches, tGroup[0], tGroup[1], pairQuad);
+                    const sStart = singleQuad * quadrantSize;
+                    const sEnd = Math.min(matchCount, (singleQuad + 1) * quadrantSize);
+                    placeInRange(matches, tGroup[2], sStart, sEnd, 'p1', false);
+                } else {
+                    for (const p of tGroup) placeInRange(matches, p, 0, matchCount);
+                }
+            }
+
+            // 3. Place 2-Slot Players (Twin Pairs):
+            // Placed in Block A & Block B of the best Quadrant (converge at 8 Besar on 128-slot bracket)
+            const shuffledTwins = [...twinPairs].sort(() => Math.random() - 0.5);
+            for (const pair of shuffledTwins) {
+                const team = pair[0].team;
+                if (matchCount >= 4) {
+                    const allQuads = [0, 1, 2, 3].sort((a, b) => getQuadrantLoadScore(a, team) - getQuadrantLoadScore(b, team));
+                    placePairInQuadrant8Besar(matches, pair[0], pair[1], allQuads[0]);
+                } else {
+                    for (const p of pair) placeInRange(matches, p, 0, matchCount);
+                }
+            }
+
+            // 4. Place Remaining Single Players (sorted by largest team first so big teams spread evenly)
             const remainingPlayers = [...singlePlayers].sort(() => Math.random() - 0.5);
-            const teamCountMap = new Map<string, number>();
-            remainingPlayers.forEach(p => teamCountMap.set(p.team, (teamCountMap.get(p.team) || 0) + 1));
+            const teamTotalCounts = new Map<string, number>();
+            annotated.forEach(p => {
+                if (p.team !== 'INDIVIDUAL') {
+                    teamTotalCounts.set(p.team, (teamTotalCounts.get(p.team) || 0) + 1);
+                }
+            });
             remainingPlayers.sort((a, b) => {
-                const countA = a.team === 'INDIVIDUAL' ? 0 : (teamCountMap.get(a.team) || 0);
-                const countB = b.team === 'INDIVIDUAL' ? 0 : (teamCountMap.get(b.team) || 0);
+                const countA = a.team === 'INDIVIDUAL' ? 0 : (teamTotalCounts.get(a.team) || 0);
+                const countB = b.team === 'INDIVIDUAL' ? 0 : (teamTotalCounts.get(b.team) || 0);
                 return countB - countA;
             });
 
-            const emptySlots: Array<{ matchIdx: number; slot: 'p1' | 'p2'; quadrant: number }> = [];
-            for (let i = 0; i < matchCount; i++) {
-                if (!matches[i].p1) emptySlots.push({ matchIdx: i, slot: 'p1', quadrant: matches[i].quadrant });
-                if (!matches[i].p2) emptySlots.push({ matchIdx: i, slot: 'p2', quadrant: matches[i].quadrant });
-            }
-
-            const teamQuadrantCounts = new Map<string, number>();
-            const getTeamQuadCount = (team: string, q: number) => teamQuadrantCounts.get(`${team}_${q}`) || 0;
-            const incTeamQuadCount = (team: string, q: number) => teamQuadrantCounts.set(`${team}_${q}`, getTeamQuadCount(team, q) + 1);
-
-            matches.forEach(m => {
-                if (m.p1 && m.p1.team !== 'INDIVIDUAL') incTeamQuadCount(m.p1.team, m.quadrant);
-                if (m.p2 && m.p2.team !== 'INDIVIDUAL') incTeamQuadCount(m.p2.team, m.quadrant);
-            });
-
-            let hasClash = false;
             for (const player of remainingPlayers) {
-                let bestSlotIdx = -1;
-                let minConflictScore = Infinity;
+                placeInRange(matches, player, 0, matchCount);
+            }
 
-                for (let s = 0; s < emptySlots.length; s++) {
-                    const { matchIdx, slot, quadrant } = emptySlots[s];
-                    const match = matches[matchIdx];
-                    const opponent = slot === 'p1' ? match.p2 : match.p1;
-
-                    let score = 0;
-                    if (opponent) {
-                        if (player.personKey === opponent.personKey) {
-                            score += 10000000;
-                        }
-                        if (player.team !== 'INDIVIDUAL' && player.team === opponent.team) {
-                            score += 5000000;
-                        }
-                    }
-
-                    if (player.team !== 'INDIVIDUAL') {
-                        score += getTeamQuadCount(player.team, quadrant) * 100;
-                    }
-
-                    score += Math.random() * 2;
-
-                    if (score < minConflictScore) {
-                        minConflictScore = score;
-                        bestSlotIdx = s;
-                    }
+            // Evaluate overall bracket quality for this attempt
+            let attemptPenalty = 0;
+            for (let i = 0; i < matchCount; i++) {
+                const { p1, p2 } = matches[i];
+                if (p1 && p2) {
+                    if (p1.personKey === p2.personKey) attemptPenalty += 100_000_000;
+                    if (p1.team !== 'INDIVIDUAL' && p1.team === p2.team) attemptPenalty += 50_000_000;
                 }
-
-                if (bestSlotIdx !== -1) {
-                    const chosen = emptySlots.splice(bestSlotIdx, 1)[0];
-                    matches[chosen.matchIdx][chosen.slot] = player;
-                    if (player.team !== 'INDIVIDUAL') {
-                        incTeamQuadCount(player.team, chosen.quadrant);
-                    }
-                    const opp = chosen.slot === 'p1' ? matches[chosen.matchIdx].p2 : matches[chosen.matchIdx].p1;
-                    if (opp && player.team !== 'INDIVIDUAL' && player.team === opp.team) {
-                        hasClash = true;
+                // Check Round 2 (64 Besar) adjacent match team clashes
+                if (i % 2 === 0 && i + 1 < matchCount) {
+                    const mA = [matches[i].p1, matches[i].p2].filter(Boolean);
+                    const mB = [matches[i + 1].p1, matches[i + 1].p2].filter(Boolean);
+                    for (const a of mA) {
+                        for (const b of mB) {
+                            if (a.personKey === b.personKey) attemptPenalty += 20_000_000;
+                            if (a.team !== 'INDIVIDUAL' && a.team === b.team) attemptPenalty += 5_000_000;
+                        }
                     }
                 }
             }
 
-            if (!hasClash || attempt === 19) {
+            if (attemptPenalty < lowestTotalPenalty) {
+                lowestTotalPenalty = attemptPenalty;
                 const slotMap: any[] = Array(bracketSize).fill(null);
                 for (let i = 0; i < matchCount; i++) {
                     slotMap[i * 2] = matches[i].p1 ? matches[i].p1.original : null;
                     slotMap[i * 2 + 1] = matches[i].p2 ? matches[i].p2.original : null;
                 }
-                return slotMap;
+                bestResult = slotMap;
+            }
+
+            if (attemptPenalty === 0) {
+                break;
             }
         }
 
-        const fallbackSlotMap: any[] = Array(bracketSize).fill(null);
-        return fallbackSlotMap;
+        return bestResult || Array(bracketSize).fill(null);
     }
 
     private static async generateSingleElimination(tournamentId: string) {

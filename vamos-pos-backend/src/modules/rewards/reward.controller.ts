@@ -75,6 +75,24 @@ export const redeemReward = catchAsync(async (req: Request, res: Response) => {
     if (!member) throw new AppError('Member not found', 404);
     if (!reward || !reward.isActive) throw new AppError('Reward not found or inactive', 404);
     if (reward.stock <= 0) throw new AppError('Reward is out of stock', 400);
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingRedemptionToday = await prisma.redemption.findFirst({
+        where: {
+            memberId,
+            claimedAt: { gte: startOfDay, lte: endOfDay },
+            status: { notIn: ['CANCELLED', 'REJECTED'] }
+        }
+    });
+
+    if (existingRedemptionToday) {
+        throw new AppError('Penukaran voucher dibatasi maksimal 1x per hari. Silakan tukarkan kembali besok.', 400);
+    }
+
     if (member.loyaltyPoints < reward.pointsRequired) {
         throw new AppError(`Insufficient points. Need ${reward.pointsRequired}, have ${member.loyaltyPoints}`, 400);
     }

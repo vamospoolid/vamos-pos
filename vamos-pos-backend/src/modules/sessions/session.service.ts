@@ -79,6 +79,27 @@ export class SessionService {
                 if (!redemption) throw new AppError('Voucher redemption tidak ditemukan!', 404);
                 if (redemption.status !== 'PENDING') throw new AppError('Voucher sudah pernah digunakan atau tidak valid!', 400);
 
+                const targetMemberId = memberId || redemption.memberId;
+                if (targetMemberId) {
+                    const startOfDay = new Date();
+                    startOfDay.setHours(0, 0, 0, 0);
+                    const endOfDay = new Date();
+                    endOfDay.setHours(23, 59, 59, 999);
+
+                    const existingVoucherSessionToday = await tx.session.findFirst({
+                        where: {
+                            memberId: targetMemberId,
+                            isVoucher: true,
+                            status: { not: 'CANCELLED' },
+                            startTime: { gte: startOfDay, lte: endOfDay }
+                        }
+                    });
+
+                    if (existingVoucherSessionToday) {
+                        throw new AppError('Member sudah menggunakan kuota voucher meja hari ini (Maksimal 1x sehari)!', 400);
+                    }
+                }
+
                 isVoucher = true;
                 durationOpts = 60; // Default 1 jam free table
                 tableAmount = 0;
@@ -316,17 +337,20 @@ export class SessionService {
             const now = new Date();
             const mockEndTime = new Date(now.getTime() + extraDuration * 60000);
             const isMember = !!session.memberId;
-            extraAmount = await PricingService.calculateTableAmount(session.table.type, now, mockEndTime, isMember);
+            const calculationType = session.billingType || session.table.type;
+            extraAmount = await PricingService.calculateTableAmount(calculationType, now, mockEndTime, isMember);
         }
 
         const pkgData = packageId ? await prisma.package.findUnique({ where: { id: packageId } }) : null;
         const extraFnb = pkgData?.fnbItems;
+        const newTableAmount = (session.tableAmount || 0) + extraAmount;
 
         const updatedSession = await prisma.session.update({
             where: { id: sessionId },
             data: {
                 durationOpts: (session.durationOpts || 0) + extraDuration,
-                tableAmount: session.tableAmount + extraAmount,
+                tableAmount: newTableAmount,
+                totalAmount: newTableAmount + (session.fnbAmount || 0),
                 fnbIncluded: session.fnbIncluded ? (session.fnbIncluded + (extraFnb ? `, ${extraFnb}` : '')) : extraFnb
             }
         });
@@ -353,14 +377,18 @@ export class SessionService {
 
         // Calculate Voucher vs Open Time billing
         if (session.isVoucher) {
-            const freeDuration = session.durationOpts || 60;
+            // Durasi tercover (60 menit voucher gratis + durasi tambahan dari addDuration jika ada)
+            const coveredDuration = session.durationOpts || 60;
+            // Pertahankan tagihan tambah jam (addDuration) yang sudah tercatat di session.tableAmount
+            const baseTableAmount = session.tableAmount || 0;
             const elapsedMinutes = Math.floor((endTime.getTime() - session.startTime.getTime()) / 60000);
-            if (elapsedMinutes > freeDuration && session.table) {
-                const overtimeStartTime = new Date(session.startTime.getTime() + freeDuration * 60000);
+            if (elapsedMinutes > coveredDuration && session.table) {
+                const overtimeStartTime = new Date(session.startTime.getTime() + coveredDuration * 60000);
                 const calculationType = session.billingType || session.table.type;
-                tableAmount = await PricingService.calculateTableAmount(calculationType, overtimeStartTime, endTime, isMember);
+                const overtimeAmount = await PricingService.calculateTableAmount(calculationType, overtimeStartTime, endTime, isMember);
+                tableAmount = baseTableAmount + overtimeAmount;
             } else {
-                tableAmount = 0;
+                tableAmount = baseTableAmount;
             }
         } else if (!session.packageId && !session.durationOpts && session.table && session.billingType !== 'FNB_ONLY' && session.table.type !== 'CAFE') {
             const calculationType = session.billingType || session.table.type;
