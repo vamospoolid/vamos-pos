@@ -1482,19 +1482,33 @@ export default function Competitions() {
                                                         {roundMatches.map((m: any) => {
                                                             const p1 = t.participants.find((p: any) => p.id === m.player1Id);
                                                             const p2 = t.participants.find((p: any) => p.id === m.player2Id);
-                                                            const p1Name = p1 ? (p1.name || p1.member?.name) : 'TBD';
-                                                            const p2Name = p2 ? (p2.name || p2.member?.name) : 'TBD';
+                                                            const p1Name = p1 ? (p1.name || p1.member?.name) : undefined;
+                                                            const p2Name = p2 ? (p2.name || p2.member?.name) : undefined;
                                                             const isCompleted = m.status === 'COMPLETED';
+                                                            const isP1Win = Boolean(m.winnerId && m.winnerId === m.player1Id);
+                                                            const isP2Win = Boolean(m.winnerId && m.winnerId === m.player2Id);
 
                                                             return (
                                                                 <div key={m.id} className="bg-[#121212] border border-[#262626] rounded-xl p-3.5 flex flex-col justify-between hover:border-yellow-500/40 transition-all shadow-sm">
                                                                     <div className="space-y-2 mb-3">
-                                                                        <div className={`flex justify-between items-center text-xs font-bold px-2.5 py-1.5 rounded-lg ${m.winnerId === m.player1Id ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-gray-200 bg-white/5'}`}>
-                                                                            <span className="truncate max-w-[150px]">{p1Name}</span>
+                                                                        <div className={`flex justify-between items-center text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                                                                            isP1Win 
+                                                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                                                                                : !p1Name
+                                                                                    ? 'text-gray-500 italic bg-white/[0.02] border border-dashed border-[#222222]'
+                                                                                    : 'text-gray-200 bg-white/5'
+                                                                        }`}>
+                                                                            <span className="truncate max-w-[150px]">{p1Name || (m.round === 1 ? '⚡ TBD (Slot Kosong)' : 'TBD (Menunggu Laga)')}</span>
                                                                             <span className="font-mono text-sm">{m.score1}</span>
                                                                         </div>
-                                                                        <div className={`flex justify-between items-center text-xs font-bold px-2.5 py-1.5 rounded-lg ${m.winnerId === m.player2Id ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-gray-200 bg-white/5'}`}>
-                                                                            <span className="truncate max-w-[150px]">{p2Name}</span>
+                                                                        <div className={`flex justify-between items-center text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                                                                            isP2Win 
+                                                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                                                                                : !p2Name
+                                                                                    ? 'text-gray-500 italic bg-white/[0.02] border border-dashed border-[#222222]'
+                                                                                    : 'text-gray-200 bg-white/5'
+                                                                        }`}>
+                                                                            <span className="truncate max-w-[150px]">{p2Name || (m.round === 1 ? '⚡ TBD (Slot Kosong)' : 'TBD (Menunggu Laga)')}</span>
                                                                             <span className="font-mono text-sm">{m.score2}</span>
                                                                         </div>
                                                                     </div>
@@ -1572,37 +1586,71 @@ export default function Competitions() {
                                                         const p2 = t.participants.find((p: any) => p.id === m.player2Id);
                                                         const p1Name = p1 ? (p1.name || p1.member?.name) : undefined;
                                                         const p2Name = p2 ? (p2.name || p2.member?.name) : undefined;
+                                                        const isP1Winner = Boolean(m.winnerId && m.winnerId === m.player1Id);
+                                                        const isP2Winner = Boolean(m.winnerId && m.winnerId === m.player2Id);
 
                                                         return (
                                                             <div key={m.id} className="bg-[#0a0a0a] border border-[#222222] p-3 rounded-lg flex items-center shadow-sm relative z-10 w-full mb-4">
                                                                 <div className="flex-1 space-y-2">
                                                                     <div
                                                                         onClick={() => openEditSlotModal(m.id, t.id, 1, p1)}
-                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p1 ${m.winnerId === m.player1Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400'}`}
-                                                                        title="Klik untuk edit / ganti nama pemain ini"
+                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p1 ${
+                                                                            isP1Winner 
+                                                                                ? 'bg-[#00ff66]/15 text-[#00ff66] border border-[#00ff66]/30' 
+                                                                                : !p1Name
+                                                                                    ? m.round === 1
+                                                                                        ? 'bg-amber-500/5 border border-dashed border-amber-500/30 text-amber-400/80 hover:bg-amber-500/15 hover:border-amber-500/50 hover:text-amber-300'
+                                                                                        : 'bg-white/[0.02] border border-dashed border-[#222222] text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                                                                                    : 'text-gray-200 hover:bg-yellow-500/10 hover:text-yellow-400'
+                                                                        }`}
+                                                                        title="Klik untuk edit / isi nama pemain ini"
                                                                     >
                                                                         <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                                                            <Edit3 className="w-3 h-3 text-gray-500 group-hover/p1:text-yellow-400 flex-shrink-0" />
+                                                                            <Edit3 className={`w-3 h-3 flex-shrink-0 transition-colors ${
+                                                                                isP1Winner
+                                                                                    ? 'text-[#00ff66]'
+                                                                                    : !p1Name
+                                                                                        ? m.round === 1 ? 'text-amber-500/70 group-hover/p1:text-amber-300' : 'text-gray-600 group-hover/p1:text-gray-400'
+                                                                                        : 'text-gray-500 group-hover/p1:text-yellow-400'
+                                                                            }`} />
                                                                             <div className="flex flex-col truncate min-w-0">
-                                                                                <span className="truncate">{p1Name || 'TBD (Klik untuk isi)'}</span>
+                                                                                <span className={`truncate ${!p1Name ? 'italic font-medium' : 'font-bold'}`}>
+                                                                                    {p1Name || (m.round === 1 ? '⚡ TBD (Slot Kosong - Klik Isi)' : `TBD (Menunggu Laga R${m.round - 1})`)}
+                                                                                </span>
                                                                                 {p1?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p1.handicap}</span>}
                                                                             </div>
                                                                         </div>
-                                                                        <span className="ml-2 font-mono">{m.score1}</span>
+                                                                        <span className={`ml-2 font-mono ${!p1Name ? 'text-gray-600' : ''}`}>{m.score1}</span>
                                                                     </div>
                                                                     <div
                                                                         onClick={() => openEditSlotModal(m.id, t.id, 2, p2)}
-                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p2 ${m.winnerId === m.player2Id ? 'bg-[#00ff66]/10 text-[#00ff66]' : 'text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400'}`}
-                                                                        title="Klik untuk edit / ganti nama pemain ini"
+                                                                        className={`flex justify-between items-center text-xs font-bold px-2 py-1.5 rounded cursor-pointer transition-all group/p2 ${
+                                                                            isP2Winner 
+                                                                                ? 'bg-[#00ff66]/15 text-[#00ff66] border border-[#00ff66]/30' 
+                                                                                : !p2Name
+                                                                                    ? m.round === 1
+                                                                                        ? 'bg-amber-500/5 border border-dashed border-amber-500/30 text-amber-400/80 hover:bg-amber-500/15 hover:border-amber-500/50 hover:text-amber-300'
+                                                                                        : 'bg-white/[0.02] border border-dashed border-[#222222] text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                                                                                    : 'text-gray-200 hover:bg-yellow-500/10 hover:text-yellow-400'
+                                                                        }`}
+                                                                        title="Klik untuk edit / isi nama pemain ini"
                                                                     >
                                                                         <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                                                            <Edit3 className="w-3 h-3 text-gray-500 group-hover/p2:text-yellow-400 flex-shrink-0" />
+                                                                            <Edit3 className={`w-3 h-3 flex-shrink-0 transition-colors ${
+                                                                                isP2Winner
+                                                                                    ? 'text-[#00ff66]'
+                                                                                    : !p2Name
+                                                                                        ? m.round === 1 ? 'text-amber-500/70 group-hover/p2:text-amber-300' : 'text-gray-600 group-hover/p2:text-gray-400'
+                                                                                        : 'text-gray-500 group-hover/p2:text-yellow-400'
+                                                                            }`} />
                                                                             <div className="flex flex-col truncate min-w-0">
-                                                                                <span className="truncate">{p2Name || 'TBD (Klik untuk isi)'}</span>
+                                                                                <span className={`truncate ${!p2Name ? 'italic font-medium' : 'font-bold'}`}>
+                                                                                    {p2Name || (m.round === 1 ? '⚡ TBD (Slot Kosong - Klik Isi)' : `TBD (Menunggu Laga R${m.round - 1})`)}
+                                                                                </span>
                                                                                 {p2?.handicap && <span className="text-[10px] text-yellow-500 font-normal">HC: {p2.handicap}</span>}
                                                                             </div>
                                                                         </div>
-                                                                        <span className="ml-2 font-mono">{m.score2}</span>
+                                                                        <span className={`ml-2 font-mono ${!p2Name ? 'text-gray-600' : ''}`}>{m.score2}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="ml-4 pl-4 border-l border-[#222222] min-w-[70px] text-center">
