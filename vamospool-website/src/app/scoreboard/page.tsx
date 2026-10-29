@@ -12,6 +12,7 @@ import {
   Play,
   Pause,
   RotateCcw,
+  RefreshCw,
   Plus,
   Minus,
   Swords,
@@ -25,6 +26,7 @@ import {
   Edit3,
   Check,
   Zap,
+  LayoutGrid,
 } from "lucide-react";
 
 interface Match {
@@ -66,7 +68,7 @@ export default function ScoreboardPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Display Mode: ARENA_TV (Full Big Screen), STREAM_HUD (Lower Third Transparent OBS), REFEREE_REMOTE (Mobile Remote)
-  const [displayMode, setDisplayMode] = useState<"ARENA_TV" | "STREAM_HUD" | "REFEREE_REMOTE">("ARENA_TV");
+  const [displayMode, setDisplayMode] = useState<"ARENA_TV" | "STREAM_HUD" | "REFEREE_REMOTE" | "MULTI_TABLE">("ARENA_TV");
 
   // Custom / Live Score State
   const [tableNumber, setTableNumber] = useState<string>("MEJA 01");
@@ -215,6 +217,10 @@ export default function ScoreboardPage() {
       // Check URL query param e.g. ?table=1 or ?table=table-1 or ?table=Table 01
       if (typeof window !== "undefined") {
         const urlParams = new URLSearchParams(window.location.search);
+        const qMode = urlParams.get("mode");
+        if (qMode === "all" || qMode === "multi") {
+          setDisplayMode("MULTI_TABLE");
+        }
         const qTable = urlParams.get("table");
         if (qTable) {
           const matched = tablesData.find((t: any) => 
@@ -402,8 +408,8 @@ export default function ScoreboardPage() {
     setP2Score((prev) => Math.max(0, prev - 1));
   };
 
-  // Sync to database if bound to a tournament match and staff is authenticated
-  const handleSyncToLiveBackend = async () => {
+  // Sync to database: support both live progress update and final completion (works for 1-0, 2-0 PES scores)
+  const handleSyncToLiveBackend = async (asCompleted: boolean = false) => {
     if (selectedMatchId === "CUSTOM" || !selectedMatchId) {
       alert("Pilih pertandingan dari turnamen terlebih dahulu untuk sinkronisasi ke bagan.");
       return;
@@ -417,7 +423,22 @@ export default function ScoreboardPage() {
     const currentMatch = tournament?.matches?.find((m) => m.id === selectedMatchId);
     if (!currentMatch) return;
 
-    const winnerId = p1Score > p2Score ? currentMatch.player1Id : currentMatch.player2Id;
+    let winnerId: string | null = null;
+    let status = "ONGOING";
+
+    if (asCompleted) {
+      // In knockout matches (PES / Billiard), final score must have a winner
+      if (p1Score === p2Score) {
+        alert("Skor saat ini masih imbang (" + p1Score + " - " + p2Score + "). Di turnamen sistem gugur PES, masukkan hasil skor akhir babak tambahan atau adu penalti agar pemenang dapat ditentukan.");
+        return;
+      }
+      winnerId = (p1Score > p2Score ? currentMatch.player1Id : currentMatch.player2Id) || null;
+      status = "COMPLETED";
+    } else {
+      // Live interim score update during match
+      status = "ONGOING";
+      winnerId = null;
+    }
 
     try {
       setIsSyncing(true);
@@ -430,15 +451,22 @@ export default function ScoreboardPage() {
         body: JSON.stringify({
           score1: p1Score,
           score2: p2Score,
-          winnerId: (p1Score >= raceTo || p2Score >= raceTo) ? winnerId : null,
+          winnerId,
+          status,
+          tableId: status === "COMPLETED" ? null : (currentMatch.tableId || selectedTableId),
         }),
       });
 
       if (!res.ok) throw new Error("Gagal mengupdate skor di server");
 
-      setSyncStatusMsg("✅ Skor tersinkronisasi ke Bagan Utama & Kasir POS!");
-      setTimeout(() => setSyncStatusMsg(null), 2500);
-      fetchTournament();
+      const winnerName = winnerId === currentMatch.player1Id ? p1Name : p2Name;
+      setSyncStatusMsg(status === "COMPLETED"
+        ? `🏆 Laga Selesai! ${winnerName} lolos ke babak berikutnya & ${tableNumber} siap digunakan kembali!`
+        : `✅ Skor Live (${p1Score} - ${p2Score}) berhasil diperbarui di Bagan Utama!`
+      );
+      setTimeout(() => setSyncStatusMsg(null), 3500);
+      const updatedTour = await fetchTournament();
+      await fetchTables(updatedTour);
     } catch (e: any) {
       alert(e.message || "Gagal sinkronisasi");
     } finally {
@@ -446,7 +474,7 @@ export default function ScoreboardPage() {
     }
   };
 
-  const toggleFullscreen = () => {
+    const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
       setIsFullscreen(true);
@@ -717,21 +745,46 @@ export default function ScoreboardPage() {
             </button>
 
             {selectedMatchId !== "CUSTOM" && (
-              <button
-                disabled={isSyncing}
-                onClick={handleSyncToLiveBackend}
-                className="btn-gold"
-                style={{
-                  padding: "6px 12px",
-                  fontSize: "11px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <Check size={13} />
-                <span>{isSyncing ? "Sync..." : "Simpan ke Bagan"}</span>
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <button
+                  disabled={isSyncing}
+                  onClick={() => handleSyncToLiveBackend(false)}
+                  style={{
+                    background: "rgba(0, 240, 255, 0.12)",
+                    border: "1px solid rgba(0, 240, 255, 0.35)",
+                    color: "#00F0FF",
+                    padding: "6px 10px",
+                    borderRadius: "8px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}
+                  title="Update skor live saat tanding sedang berjalan (misal 1-0) tanpa menyelesaikan match"
+                >
+                  <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+                  <span>Update Live</span>
+                </button>
+
+                <button
+                  disabled={isSyncing}
+                  onClick={() => handleSyncToLiveBackend(true)}
+                  className="btn-gold"
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: "11px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                  title="Selesaikan laga (skor 1-0, 2-0, 2-1 dsb) dan loloskan pemenang ke babak berikutnya"
+                >
+                  <Trophy size={13} />
+                  <span>{isSyncing ? "Menyimpan..." : "Selesaikan Laga"}</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -811,8 +864,14 @@ export default function ScoreboardPage() {
                   }} />
                 )}
                 {liveMatch && p1 && p2 && (
-                  <span style={{ fontSize: "9px", opacity: 0.8, maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    ({p1} vs {p2})
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: isSelected ? "#040811" : "#E2E8F0",
+                    marginLeft: "2px",
+                    whiteSpace: "nowrap"
+                  }}>
+                    • {p1} vs {p2}
                   </span>
                 )}
               </button>
@@ -967,7 +1026,11 @@ export default function ScoreboardPage() {
               }}
             >
               <Trophy size={18} />
-              <span>RACE TO {raceTo} (FIRST TO {raceTo})</span>
+              <span>
+                {((tournament?.name || "").toLowerCase().includes("pes") || (tournament?.format || "").toLowerCase().includes("pes"))
+                  ? "⚽ PES MATCH (FULL TIME / PK)"
+                  : `RACE TO ${raceTo} (FIRST TO ${raceTo})`}
+              </span>
             </div>
           </div>
 
@@ -1739,15 +1802,305 @@ export default function ScoreboardPage() {
             </div>
 
             {selectedMatchId !== "CUSTOM" && (
-              <button
-                disabled={isSyncing}
-                onClick={handleSyncToLiveBackend}
-                className="btn-gold"
-                style={{ width: "100%", padding: "14px", fontSize: "14px" }}
-              >
-                {isSyncing ? "Menyimpan ke Server..." : "💾 Simpan Skor ke Bagan Turnamen"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+                <button
+                  disabled={isSyncing}
+                  onClick={() => handleSyncToLiveBackend(false)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    background: "rgba(0, 240, 255, 0.15)",
+                    border: "1px solid #00F0FF",
+                    color: "#00F0FF",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
+                  <span>{isSyncing ? "Menyimpan..." : "Update Skor Live (Pertandingan Masih Berjalan)"}</span>
+                </button>
+
+                <button
+                  disabled={isSyncing}
+                  onClick={() => handleSyncToLiveBackend(true)}
+                  className="btn-gold"
+                  style={{ width: "100%", padding: "14px", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                >
+                  <Trophy size={16} />
+                  <span>{isSyncing ? "Menyimpan..." : "🏆 Selesaikan Laga & Loloskan Pemenang (1-0, 2-0, dsb)"}</span>
+                </button>
+              </div>
             )}
+          </div>
+        </main>
+      )}
+
+      {/* 4. MULTI-TABLE ARENA MONITOR (10 MEJA SEKALIGUS DENGAN NAMA PESERTA LENGKAP) */}
+      {displayMode === "MULTI_TABLE" && (
+        <main style={{
+          flex: 1,
+          padding: "24px 20px 48px 20px",
+          maxWidth: "1800px",
+          margin: "0 auto",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: "20px",
+        }}>
+          {/* Header Banner */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "12px",
+            background: "rgba(10, 20, 40, 0.75)",
+            border: "1px solid rgba(0, 240, 255, 0.3)",
+            borderRadius: "16px",
+            padding: "16px 24px",
+            backdropFilter: "blur(12px)"
+          }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <h2 style={{ fontFamily: "Montserrat", fontSize: "20px", fontWeight: 900, color: "#FFFFFF", margin: 0 }}>
+                  🏟️ MONITOR ARENA 10 MEJA
+                </h2>
+                <span style={{
+                  background: "rgba(16, 185, 129, 0.2)",
+                  border: "1px solid rgba(16, 185, 129, 0.5)",
+                  color: "#10B981",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  padding: "2px 10px",
+                  borderRadius: "100px"
+                }}>
+                  ● LIVE BROADCAST
+                </span>
+              </div>
+              <p style={{ margin: "6px 0 0 0", fontSize: "12px", color: "#94A3B8" }}>
+                Menampilkan seluruh 10 stasiun meja turnamen secara serentak dengan teks nama peserta lengkap.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+              <span style={{ fontSize: "12px", color: "#64748B" }}>
+                Total Meja: <strong style={{ color: "#00F0FF" }}>{tournamentTables.length}</strong>
+              </span>
+              <span style={{ fontSize: "12px", color: "#64748B" }}>
+                Sedang Tanding: <strong style={{ color: "#10B981" }}>
+                  {tournamentTables.filter(t => !!tournament?.matches?.find(m => m.tableId === t.id && m.status !== "COMPLETED") || !!t.currentMatch).length}
+                </strong>
+              </span>
+              <button
+                onClick={() => setDisplayMode("ARENA_TV")}
+                style={{
+                  background: "linear-gradient(135deg, #00F0FF, #0066FF)",
+                  border: "none",
+                  color: "#040811",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                <Tv size={13} />
+                <span>Buka Scoreboard 1 Meja</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 10 Stations Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+            gap: "18px"
+          }}>
+            {tournamentTables.map((t) => {
+              const liveMatch = tournament?.matches?.find(m => m.tableId === t.id && m.status !== "COMPLETED") || t.currentMatch;
+              const p1 = liveMatch?.player1?.name || (liveMatch?.player1 as any)?.member?.name || (liveMatch ? "Player 1" : null);
+              const p2 = liveMatch?.player2?.name || (liveMatch?.player2 as any)?.member?.name || (liveMatch ? "Player 2" : null);
+              const p1Hc = liveMatch?.player1?.handicap || (liveMatch?.player1 as any)?.member?.handicap || "OPEN";
+              const p2Hc = liveMatch?.player2?.handicap || (liveMatch?.player2 as any)?.member?.handicap || "OPEN";
+              const s1 = liveMatch?.score1 || 0;
+              const s2 = liveMatch?.score2 || 0;
+
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    background: liveMatch
+                      ? "linear-gradient(135deg, rgba(6, 18, 38, 0.95), rgba(4, 10, 22, 0.98))"
+                      : "rgba(10, 16, 28, 0.6)",
+                    border: liveMatch
+                      ? "1px solid rgba(0, 240, 255, 0.4)"
+                      : "1px dashed rgba(255, 255, 255, 0.12)",
+                    borderRadius: "18px",
+                    padding: "16px 18px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "14px",
+                    boxShadow: liveMatch ? "0 8px 30px rgba(0, 240, 255, 0.1)" : "none",
+                    position: "relative"
+                  }}
+                >
+                  {/* Station Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{
+                        fontFamily: "Montserrat",
+                        fontSize: "15px",
+                        fontWeight: 900,
+                        color: liveMatch ? "#00F0FF" : "#94A3B8"
+                      }}>
+                        {t.name.toUpperCase()}
+                      </span>
+                      {liveMatch && (
+                        <span style={{
+                          fontSize: "10px",
+                          fontWeight: 800,
+                          color: "#10B981",
+                          background: "rgba(16, 185, 129, 0.15)",
+                          border: "1px solid rgba(16, 185, 129, 0.4)",
+                          padding: "2px 8px",
+                          borderRadius: "4px"
+                        }}>
+                          ● LIVE
+                        </span>
+                      )}
+                    </div>
+
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B" }}>
+                      {liveMatch ? `Match #${liveMatch.matchNumber} (R${liveMatch.round})` : "KOSONG"}
+                    </span>
+                  </div>
+
+                  {/* Players / Match Details */}
+                  {liveMatch && p1 && p2 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {/* Player 1 Row */}
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        background: "rgba(0, 240, 255, 0.08)",
+                        border: "1px solid rgba(0, 240, 255, 0.25)",
+                        borderRadius: "10px",
+                        padding: "10px 14px"
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0, paddingRight: "8px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.3 }}>
+                            {p1}
+                          </div>
+                          <span style={{ fontSize: "10px", color: "#00F0FF", fontWeight: 600 }}>
+                            HC: {p1Hc}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: "Montserrat", fontSize: "26px", fontWeight: 900, color: "#00F0FF", marginLeft: "12px" }}>
+                          {s1}
+                        </span>
+                      </div>
+
+                      {/* Player 2 Row */}
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        background: "rgba(244, 63, 94, 0.08)",
+                        border: "1px solid rgba(244, 63, 94, 0.25)",
+                        borderRadius: "10px",
+                        padding: "10px 14px"
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0, paddingRight: "8px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.3 }}>
+                            {p2}
+                          </div>
+                          <span style={{ fontSize: "10px", color: "#F43F5E", fontWeight: 600 }}>
+                            HC: {p2Hc}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: "Montserrat", fontSize: "26px", fontWeight: 900, color: "#F43F5E", marginLeft: "12px" }}>
+                          {s2}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: "24px 12px",
+                      textAlign: "center",
+                      color: "#64748B",
+                      fontSize: "12px",
+                      background: "rgba(255, 255, 255, 0.02)",
+                      borderRadius: "10px",
+                      border: "1px dashed rgba(255, 255, 255, 0.08)"
+                    }}>
+                      Meja ini sedang kosong / siap bertanding
+                    </div>
+                  )}
+
+                  {/* Card Action Buttons */}
+                  <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "4px" }}>
+                    <button
+                      onClick={() => {
+                        handleSelectTable(t.id);
+                        setDisplayMode("ARENA_TV");
+                      }}
+                      style={{
+                        flex: 1,
+                        background: "rgba(0, 240, 255, 0.12)",
+                        border: "1px solid rgba(0, 240, 255, 0.35)",
+                        color: "#00F0FF",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <Tv size={13} />
+                      <span>Buka TV Meja Ini</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleSelectTable(t.id);
+                        setDisplayMode("REFEREE_REMOTE");
+                      }}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.06)",
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        color: "#94A3B8",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                      title="Remote Wasit"
+                    >
+                      <Smartphone size={13} />
+                      <span>Wasit</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </main>
       )}
