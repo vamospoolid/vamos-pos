@@ -101,7 +101,8 @@ export default function Competitions() {
     const [savingSlotName, setSavingSlotName] = useState(false);
 
     const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
-    const [scoreMatchData, setScoreMatchData] = useState<{ matchId: string, player1Id: string, player2Id: string, p1Name: string, p2Name: string, score1: number, score2: number } | null>(null);
+    const [scoreMatchData, setScoreMatchData] = useState<{ matchId: string, player1Id: string, player2Id: string, p1Name: string, p2Name: string, score1: number, score2: number, tableId?: string } | null>(null);
+    const [tournamentTables, setTournamentTables] = useState<any[]>([]);
 
     const [isManageParticipantsOpen, setIsManageParticipantsOpen] = useState(false);
     const [manageTournamentId, setManageTournamentId] = useState<string | null>(null);
@@ -119,12 +120,16 @@ export default function Competitions() {
 
     const fetchData = async () => {
         try {
-            const [tRes, mRes] = await Promise.all([
+            const [tRes, mRes, tblRes] = await Promise.all([
                 api.get('/tournaments'),
-                api.get('/members')
+                api.get('/members'),
+                api.get('/tournaments/public/tables').catch(() => ({ data: { data: [] } }))
             ]);
             setTournaments(tRes.data.data);
             setMembers(mRes.data.data);
+            if (tblRes.data?.data) {
+                setTournamentTables(tblRes.data.data);
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -503,7 +508,8 @@ export default function Competitions() {
             p1Name: p1Name,
             p2Name: p2Name,
             score1: m.score1,
-            score2: m.score2
+            score2: m.score2,
+            tableId: m.tableId || ''
         });
         setIsScoreModalOpen(true);
     };
@@ -511,7 +517,7 @@ export default function Competitions() {
     const submitMatchScore = async () => {
         if (!scoreMatchData) return;
 
-        const { matchId, player1Id, player2Id, score1, score2 } = scoreMatchData;
+        const { matchId, player1Id, player2Id, score1, score2, tableId } = scoreMatchData;
 
         let winnerId = score1 > score2 ? player1Id : player2Id;
 
@@ -521,7 +527,13 @@ export default function Competitions() {
         }
 
         try {
-            await api.put(`/tournaments/matches/${matchId}`, { score1, score2, winnerId });
+            await api.put(`/tournaments/matches/${matchId}`, { 
+                score1, 
+                score2, 
+                winnerId,
+                tableId: tableId || null,
+                status: 'COMPLETED'
+            });
             setIsScoreModalOpen(false);
             setScoreMatchData(null);
             fetchData();
@@ -2797,6 +2809,28 @@ export default function Competitions() {
                                     onChange={(e) => setScoreMatchData({ ...scoreMatchData, score2: parseInt(e.target.value) || 0 })}
                                     className="w-16 bg-[#0a0a0a] border border-[#222222] rounded text-center py-2 focus:outline-none focus:border-[#00aaff] font-mono font-bold"
                                 />
+                            </div>
+
+                            {/* Table Assignment (10 Units) */}
+                            <div className="pt-3 border-t border-[#222222] space-y-1.5">
+                                <label className="text-[11px] font-bold text-gray-400 flex items-center justify-between">
+                                    <span>🎮 Meja Pertandingan:</span>
+                                    {scoreMatchData.tableId && (
+                                        <span className="text-[10px] text-emerald-400 font-bold">Aktif di Meja</span>
+                                    )}
+                                </label>
+                                <select
+                                    value={scoreMatchData.tableId || ''}
+                                    onChange={(e) => setScoreMatchData({ ...scoreMatchData, tableId: e.target.value })}
+                                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-[#00aaff]"
+                                >
+                                    <option value="">-- Bebaskan / Belum Ada Meja --</option>
+                                    {tournamentTables.map((tbl: any) => (
+                                        <option key={tbl.id} value={tbl.id}>
+                                            {tbl.name} {tbl.activeMatch ? `(Sedang Dipakai Match #${tbl.activeMatch.matchNumber})` : '(Tersedia)'}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                         <div className="p-6 border-t border-[#222222] flex space-x-3">

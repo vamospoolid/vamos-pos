@@ -19,7 +19,7 @@ export function TournamentFullscreenBracket({
     const [tournament, setTournament] = useState<any>(initialTournament);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [zoomLevel, setZoomLevel] = useState<number>(1);
-    const [activeSection, setActiveSection] = useState<'ALL' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'FINALS'>('ALL');
+    const [activeSection, setActiveSection] = useState<'ALL' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'R16' | 'FINALS'>('ALL');
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Sync with Socket.IO updates
@@ -75,15 +75,18 @@ export function TournamentFullscreenBracket({
 
     const rounds: number[] = Array.from(new Set<number>(matches.map((m: any) => Number(m.round)))).sort((a: number, b: number) => a - b);
 
-    // Filter matches based on selected section (Kuadran 1-4 or Finals)
+    // Filter matches based on selected section (Kuadran 1-4, 16 Besar, or Finals)
     const filterMatchBySection = (m: any) => {
         if (activeSection === 'ALL') return true;
         const totalR1 = matches.filter((x: any) => Number(x.round) === 1).length;
-        if (totalR1 <= 16) return true; // smaller bracket doesn't need quadrants
+        if (totalR1 <= 16 && activeSection !== 'FINALS' && activeSection !== 'R16') return true; // smaller bracket doesn't need quadrants
 
         const qSize = Math.max(1, Math.floor(totalR1 / 4));
         if (activeSection === 'FINALS') {
             return Number(m.round) >= (totalR1 >= 64 ? 5 : 4);
+        }
+        if (activeSection === 'R16') {
+            return Number(m.round) >= (totalR1 >= 64 ? 4 : 3);
         }
 
         const matchIdx = Number(m.matchNumber) - 1;
@@ -140,13 +143,18 @@ export function TournamentFullscreenBracket({
                         { id: 'Q2', label: 'Kuadran 2' },
                         { id: 'Q3', label: 'Kuadran 3' },
                         { id: 'Q4', label: 'Kuadran 4' },
+                        { id: 'R16', label: '🔥 16 Besar' },
                         { id: 'FINALS', label: '🏆 8 Besar & Final' }
                     ].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveSection(tab.id as any)}
                             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${activeSection === tab.id
-                                    ? 'bg-yellow-500 text-black shadow-sm font-black'
+                                    ? tab.id === 'FINALS'
+                                        ? 'bg-yellow-500 text-black shadow-sm font-black'
+                                        : tab.id === 'R16'
+                                            ? 'bg-red-500 text-white shadow-sm font-black'
+                                            : 'bg-[#00aaff] text-black shadow-sm font-black'
                                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
@@ -157,6 +165,16 @@ export function TournamentFullscreenBracket({
 
                 {/* Right: Controls & Fullscreen */}
                 <div className="flex items-center gap-2">
+                    {/* Link to Live Scoreboard */}
+                    <a
+                        href="https://vamospool.id/scoreboard"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 bg-[#00aaff]/10 hover:bg-[#00aaff]/20 text-[#00aaff] border border-[#00aaff]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                        title="Buka Scoreboard 10 Meja Turnamen"
+                    >
+                        <span>📺 Scoreboard Meja</span>
+                    </a>
                     {/* Zoom Buttons */}
                     <div className="flex items-center bg-[#1a1a1a] rounded-xl border border-[#262626] p-0.5">
                         <button
@@ -272,9 +290,16 @@ export function TournamentFullscreenBracket({
                                         >
                                             {/* Match Number & Status Header */}
                                             <div className="flex justify-between items-center pb-2 mb-2 border-b border-[#202020] text-[10px]">
-                                                <span className="font-mono text-gray-500 font-bold">
-                                                    MATCH #{m.matchNumber}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-mono text-gray-500 font-bold">
+                                                        MATCH #{m.matchNumber}
+                                                    </span>
+                                                    {m.table?.name && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                                                            🎮 {m.table.name.toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {isCompleted ? (
                                                     <span className="text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> SELESAI
