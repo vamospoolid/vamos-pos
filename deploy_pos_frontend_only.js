@@ -12,74 +12,48 @@ const config = {
     password: 'Ahmad_dcc07'
 };
 
-const project = {
-    name: 'POS Frontend',
-    localDist: path.join(__dirname, 'vamos-pos-frontend', 'dist'),
-    remoteDist: '/var/www/vamos/vamos-pos-frontend/dist'
-};
-
 conn.on('ready', () => {
-    console.log('✅ SSH Connected untuk Deploy POS Frontend!\n');
+    console.log('✅ SSH Connected ke VPS 173.212.243.240!\n');
 
-    async function deployProject() {
-        console.log(`📦 Deploying ${project.name}...`);
-        
-        const archiveName = `${project.name.toLowerCase().replace(' ', '_')}_dist.tar.gz`;
-        const localArchive = path.join(__dirname, archiveName);
-        const remoteArchive = `/tmp/${archiveName}`;
+    async function deploy() {
+        console.log('📦 Packing & Deploying POS Frontend dist...');
+        const frontendLocalDist = path.join(__dirname, 'vamos-pos-frontend', 'dist');
+        const frontendArchive = path.join(__dirname, 'frontend_dist.tar.gz');
+        execSync(`tar -czf "${frontendArchive}" -C "${frontendLocalDist}" .`);
 
-        // 1. Compress local dist
-        console.log(`   - Compressing local dist...`);
-        execSync(`tar -czf "${localArchive}" -C "${project.localDist}" .`);
-
-        // 2. Upload to VPS
-        console.log(`   - Uploading to VPS...`);
         await new Promise((resolve, reject) => {
             conn.sftp((err, sftp) => {
                 if (err) return reject(err);
-                sftp.fastPut(localArchive, remoteArchive, (err) => {
+                sftp.fastPut(frontendArchive, '/tmp/frontend_dist.tar.gz', (err) => {
                     if (err) return reject(err);
                     resolve();
                 });
             });
         });
 
-        // 3. Extract on VPS
-        console.log(`   - Extracting on VPS...`);
-        await new Promise((resolve, reject) => {
-            const cmd = `
-                sudo mkdir -p ${project.remoteDist}
-                sudo rm -rf ${project.remoteDist}/*
-                sudo tar -xzf ${remoteArchive} -C ${project.remoteDist}
-                sudo rm -f ${remoteArchive}
-            `;
-            conn.exec(cmd, (err, stream) => {
-                if (err) return reject(err);
-                stream.on('data', d => {}); 
-                stream.stderr.on('data', d => {});
-                stream.on('close', () => resolve());
+        console.log('🔄 Extracting and reloading Nginx on VPS...');
+        const remoteCmd = `
+            mkdir -p /var/www/vamos/vamos-pos-frontend/dist
+            tar -xzf /tmp/frontend_dist.tar.gz -C /var/www/vamos/vamos-pos-frontend/dist
+            rm -f /tmp/frontend_dist.tar.gz
+            nginx -t && systemctl reload nginx
+            echo "SUCCESS_DEPLOY_POS_FRONTEND"
+        `;
+
+        conn.exec(remoteCmd, (err, stream) => {
+            if (err) throw err;
+            stream.on('data', d => process.stdout.write(d.toString()));
+            stream.stderr.on('data', d => process.stderr.write(d.toString()));
+            stream.on('close', () => {
+                try { fs.unlinkSync(frontendArchive); } catch(e){}
+                console.log('\n🎉 Selesai deploy POS Frontend ke VPS!');
+                conn.end();
             });
         });
-
-        // 4. Cleanup local
-        if (fs.existsSync(localArchive)) fs.unlinkSync(localArchive);
-        console.log(`   ✅ ${project.name} deployed!\n`);
     }
 
-    (async () => {
-        try {
-            await deployProject();
-            console.log('🚀 POS Frontend deployed! Merestart Nginx...');
-            conn.exec('sudo systemctl restart nginx', (err, stream) => {
-                stream.on('data', d => {});
-                stream.on('close', () => {
-                    console.log('✅ Nginx restarted.');
-                    conn.end();
-                });
-            });
-        } catch (err) {
-            console.error('❌ Error selama deploy:', err);
-            conn.end();
-        }
-    })();
+    deploy().catch(err => {
+        console.error('Deploy error:', err);
+        conn.end();
+    });
 }).connect(config);

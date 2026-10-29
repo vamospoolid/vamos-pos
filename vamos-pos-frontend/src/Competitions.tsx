@@ -812,9 +812,17 @@ export default function Competitions() {
             goldBorder: [250, 204, 21]
         };
 
-        const round1Matches = (tournament.matches || [])
-            .filter((m: any) => Number(m.round) === 1)
-            .sort((a: any, b: any) => Number(a.matchNumber) - Number(b.matchNumber));
+        const roundMatchesMap: Record<number, any[]> = {};
+        (tournament.matches || []).forEach((m: any) => {
+            const r = Number(m.round);
+            if (!roundMatchesMap[r]) roundMatchesMap[r] = [];
+            roundMatchesMap[r].push(m);
+        });
+        Object.values(roundMatchesMap).forEach(list => {
+            list.sort((a: any, b: any) => Number(a.matchNumber) - Number(b.matchNumber));
+        });
+
+        const round1Matches = roundMatchesMap[1] || [];
 
         if (round1Matches.length === 0) {
             vamosAlert('Bagan masih kosong. Silakan generate drawing bagan terlebih dahulu.');
@@ -875,8 +883,10 @@ export default function Competitions() {
 
             const startY = 32;
             const availableHeight = pageHeight - startY - 14; // ~164mm
-            const cardHeight = totalR1 <= 8 ? 14 : 12;
-            const cardWidth = totalR1 <= 8 ? 48 : 42;
+            const cardHeight = halfR1 >= 8 ? 11.5 : 13;
+            const cardWidth = halfR1 >= 8 ? 35 : 44;
+            const centerWidth = halfR1 >= 8 ? 37 : 48;
+            const centerHeight = halfR1 >= 8 ? 14 : 15;
 
             const leftHeaderLabel = chunks.length > 1
                 ? `KUADRAN ${pageIdx + 1} • BLOK ATAS (MATCH #${chunkMatches[0]?.matchNumber || 1}–#${chunkMatches[halfR1 - 1]?.matchNumber || halfR1})`
@@ -890,38 +900,101 @@ export default function Competitions() {
                     ? `⚔️ SEMIFINAL #${pageIdx + 1}`
                     : "🏆 GRAND FINAL";
 
-            // Left Wing Header
-            doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-            doc.roundedRect(12, startY - 6, 88, 4.5, 1, 1, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(6.5);
-            doc.setFont('helvetica', 'bold');
-            doc.text(leftHeaderLabel, 56, startY - 3, { align: 'center' });
+            // Symmetrical X positions across 297mm width to prevent any overlap
+            const leftR1_X = halfR1 >= 8 ? 10 : 12;
+            const leftR2_X = halfR1 >= 8 ? 51 : 68;
+            const leftR3_X = 92;
+            const finalX = (pageWidth - centerWidth) / 2; // Exactly 130mm when centerWidth=37mm
+            const rightR3_X = 170;
+            const rightR2_X = halfR1 >= 8 ? 211 : 185;
+            const rightR1_X = halfR1 >= 8 ? 252 : 241;
 
-            // Right Wing Header
-            doc.setFillColor(225, 29, 72); // Rose/Red
-            doc.roundedRect(pageWidth - 100, startY - 6, 88, 4.5, 1, 1, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(6.5);
-            doc.setFont('helvetica', 'bold');
-            doc.text(rightHeaderLabel, pageWidth - 56, startY - 3, { align: 'center' });
+            if (halfR1 >= 8) {
+                // Left Wing Header
+                doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+                doc.roundedRect(10, startY - 6, 117, 4.5, 1, 1, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(leftHeaderLabel, 68.5, startY - 3, { align: 'center' });
 
-            // Center Stage Header
-            doc.setFillColor(234, 179, 8); // Gold
-            doc.roundedRect(pageWidth / 2 - 24, startY - 6, 48, 4.5, 1, 1, 'F');
-            doc.setTextColor(15, 23, 42);
-            doc.setFontSize(6.5);
-            doc.setFont('helvetica', 'bold');
-            doc.text(centerHeaderLabel, pageWidth / 2, startY - 3, { align: 'center' });
+                // Center Stage Header
+                doc.setFillColor(234, 179, 8); // Gold
+                doc.roundedRect(finalX, startY - 6, centerWidth, 4.5, 1, 1, 'F');
+                doc.setTextColor(15, 23, 42);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(centerHeaderLabel, pageWidth / 2, startY - 3, { align: 'center' });
 
-            const drawMatchBox = (m: any, x: number, y: number, width = cardWidth, height = cardHeight, isFinal = false) => {
+                // Right Wing Header
+                doc.setFillColor(225, 29, 72); // Rose/Red
+                doc.roundedRect(170, startY - 6, 117, 4.5, 1, 1, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(rightHeaderLabel, 228.5, startY - 3, { align: 'center' });
+            } else {
+                // Left Wing Header
+                doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+                doc.roundedRect(12, startY - 6, 100, 4.5, 1, 1, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(leftHeaderLabel, 62, startY - 3, { align: 'center' });
+
+                // Center Stage Header
+                doc.setFillColor(234, 179, 8); // Gold
+                doc.roundedRect(finalX, startY - 6, centerWidth, 4.5, 1, 1, 'F');
+                doc.setTextColor(15, 23, 42);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(centerHeaderLabel, pageWidth / 2, startY - 3, { align: 'center' });
+
+                // Right Wing Header
+                doc.setFillColor(225, 29, 72); // Rose/Red
+                doc.roundedRect(pageWidth - 112, startY - 6, 100, 4.5, 1, 1, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(rightHeaderLabel, pageWidth - 62, startY - 3, { align: 'center' });
+            }
+
+            const drawMatchBox = (
+                m: any, 
+                x: number, 
+                y: number, 
+                width = cardWidth, 
+                height = cardHeight, 
+                isFinal = false,
+                feeder1?: any,
+                feeder2?: any
+            ) => {
                 doc.setDrawColor(isFinal ? colors.goldBorder[0] : colors.border[0], isFinal ? colors.goldBorder[1] : colors.border[1], isFinal ? colors.goldBorder[2] : colors.border[2]);
                 doc.setLineWidth(isFinal ? 0.4 : 0.2);
                 doc.setFillColor(isFinal ? colors.goldBg[0] : 255, isFinal ? colors.goldBg[1] : 255, isFinal ? colors.goldBg[2] : 255);
                 doc.roundedRect(x, y, width, height, 0.8, 0.8, 'FD');
 
-                const p1 = getParticipant(m?.player1Id);
-                const p2 = getParticipant(m?.player2Id);
+                // Fallback resolution from feeders if m.player1Id is not yet assigned in database
+                let p1Id = m?.player1Id;
+                if (!p1Id && feeder1) {
+                    if (feeder1.winnerId) {
+                        p1Id = feeder1.winnerId;
+                    } else if (feeder1.status === 'COMPLETED') {
+                        p1Id = (feeder1.score1 > feeder1.score2) ? feeder1.player1Id : feeder1.player2Id;
+                    }
+                }
+                const p1 = getParticipant(p1Id);
+
+                let p2Id = m?.player2Id;
+                if (!p2Id && feeder2) {
+                    if (feeder2.winnerId) {
+                        p2Id = feeder2.winnerId;
+                    } else if (feeder2.status === 'COMPLETED') {
+                        p2Id = (feeder2.score1 > feeder2.score2) ? feeder2.player1Id : feeder2.player2Id;
+                    }
+                }
+                const p2 = getParticipant(p2Id);
+
                 const p1Name = p1 ? (p1.name || p1.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
                 const p2Name = p2 ? (p2.name || p2.member?.name || 'TBD') : (m?.status === 'COMPLETED' ? 'BYE' : 'TBD');
                 const p1HC = p1?.handicap ? `[${p1.handicap}]` : '';
@@ -929,53 +1002,59 @@ export default function Competitions() {
 
                 const p1Score = m?.score1 ?? 0;
                 const p2Score = m?.score2 ?? 0;
-                const p1Winner = m?.winnerId && m?.winnerId === m?.player1Id;
-                const p2Winner = m?.winnerId && m?.winnerId === m?.player2Id;
+                const p1Winner = m?.winnerId ? m.winnerId === p1Id : (m?.status === 'COMPLETED' && p1Score > p2Score);
+                const p2Winner = m?.winnerId ? m.winnerId === p2Id : (m?.status === 'COMPLETED' && p2Score > p1Score);
+
+                const nameFontSize = width <= 37 ? 5.8 : 6.5;
+                const maxChars = width <= 37 ? 14 : 17;
+                const y1 = y + (height * 0.35);
+                const divY = y + (height * 0.52);
+                const y2 = y + (height * 0.85);
 
                 // Player 1 line
-                doc.setFontSize(6.5);
+                doc.setFontSize(nameFontSize);
                 doc.setFont('helvetica', p1Winner ? 'bold' : 'normal');
                 doc.setTextColor(p1Winner ? colors.winner[0] : colors.secondary[0], p1Winner ? colors.winner[1] : colors.secondary[1], p1Winner ? colors.winner[2] : colors.secondary[2]);
                 let d1 = p1Name.toUpperCase();
-                if (d1.length > 17) d1 = d1.substring(0, 15) + '..';
-                doc.text(d1, x + 2, y + 4.2);
+                if (d1.length > maxChars) d1 = d1.substring(0, maxChars - 2) + '..';
+                doc.text(d1, x + 1.8, y1);
                 if (p1HC) {
-                    doc.setFontSize(5);
+                    doc.setFontSize(4.5);
                     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                    doc.text(p1HC, x + width - 6.5, y + 4.2, { align: 'right' });
+                    doc.text(p1HC, x + width - 6.2, y1, { align: 'right' });
                 }
-                doc.setFontSize(6.5);
-                doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-                doc.text(String(p1Score), x + width - 2, y + 4.2, { align: 'right' });
+                doc.setFontSize(nameFontSize);
+                doc.setTextColor(p1Winner ? colors.winner[0] : colors.secondary[0], p1Winner ? colors.winner[1] : colors.secondary[1], p1Winner ? colors.winner[2] : colors.secondary[2]);
+                doc.text(String(p1Score), x + width - 1.8, y1, { align: 'right' });
 
                 // Divider
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                 doc.setLineWidth(0.15);
-                doc.line(x + 1.5, y + 6, x + width - 1.5, y + 6);
+                doc.line(x + 1.5, divY, x + width - 1.5, divY);
 
                 // Player 2 line
-                doc.setFontSize(6.5);
+                doc.setFontSize(nameFontSize);
                 doc.setFont('helvetica', p2Winner ? 'bold' : 'normal');
                 doc.setTextColor(p2Winner ? colors.winner[0] : colors.secondary[0], p2Winner ? colors.winner[1] : colors.secondary[1], p2Winner ? colors.winner[2] : colors.secondary[2]);
                 let d2 = p2Name.toUpperCase();
-                if (d2.length > 17) d2 = d2.substring(0, 15) + '..';
-                doc.text(d2, x + 2, y + 10);
+                if (d2.length > maxChars) d2 = d2.substring(0, maxChars - 2) + '..';
+                doc.text(d2, x + 1.8, y2);
                 if (p2HC) {
-                    doc.setFontSize(5);
+                    doc.setFontSize(4.5);
                     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                    doc.text(p2HC, x + width - 6.5, y + 10, { align: 'right' });
+                    doc.text(p2HC, x + width - 6.2, y2, { align: 'right' });
                 }
-                doc.setFontSize(6.5);
-                doc.setTextColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-                doc.text(String(p2Score), x + width - 2, y + 10, { align: 'right' });
+                doc.setFontSize(nameFontSize);
+                doc.setTextColor(p2Winner ? colors.winner[0] : colors.secondary[0], p2Winner ? colors.winner[1] : colors.secondary[1], p2Winner ? colors.winner[2] : colors.secondary[2]);
+                doc.text(String(p2Score), x + width - 1.8, y2, { align: 'right' });
 
                 // Match number badge
                 if (m?.matchNumber) {
                     doc.setFillColor(colors.cardHeader[0], colors.cardHeader[1], colors.cardHeader[2]);
-                    doc.rect(x + width - 7, y, 7, 2.5, 'F');
+                    doc.rect(x + width - 7.5, y, 7.5, 2.5, 'F');
                     doc.setFontSize(4);
                     doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
-                    doc.text(`#${m.matchNumber}`, x + width - 3.5, y + 1.8, { align: 'center' });
+                    doc.text(`#${m.matchNumber}`, x + width - 3.75, y + 1.8, { align: 'center' });
                 }
             };
 
@@ -986,23 +1065,28 @@ export default function Competitions() {
             const leftPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
             const rightPos: Record<string, { x: number; y: number; cx: number; cy: number }> = {};
 
-            // 1. Left Wing - Round 1 (x=12)
+            // 1. Left Wing - Round 1
             leftMatches.forEach((m: any, idx: number) => {
-                const x = 12;
+                const x = leftR1_X;
                 const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
                 leftPos[`1_${idx}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
-                drawMatchBox(m, x, y);
+                drawMatchBox(m, x, y, cardWidth, cardHeight, false);
             });
 
-            // 2. Left Wing - Round 2 (x=52)
+            // 2. Left Wing - Round 2
             const leftR2Count = Math.max(1, Math.floor(halfR1 / 2));
             for (let i = 0; i < leftR2Count; i++) {
-                const x = 52;
+                const x = leftR2_X;
                 const m1Y = leftPos[`1_${i * 2}`].cy;
                 const m2Y = leftPos[`1_${i * 2 + 1}`].cy;
                 const y = (m1Y + m2Y) / 2 - cardHeight / 2;
                 leftPos[`2_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
-                drawMatchBox(null, x, y);
+
+                const feeder1 = leftMatches[i * 2];
+                const feeder2 = leftMatches[i * 2 + 1];
+                const globalR1Idx = pageIdx * chunkSize + (i * 2);
+                const m = roundMatchesMap[2]?.[Math.floor(globalR1Idx / 2)];
+                drawMatchBox(m, x, y, cardWidth, cardHeight, false, feeder1, feeder2);
 
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                 doc.setLineWidth(0.3);
@@ -1013,16 +1097,21 @@ export default function Competitions() {
                 doc.line(midX, (m1Y + m2Y) / 2, x, (m1Y + m2Y) / 2);
             }
 
-            // 3. Left Wing - Next Round (x=92)
+            // 3. Left Wing - Round 3 (when halfR1 >= 8)
             const leftQFCount = Math.max(1, Math.floor(leftR2Count / 2));
             if (halfR1 >= 8) {
                 for (let i = 0; i < leftQFCount; i++) {
-                    const x = 92;
+                    const x = leftR3_X;
                     const m1Y = leftPos[`2_${i * 2}`].cy;
                     const m2Y = leftPos[`2_${i * 2 + 1}`].cy;
                     const y = (m1Y + m2Y) / 2 - cardHeight / 2;
                     leftPos[`3_${i}`] = { x, y, cx: x + cardWidth, cy: y + cardHeight / 2 };
-                    drawMatchBox(null, x, y);
+
+                    const globalR1Idx = pageIdx * chunkSize + (i * 4);
+                    const feeder1 = roundMatchesMap[2]?.[Math.floor(globalR1Idx / 2)];
+                    const feeder2 = roundMatchesMap[2]?.[Math.floor((globalR1Idx + 2) / 2)];
+                    const m = roundMatchesMap[3]?.[Math.floor(globalR1Idx / 4)];
+                    drawMatchBox(m, x, y, cardWidth, cardHeight, false, feeder1, feeder2);
 
                     doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                     doc.setLineWidth(0.3);
@@ -1035,22 +1124,26 @@ export default function Competitions() {
             }
 
             // 4. Right Wing - Round 1
-            const rightX = pageWidth - 12 - cardWidth;
             rightMatches.forEach((m: any, idx: number) => {
-                const x = rightX;
+                const x = rightR1_X;
                 const y = startY + (idx * r1Spacing) + (r1Spacing / 2) - (cardHeight / 2);
                 rightPos[`1_${idx}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
-                drawMatchBox(m, x, y);
+                drawMatchBox(m, x, y, cardWidth, cardHeight, false);
             });
 
             // 5. Right Wing - Round 2
             for (let i = 0; i < leftR2Count; i++) {
-                const x = rightX - 40;
+                const x = rightR2_X;
                 const m1Y = rightPos[`1_${i * 2}`].cy;
                 const m2Y = rightPos[`1_${i * 2 + 1}`].cy;
                 const y = (m1Y + m2Y) / 2 - cardHeight / 2;
                 rightPos[`2_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
-                drawMatchBox(null, x, y);
+
+                const feeder1 = rightMatches[i * 2];
+                const feeder2 = rightMatches[i * 2 + 1];
+                const globalR1Idx = pageIdx * chunkSize + halfR1 + (i * 2);
+                const m = roundMatchesMap[2]?.[Math.floor(globalR1Idx / 2)];
+                drawMatchBox(m, x, y, cardWidth, cardHeight, false, feeder1, feeder2);
 
                 doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                 doc.setLineWidth(0.3);
@@ -1061,15 +1154,20 @@ export default function Competitions() {
                 doc.line(midX, (m1Y + m2Y) / 2, x + cardWidth, (m1Y + m2Y) / 2);
             }
 
-            // 6. Right Wing - Next Round
+            // 6. Right Wing - Round 3 (when halfR1 >= 8)
             if (halfR1 >= 8) {
                 for (let i = 0; i < leftQFCount; i++) {
-                    const x = rightX - 80;
+                    const x = rightR3_X;
                     const m1Y = rightPos[`2_${i * 2}`].cy;
                     const m2Y = rightPos[`2_${i * 2 + 1}`].cy;
                     const y = (m1Y + m2Y) / 2 - cardHeight / 2;
                     rightPos[`3_${i}`] = { x, y, cx: x, cy: y + cardHeight / 2 };
-                    drawMatchBox(null, x, y);
+
+                    const globalR1Idx = pageIdx * chunkSize + halfR1 + (i * 4);
+                    const feeder1 = roundMatchesMap[2]?.[Math.floor(globalR1Idx / 2)];
+                    const feeder2 = roundMatchesMap[2]?.[Math.floor((globalR1Idx + 2) / 2)];
+                    const m = roundMatchesMap[3]?.[Math.floor(globalR1Idx / 4)];
+                    drawMatchBox(m, x, y, cardWidth, cardHeight, false, feeder1, feeder2);
 
                     doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
                     doc.setLineWidth(0.3);
@@ -1091,12 +1189,31 @@ export default function Competitions() {
                 ? (rightPos['3_0'].cy + rightPos['3_1'].cy) / 2
                 : (rightPos['2_0'].cy + rightPos['2_1'].cy) / 2;
 
-            const finalWidth = 46;
-            const finalHeight = 15;
-            const finalX = (pageWidth - finalWidth) / 2;
-            const finalY = (leftSF_Y + rightSF_Y) / 2 - finalHeight / 2;
+            const finalY = (leftSF_Y + rightSF_Y) / 2 - centerHeight / 2;
 
-            drawMatchBox(null, finalX, finalY, finalWidth, finalHeight, true);
+            let centerMatch: any = null;
+            let centerFeeder1: any = null;
+            let centerFeeder2: any = null;
+
+            if (chunks.length === 4) {
+                // 128 players: 4 kuadran pages, Center is Round 5 (8 Besar / Quarter Final)
+                centerMatch = roundMatchesMap[5]?.[pageIdx];
+                centerFeeder1 = roundMatchesMap[4]?.[pageIdx * 2];
+                centerFeeder2 = roundMatchesMap[4]?.[pageIdx * 2 + 1];
+            } else if (chunks.length === 2) {
+                // 64 players: 2 pages, Center is Round 5 (Semifinals)
+                centerMatch = roundMatchesMap[5]?.[pageIdx];
+                centerFeeder1 = roundMatchesMap[4]?.[pageIdx * 2];
+                centerFeeder2 = roundMatchesMap[4]?.[pageIdx * 2 + 1];
+            } else {
+                // 32 players or fewer: Center is Grand Final (last round)
+                const maxRound = Math.max(...Object.keys(roundMatchesMap).map(Number));
+                centerMatch = roundMatchesMap[maxRound]?.[0];
+                centerFeeder1 = roundMatchesMap[maxRound - 1]?.[0];
+                centerFeeder2 = roundMatchesMap[maxRound - 1]?.[1];
+            }
+
+            drawMatchBox(centerMatch, finalX, finalY, centerWidth, centerHeight, true, centerFeeder1, centerFeeder2);
 
             // Connectors to Center
             const leftMidX = ((halfR1 >= 8 ? leftPos['3_0'].cx : leftPos['2_0'].cx) + finalX) / 2;
@@ -1109,7 +1226,7 @@ export default function Competitions() {
             doc.line(leftMidX, leftPos[lKey0].cy, leftMidX, leftPos[lKey1].cy);
             doc.line(leftMidX, leftSF_Y, finalX, leftSF_Y);
 
-            const rightMidX = ((halfR1 >= 8 ? rightPos['3_0'].cx : rightPos['2_0'].cx) + finalX + finalWidth) / 2;
+            const rightMidX = ((halfR1 >= 8 ? rightPos['3_0'].cx : rightPos['2_0'].cx) + finalX + centerWidth) / 2;
             doc.setDrawColor(225, 29, 72);
             doc.setLineWidth(0.4);
             const rKey0 = `${lastLeftKey}_0`;
@@ -1117,7 +1234,7 @@ export default function Competitions() {
             doc.line(rightPos[rKey0].cx, rightPos[rKey0].cy, rightMidX, rightPos[rKey0].cy);
             doc.line(rightPos[rKey1].cx, rightPos[rKey1].cy, rightMidX, rightPos[rKey1].cy);
             doc.line(rightMidX, rightPos[rKey0].cy, rightMidX, rightPos[rKey1].cy);
-            doc.line(rightMidX, rightSF_Y, finalX + finalWidth, rightSF_Y);
+            doc.line(rightMidX, rightSF_Y, finalX + centerWidth, rightSF_Y);
 
             // ─── 3. FOOTER ───
             doc.setFillColor(248, 250, 252);
