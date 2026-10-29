@@ -159,6 +159,42 @@ export class TournamentService {
         return result;
     }
 
+    static async importParticipants(tournamentId: string, lines: string[]) {
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            include: { _count: { select: { participants: true } } }
+        });
+        if (!tournament) throw new AppError('Tournament not found', 404);
+        if (tournament.status !== 'PENDING' && tournament.status !== 'ONGOING') throw new AppError('Registration closed', 400);
+
+        const currentCount = tournament._count.participants;
+        const availableSlots = tournament.maxPlayers - currentCount;
+        if (availableSlots <= 0) throw new AppError('Tournament is full', 400);
+
+        const cleanedLines = lines
+            .map(l => l.replace(/^\d+[\.\-\)]\s*/, '').trim()) // remove leading numbering like "1. ", "1 - ", "1) "
+            .filter(l => l.length > 0);
+
+        if (cleanedLines.length === 0) throw new AppError('Tidak ada nama peserta yang valid untuk di-import', 400);
+
+        const toInsert = cleanedLines.slice(0, availableSlots).map(name => ({
+            tournamentId,
+            name,
+            handicap: 'OPEN',
+            paymentStatus: (tournament.entryFee > 0 ? 'UNPAID' : 'PAID') as any,
+            paymentNotes: 'BULK_IMPORT'
+        }));
+
+        await prisma.tournamentParticipant.createMany({
+            data: toInsert
+        });
+
+        return {
+            importedCount: toInsert.length,
+            totalParticipants: currentCount + toInsert.length
+        };
+    }
+
     static async updateParticipant(tournamentId: string, participantId: string, data: { name?: string, handicap?: string, paymentNotes?: string }) {
         const pt = await prisma.tournamentParticipant.findUnique({
             where: { id: participantId }

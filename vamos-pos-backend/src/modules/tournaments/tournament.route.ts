@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { createTournament, getTournaments, getTournamentById, registerParticipant, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, reshuffleBracket, updateParticipant } from './tournament.controller';
+import { createTournament, getTournaments, getTournamentById, registerParticipant, importParticipants, generateBracket, updateMatchResult, updateMatchPlayers, finishTournament, deleteTournament, updateParticipantStatus, removeParticipant, purgeParticipants, updateTournament, resetBracket, reshuffleBracket, updateParticipant } from './tournament.controller';
 import { generateTournamentPromo, analyzePromoImage } from './tournament.creative.controller';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 
@@ -21,6 +21,7 @@ router.post('/', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), createTou
 router.put('/:id', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateTournament);
 
 router.post('/:id/register', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), registerParticipant);
+router.post('/:id/import-participants', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), importParticipants);
 router.put('/:id/participants/:participantId', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateParticipant);
 router.put('/:id/participants/:participantId/status', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), updateParticipantStatus);
 router.post('/:id/generate-bracket', authorizeRoles('ADMIN', 'MANAGER', 'KASIR', 'OWNER'), generateBracket);

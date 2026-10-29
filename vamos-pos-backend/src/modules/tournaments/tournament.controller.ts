@@ -38,6 +38,20 @@ export const registerParticipant = catchAsync(async (req: AuthRequest, res: Resp
     res.json({ success: true, data: pt });
 });
 
+export const importParticipants = catchAsync(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { lines, text } = req.body;
+    let list: string[] = [];
+    if (Array.isArray(lines)) {
+        list = lines;
+    } else if (typeof text === 'string') {
+        list = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    }
+    const result = await TournamentService.importParticipants(id, list);
+    getIO().emit('tournaments:updated');
+    res.json({ success: true, data: result });
+});
+
 export const updateParticipantStatus = catchAsync(async (req: AuthRequest, res: Response) => {
     const { id, participantId } = req.params;
     const { paymentStatus, paymentMethod } = req.body;

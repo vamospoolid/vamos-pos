@@ -58,6 +58,12 @@ export default function Competitions() {
     const [registerSlotCount, setRegisterSlotCount] = useState<number>(1);
     const [registerTeamTag, setRegisterTeamTag] = useState<string>('');
 
+    // Bulk Import Modal State
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importTournamentId, setImportTournamentId] = useState<string | null>(null);
+    const [importText, setImportText] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+
     // Team Registration Modal State
     const [isTeamRegisterModalOpen, setIsTeamRegisterModalOpen] = useState(false);
     const [teamRegisterForm, setTeamRegisterForm] = useState({
@@ -419,6 +425,38 @@ export default function Competitions() {
             fetchData();
         } catch (err: any) {
             vamosAlert(err.response?.data?.message || 'Registration failed');
+        }
+    };
+
+    const openImportModal = (tournamentId: string) => {
+        setImportTournamentId(tournamentId);
+        setImportText('');
+        setIsImportModalOpen(true);
+    };
+
+    const confirmImportParticipants = async () => {
+        if (!importTournamentId) return;
+        const lines = importText
+            .split(/\r?\n/)
+            .map(s => s.trim())
+            .filter(Boolean);
+
+        if (lines.length === 0) {
+            vamosAlert('Harap paste setidaknya 1 nama peserta.');
+            return;
+        }
+
+        setIsImporting(true);
+        try {
+            const res = await api.post(`/tournaments/${importTournamentId}/import-participants`, { lines });
+            vamosAlert(`✅ Berhasil import ${res.data?.data?.importedCount || lines.length} peserta ke dalam turnamen!`);
+            setIsImportModalOpen(false);
+            setImportText('');
+            fetchData();
+        } catch (err: any) {
+            vamosAlert(err.response?.data?.message || 'Gagal melakukan bulk import peserta');
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -1286,6 +1324,9 @@ export default function Competitions() {
                                         ) : (
                                             <button onClick={() => openRegisterModal(t.id)} className="flex-1 px-2 py-1 bg-white/10 hover:bg-white/20 text-xs font-bold rounded transition-colors text-white">Register</button>
                                         )}
+                                        <button onClick={() => openImportModal(t.id)} className="px-2.5 py-1 bg-yellow-500/10 hover:bg-yellow-500/25 text-yellow-400 text-xs font-bold rounded transition-colors border border-yellow-500/30 flex items-center gap-1" title="Import / Paste List Peserta Sekaligus">
+                                            <FileSpreadsheet className="w-3 h-3" /> Import
+                                        </button>
                                         <button onClick={() => { setManageTournamentId(t.id); setIsManageParticipantsOpen(true); }} className="flex-1 px-2 py-1 bg-[#00aaff]/10 hover:bg-[#00aaff]/20 text-[#00aaff] text-xs font-bold rounded transition-colors border border-[#00aaff]/30">Manage</button>
                                         {t.participants.length >= 2 && (
                                             <button onClick={() => generateBracket(t.id)} className="flex-1 px-2 py-1 bg-[#00ff66] hover:bg-[#00e65c] text-[#0a0a0a] text-xs font-bold rounded transition-colors">Start</button>
@@ -2229,6 +2270,67 @@ export default function Competitions() {
                 </div>
             )}
 
+            {/* Modal Bulk Import Peserta (Paste List) */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-md">
+                    <div className="bg-[#141414] border border-yellow-500/30 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in">
+                        <div className="p-5 border-b border-[#222222] bg-[#1a1a1a] flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-white">Import Peserta Turnamen Sekaligus</h2>
+                                    <p className="text-xs text-gray-400">Paste daftar nama (1 baris = 1 slot peserta)</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsImportModalOpen(false)} className="text-gray-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto bg-[#0a0a0a]">
+                            <div className="flex justify-between items-center text-xs">
+                                <label className="font-bold text-gray-300">Paste List Peserta di sini:</label>
+                                <span className="font-mono text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded font-bold">
+                                    Terdeteksi: {importText.split('\n').filter(s => s.trim().length > 0).length} Nama
+                                </span>
+                            </div>
+
+                            <textarea
+                                value={importText}
+                                onChange={e => setImportText(e.target.value)}
+                                placeholder="Paste list nama di sini. Contoh:&#10;1. RA LAPULGA 1 (RAJAWALI)&#10;2. RA LAPULGA 2 (RAJAWALI)&#10;LW.SESKO 1 (ELANG)&#10;FRANCOISHAURI 1 (VAMOS)"
+                                rows={10}
+                                className="w-full bg-[#121212] border border-[#2a2a2a] rounded-xl p-3 text-xs text-white font-mono focus:border-yellow-500 focus:outline-none resize-none leading-relaxed"
+                            />
+
+                            <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-1 text-[11px] text-gray-400">
+                                <p>💡 <strong>Otomatis:</strong> Nomor urut di depan nama (misal <code className="text-gray-300">1. </code>, <code className="text-gray-300">2. </code>) otomatis dibersihkan oleh sistem.</p>
+                                <p>💡 Jika menyertakan tag tim seperti <code className="text-yellow-400">(ELANG)</code>, sistem bracket otomatis memisahkan rekan satu tim di babak awal.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-[#222222] flex space-x-3 bg-[#141414]">
+                            <button
+                                onClick={() => setIsImportModalOpen(false)}
+                                className="flex-1 py-2.5 bg-[#0a0a0a] rounded-xl font-bold text-xs text-gray-400 border border-[#222222] hover:bg-white/5"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={confirmImportParticipants}
+                                disabled={isImporting || importText.split('\n').filter(s => s.trim().length > 0).length === 0}
+                                className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-40 text-black font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                            >
+                                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                <span>Import {importText.split('\n').filter(s => s.trim().length > 0).length} Peserta Sekarang</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {flyerTournament && (
                 <FlyerBuilder 
                     tournament={flyerTournament} 
@@ -2368,6 +2470,18 @@ export default function Competitions() {
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        if (manageTournamentId) {
+                                            openImportModal(manageTournamentId);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 text-xs font-bold transition-colors"
+                                    title="Paste List Peserta Sekaligus"
+                                >
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                                    <span>+ Import List</span>
+                                </button>
                                 <button
                                     onClick={() => {
                                         const currentTournament = tournaments.find(t => t.id === manageTournamentId);
