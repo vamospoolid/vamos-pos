@@ -20,23 +20,82 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
 
     // Camera & Photo State
     const videoRef = useRef<HTMLVideoElement>(null);
+    const nativeCameraInputRef = useRef<HTMLInputElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [streamActive, setStreamActive] = useState(false);
     const [cameraLoading, setCameraLoading] = useState(false);
+    const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [successModalData, setSuccessModalData] = useState<any>(null);
 
-    // Fetch Venue & Attendance
+    // Shifts & Offline Queue State (Standar POOOS)
+    const [workShifts, setWorkShifts] = useState<any[]>([]);
+    const [selectedShiftId, setSelectedShiftId] = useState<string>(staff?.shiftId || staff?.shift?.id || '');
+    const [offlineQueueCount, setOfflineQueueCount] = useState<number>(() => {
+        try {
+            const raw = localStorage.getItem('vamos_offline_attendance_queue');
+            return raw ? JSON.parse(raw).length : 0;
+        } catch {
+            return 0;
+        }
+    });
+
+    // Sync Offline Queue when online
+    const syncOfflineQueue = async () => {
+        if (!navigator.onLine) return;
+        try {
+            const raw = localStorage.getItem('vamos_offline_attendance_queue');
+            if (!raw) return;
+            const queue: any[] = JSON.parse(raw);
+            if (!Array.isArray(queue) || queue.length === 0) return;
+
+            const remaining: any[] = [];
+            for (const item of queue) {
+                try {
+                    if (item.type === 'IN') {
+                        await api.post('/staff/attendance/checkin', item.payload);
+                    } else {
+                        await api.post('/staff/attendance/checkout', item.payload);
+                    }
+                } catch (e: any) {
+                    // Jika gagal karena jaringan, simpan kembali ke antrean
+                    if (!e.response) {
+                        remaining.push(item);
+                    }
+                }
+            }
+            if (remaining.length > 0) {
+                localStorage.setItem('vamos_offline_attendance_queue', JSON.stringify(remaining));
+            } else {
+                localStorage.removeItem('vamos_offline_attendance_queue');
+            }
+            setOfflineQueueCount(remaining.length);
+            if (remaining.length < queue.length) {
+                await fetchData();
+            }
+        } catch (e) {
+            console.warn('Offline queue sync warning:', e);
+        }
+    };
+
+    // Fetch Venue, Shifts & Attendance
     const fetchData = async () => {
         try {
-            const [vRes, hRes] = await Promise.all([
+            const [vRes, hRes, sRes] = await Promise.all([
                 api.get('/staff/venue'),
-                api.get(`/staff/attendance/history/${staff.id}`)
+                api.get(`/staff/attendance/history/${staff.id}`),
+                api.get('/staff/work-shifts').catch(() => ({ data: { success: false, data: [] } }))
             ]);
 
             if (vRes.data?.success) setVenue(vRes.data.data);
+            if (sRes.data?.success && Array.isArray(sRes.data.data)) {
+                setWorkShifts(sRes.data.data);
+                if (!selectedShiftId && (staff?.shiftId || staff?.shift?.id || sRes.data.data[0]?.id)) {
+                    setSelectedShiftId(staff?.shiftId || staff?.shift?.id || sRes.data.data[0]?.id);
+                }
+            }
             if (hRes.data?.success) {
                 const list = hRes.data.data || [];
                 setHistory(list);
@@ -46,11 +105,11 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                 if (activeSession) {
                     setTodayRecord(activeSession);
                 } else {
-                    // 2. Prioritas 2: Sesi hari ini berdasarkan zona waktu lokal (Asia/Jakarta / WIB)
-                    const localTodayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+                    // 2. Prioritas 2: Sesi hari ini berdasarkan zona waktu lokal (Asia/Makassar / WITA)
+                    const localTodayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
                     const found = list.find((item: any) => {
                         if (!item.date) return false;
-                        const itemDateLocal = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(item.date));
+                        const itemDateLocal = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date(item.date));
                         return itemDateLocal === localTodayStr;
                     });
                     setTodayRecord(found || null);
@@ -128,7 +187,8 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
     };
 
     // Start in-app Camera Stream
-    const startCamera = async () => {
+    const startCamera = async (facingOverride?: 'user' | 'environment') => {
+        const targetFacing = facingOverride || cameraFacing;
         setCameraLoading(true);
         setErrorMsg('');
         try {
@@ -142,7 +202,7 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
             const constraintsList: MediaStreamConstraints[] = [
                 {
                     video: {
-                        facingMode: 'user',
+                        facingMode: targetFacing,
                         width: { ideal: 640 },
                         height: { ideal: 800 }
                     },
@@ -150,7 +210,7 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                 },
                 {
                     video: {
-                        facingMode: { ideal: 'user' }
+                        facingMode: { ideal: targetFacing }
                     },
                     audio: false
                 },
@@ -191,8 +251,8 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
             console.error('Camera access error', err);
             setErrorMsg(
                 err?.name === 'NotAllowedError' || err?.message?.includes('Permission')
-                    ? 'Izin kamera belum aktif. Buka Pengaturan HP > Aplikasi > Vamos Staff > Izin > Kamera (Izinkan).'
-                    : `Gagal membuka kamera: ${err.message || 'Periksa izin kamera di pengaturan HP'}`
+                    ? 'Izin kamera belum aktif. Anda dapat menekan tombol "Kamera Sistem (Fallback)" di bawah atau aktifkan izin kamera.'
+                    : `Gagal membuka live kamera (${err.message || 'WebView'}). Gunakan tombol "Kamera Sistem" di bawah.`
             );
             setStreamActive(false);
         } finally {
@@ -200,8 +260,31 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
         }
     };
 
+    const toggleCameraFacing = () => {
+        const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
+        setCameraFacing(nextFacing);
+        if (streamActive) {
+            startCamera(nextFacing);
+        }
+    };
+
+    // Fallback Native File Camera Input (Standar POOOS untuk WebView terbatas)
+    const handleNativeCameraFallback = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                processImageAndWatermark(img, false);
+            };
+            img.src = reader.result as string;
+        };
+        reader.readAsDataURL(file);
+    };
+
     // Process Image & Add Watermark
-    const processImageAndWatermark = (source: HTMLVideoElement | HTMLImageElement) => {
+    const processImageAndWatermark = (source: HTMLVideoElement | HTMLImageElement, mirror = cameraFacing === 'user') => {
         const canvas = document.createElement('canvas');
         canvas.width = 480;
         canvas.height = 640;
@@ -241,8 +324,10 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
         }
 
         ctx.save();
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
+        if (mirror) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
         ctx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
         ctx.restore();
 
@@ -263,17 +348,19 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
         return compressedData;
     };
 
-    // Submit Attendance Payload to API
-    const submitAttendanceData = async (photoBase64: string) => {
-        if (!photoBase64) {
+    // Submit Attendance Payload to API (dengan dukungan toggle hardware & antrean offline)
+    const submitAttendanceData = async (photoBase64?: string | null) => {
+        const isClockIn = !todayRecord?.checkIn;
+        const requireCamera = venue?.enableCameraPhoto !== false;
+        const requireGps = venue?.enableGpsValidation !== false;
+
+        if (requireCamera && !photoBase64) {
             setErrorMsg('Foto selfie belum siap.');
             return;
         }
 
-        const isClockIn = !todayRecord?.checkIn;
-
-        // Validasi Ketat GPS untuk Absen Masuk jika venue memiliki koordinat
-        if (isClockIn && venue?.latitude && venue?.longitude) {
+        // Validasi Ketat GPS untuk Absen Masuk jika venue mengaktifkan wajib GPS
+        if (isClockIn && requireGps && venue?.latitude && venue?.longitude) {
             if (!userCoords) {
                 setErrorMsg('Lokasi GPS belum terdeteksi. Silakan aktifkan GPS dan refresh lokasi.');
                 return;
@@ -287,30 +374,61 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
         setSubmitting(true);
         setErrorMsg('');
 
+        const inPayload = {
+            employeeId: staff.id,
+            shiftId: selectedShiftId || staff?.shiftId || undefined,
+            photoBase64: photoBase64 || undefined,
+            lat: userCoords?.lat,
+            lng: userCoords?.lng
+        };
+        const outPayload = {
+            attendanceId: todayRecord?.id,
+            employeeId: staff.id,
+            photoBase64: photoBase64 || undefined
+        };
+
+        // Helper antrean offline
+        const queueOffline = () => {
+            try {
+                const raw = localStorage.getItem('vamos_offline_attendance_queue');
+                const currentQueue = raw ? JSON.parse(raw) : [];
+                currentQueue.push({
+                    id: 'OFF-' + Date.now(),
+                    type: isClockIn ? 'IN' : 'OUT',
+                    payload: isClockIn ? inPayload : outPayload,
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('vamos_offline_attendance_queue', JSON.stringify(currentQueue));
+                setOfflineQueueCount(currentQueue.length);
+                setSuccessModalData({
+                    type: isClockIn ? 'CLOCK_IN' : 'CLOCK_OUT',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+                    status: 'Tersimpan Offline (Menunggu Sinyal)',
+                    photo: photoBase64
+                });
+            } catch {
+                setErrorMsg('Gagal mengirim absensi. Periksa koneksi internet Anda.');
+            }
+        };
+
+        if (!navigator.onLine) {
+            queueOffline();
+            setSubmitting(false);
+            return;
+        }
+
         try {
             let resultData: any = null;
 
             if (isClockIn) {
-                // CLOCK IN
-                const payload = {
-                    employeeId: staff.id,
-                    photoBase64,
-                    lat: userCoords?.lat,
-                    lng: userCoords?.lng
-                };
-                const res = await api.post('/staff/attendance/checkin', payload);
+                const res = await api.post('/staff/attendance/checkin', inPayload);
                 if (res.data?.success) {
                     resultData = res.data.data;
                     await fetchData();
                 }
             } else {
-                // CLOCK OUT
-                const payload = {
-                    attendanceId: todayRecord?.id,
-                    employeeId: staff.id,
-                    photoBase64
-                };
-                const res = await api.post('/staff/attendance/checkout', payload);
+                const res = await api.post('/staff/attendance/checkout', outPayload);
                 if (res.data?.success) {
                     resultData = res.data.data;
                     await fetchData();
@@ -327,7 +445,11 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
             });
 
         } catch (err: any) {
-            setErrorMsg(err.response?.data?.message || 'Gagal mengirim absensi. Silakan coba lagi.');
+            if (!err.response) {
+                queueOffline();
+            } else {
+                setErrorMsg(err.response?.data?.message || 'Gagal mengirim absensi. Silakan coba lagi.');
+            }
         } finally {
             setSubmitting(false);
         }
@@ -355,10 +477,16 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
     useEffect(() => {
         fetchData();
         checkLocation();
+        syncOfflineQueue();
+        const handleOnline = () => syncOfflineQueue();
+        window.addEventListener('online', handleOnline);
         if (activeTab === 'camera') {
             startCamera();
         }
-        return () => stopCamera();
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            stopCamera();
+        };
     }, [activeTab]);
 
     return (
@@ -446,6 +574,49 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                             </button>
                         </div>
 
+                        {/* Pilihan Shift Kerja & Status Antrean Offline */}
+                        {workShifts.length > 0 && !todayRecord?.checkIn && (
+                            <div className="bg-white rounded-3xl p-3.5 shadow-[0_4px_20px_rgba(30,40,117,0.05)] border border-slate-100 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-[#1E2875] flex items-center justify-center shrink-0">
+                                        <Clock className="w-4 h-4 stroke-[2.2]" />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Shift Kerja Hari Ini</span>
+                                        <select
+                                            value={selectedShiftId}
+                                            onChange={e => setSelectedShiftId(e.target.value)}
+                                            className="text-xs font-black text-slate-800 bg-transparent focus:outline-none cursor-pointer"
+                                        >
+                                            {workShifts.map((s: any) => (
+                                                <option key={s.id} value={s.id}>
+                                                    {s.name} ({s.startTime} - {s.endTime})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                {offlineQueueCount > 0 && (
+                                    <button
+                                        onClick={syncOfflineQueue}
+                                        className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-extrabold shrink-0"
+                                    >
+                                        {offlineQueueCount} Antrean Offline
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Hidden Native Camera Input Fallback (Standar POOOS) */}
+                        <input
+                            ref={nativeCameraInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="user"
+                            onChange={handleNativeCameraFallback}
+                            className="hidden"
+                        />
+
                         {/* Camera Box */}
                         <div className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_-4px_rgba(30,40,117,0.06)] border border-slate-100 space-y-3.5">
                             <div className="relative aspect-[3/4] max-h-[42vh] w-full max-w-xs mx-auto rounded-3xl overflow-hidden bg-slate-900 border-2 border-slate-200 shadow-inner flex items-center justify-center">
@@ -455,7 +626,7 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                                     autoPlay
                                     playsInline
                                     muted
-                                    className={`w-full h-full object-cover -scale-x-100 ${streamActive && !capturedPhoto ? 'block' : 'hidden'}`}
+                                    className={`w-full h-full object-cover ${cameraFacing === 'user' ? '-scale-x-100' : ''} ${streamActive && !capturedPhoto ? 'block' : 'hidden'}`}
                                 />
 
                                 {/* Face Oval Overlay */}
@@ -463,6 +634,17 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                                         <div className="w-48 h-64 rounded-[50%] border-2 border-dashed border-white/60 shadow-[0_0_40px_rgba(255,255,255,0.2)]" />
                                     </div>
+                                )}
+
+                                {/* Switch Camera Button (Depan / Belakang) */}
+                                {streamActive && !capturedPhoto && (
+                                    <button
+                                        type="button"
+                                        onClick={toggleCameraFacing}
+                                        className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-white text-[10px] font-bold flex items-center gap-1.5 active:scale-95 transition-all border border-white/20"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5" /> Balik Kamera
+                                    </button>
                                 )}
 
                                 {/* Captured Photo Preview */}
@@ -480,14 +662,23 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                                         <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto">
                                             Klik tombol di bawah untuk menyalakan kamera selfie absensi.
                                         </p>
-                                        <button
-                                            onClick={startCamera}
-                                            disabled={cameraLoading}
-                                            className="px-5 py-2.5 rounded-xl bg-[#2538D4] text-white font-extrabold text-xs inline-flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
-                                        >
-                                            {cameraLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                                            {cameraLoading ? 'Mengaktifkan...' : 'Aktifkan Kamera'}
-                                        </button>
+                                        <div className="flex flex-col gap-2 items-center">
+                                            <button
+                                                onClick={() => startCamera()}
+                                                disabled={cameraLoading}
+                                                className="px-5 py-2.5 rounded-xl bg-[#2538D4] text-white font-extrabold text-xs inline-flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                                            >
+                                                {cameraLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                                                {cameraLoading ? 'Mengaktifkan...' : 'Aktifkan Live Kamera'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => nativeCameraInputRef.current?.click()}
+                                                className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] inline-flex items-center gap-1.5 border border-white/20 active:scale-95 transition-all"
+                                            >
+                                                <Camera className="w-3.5 h-3.5" /> Kamera Sistem (Fallback)
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 
@@ -545,14 +736,26 @@ export default function AttendanceScreen({ staff, onBack }: AttendanceScreenProp
                                         )}
                                     </button>
                                 ) : (
-                                    <button
-                                        onClick={startCamera}
-                                        disabled={cameraLoading}
-                                        className="w-full py-4 rounded-2xl bg-[#1E2875] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
-                                    >
-                                        {cameraLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                        {cameraLoading ? 'Mengaktifkan Kamera...' : 'Aktifkan Kamera Selfie'}
-                                    </button>
+                                    <div className="space-y-2">
+                                        <button
+                                            onClick={() => startCamera()}
+                                            disabled={cameraLoading}
+                                            className="w-full py-4 rounded-2xl bg-[#1E2875] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                                        >
+                                            {cameraLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                            {cameraLoading ? 'Mengaktifkan Kamera...' : 'Aktifkan Kamera Selfie'}
+                                        </button>
+                                        {venue?.enableCameraPhoto === false && (
+                                            <button
+                                                onClick={() => submitAttendanceData(null)}
+                                                disabled={submitting}
+                                                className="w-full py-3.5 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                                            >
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                <span>{todayRecord?.checkIn && !todayRecord?.checkOut ? 'Absen Pulang Tanpa Foto' : 'Absen Masuk Tanpa Foto'}</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 )
                             ) : (
                                 <div className="flex gap-2.5">

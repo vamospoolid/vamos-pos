@@ -51,11 +51,11 @@ export default function HomeScreen({ staff, onNavigate }: HomeScreenProps) {
                     if (activeSession) {
                         setTodayAttendance(activeSession);
                     } else {
-                        // 2. Prioritas 2: Sesi hari ini berdasarkan zona waktu lokal (Asia/Jakarta / WIB)
-                        const localTodayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+                        // 2. Prioritas 2: Sesi hari ini berdasarkan zona waktu lokal (Asia/Makassar / WITA)
+                        const localTodayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
                         const found = list.find((item: any) => {
                             if (!item.date) return false;
-                            const itemDateLocal = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(item.date));
+                            const itemDateLocal = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date(item.date));
                             return itemDateLocal === localTodayStr;
                         });
                         setTodayAttendance(found || null);

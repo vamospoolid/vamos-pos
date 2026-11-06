@@ -316,29 +316,61 @@ export class StaffService {
             }
         }
 
-        // Resolusi Shift (Mendukung pemilihan shift saat Clock-In atau fallback ke shift profil karyawan)
+        // Resolusi Shift (Mendukung pemilihan shift saat Clock-In, fallback ke shift profil karyawan, atau auto-detect jam aktif)
         let activeShift = employee.shift;
         if (data.shiftId && data.shiftId !== employee.shiftId) {
             const customShift = await prisma.workShift.findUnique({ where: { id: data.shiftId } });
             if (customShift) activeShift = customShift;
         }
 
-        // Kalkulasi Keterlambatan berbasis Zona Waktu Lokal Outlet (Asia/Jakarta / WIB)
+        // Kalkulasi Waktu Absen berbasis Zona Waktu Lokal Outlet (Asia/Makassar / WITA - Polman UTC+8)
+        const venueTz = 'Asia/Makassar';
+        const localTimeStr = new Intl.DateTimeFormat('en-US', {
+            timeZone: venueTz,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false
+        }).format(new Date());
+
+        const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
+        const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+        // Smart Auto-Detect Shift: Jika karyawan belum terikat shift, cocokkan otomatis ke shift terdekat
+        if (!activeShift) {
+            const allShifts = await prisma.workShift.findMany();
+            if (allShifts.length > 0) {
+                let bestShift: any = null;
+                let minScore = Infinity;
+
+                for (const s of allShifts) {
+                    const [sH, sM] = s.startTime.split(':').map(Number);
+                    const [eH, eM] = s.endTime.split(':').map(Number);
+                    let sMin = sH * 60 + sM;
+                    let eMin = eH * 60 + eM;
+                    if (eMin <= sMin) eMin += 1440; // Lintas tengah malam
+
+                    let testMin = currentTotalMinutes;
+                    if (testMin < sMin - 180 && eMin > 1440) {
+                        testMin += 1440; // Masuk dini hari untuk shift lintas tengah malam
+                    }
+
+                    const inWindow = testMin >= (sMin - 60) && testMin <= eMin;
+                    const dist = Math.abs(testMin - sMin);
+                    const score = inWindow ? dist : dist + 2000;
+
+                    if (score < minScore) {
+                        minScore = score;
+                        bestShift = s;
+                    }
+                }
+                if (bestShift) activeShift = bestShift;
+            }
+        }
+
         let status = 'PRESENT';
         let lateMinutes = 0;
 
         if (activeShift) {
-            const venueTz = 'Asia/Jakarta';
-            const localTimeStr = new Intl.DateTimeFormat('en-US', {
-                timeZone: venueTz,
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: false
-            }).format(new Date());
-
-            const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
-            const currentTotalMinutes = currentHour * 60 + currentMinute;
-
             const [shiftHour, shiftMinute] = activeShift.startTime.split(':').map(Number);
             const shiftTotalMinutes = shiftHour * 60 + shiftMinute;
 
@@ -351,7 +383,7 @@ export class StaffService {
                 diffMinutes -= 1440;
             }
 
-            if (diffMinutes > activeShift.graceLateMinutes) {
+            if (diffMinutes > (activeShift.graceLateMinutes || 0)) {
                 status = 'LATE';
                 lateMinutes = diffMinutes;
             } else {
@@ -549,6 +581,7 @@ export class StaffService {
         data: {
             checkIn?: string;
             checkOut?: string | null;
+            shiftId?: string | null;
             status?: string;
             lateMinutes?: number;
             notes?: string;
@@ -562,6 +595,7 @@ export class StaffService {
         if (data.checkOut !== undefined) {
             updateData.checkOut = data.checkOut ? new Date(data.checkOut) : null;
         }
+        if (data.shiftId !== undefined) updateData.shiftId = data.shiftId;
         if (data.status) updateData.status = data.status;
         if (data.lateMinutes !== undefined) updateData.lateMinutes = Number(data.lateMinutes) || 0;
         if (data.notes !== undefined) updateData.notes = data.notes;
